@@ -42,6 +42,7 @@
 #include "ImageProcPanelCtl.h"
 #include "WndButtonPanelCtl.h"
 #include "InfoButtonPanelCtl.h"
+#include "TitleBarPanelCtl.h"
 #include "RotationPanelCtl.h"
 #include "TiltCorrectionPanelCtl.h"
 #include "UnsharpMaskPanelCtl.h"
@@ -266,6 +267,8 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_isUserFitToScreen = false;
 	m_autoZoomFitToScreen = Helpers::ZM_FillScreen;
 	m_bWindowBorderless = sp.WindowBorderlessOnStartup();  // unlike AlwaysOnTop, this is set early on initialize as it affects calculations of the window size, position, etc
+	m_bTransparentTitleBar = sp.TransparentTitleBarOnStartup();
+	if (m_bTransparentTitleBar) m_bWindowBorderless = true; // the transparent title bar takes the place of the system title bar
 	m_bAlwaysOnTop = false;  // default normal window.  this will be set to true when AlwaysOnTop is toggled if set to startup in INI
 	m_bSelectZoom = false;  // this value is set when LButtonDown happens, to be read by LButtonUp
 
@@ -274,6 +277,7 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_pEXIFDisplayCtl = NULL;
 	m_pWndButtonPanelCtl = NULL;
 	m_pInfoButtonPanelCtl = NULL;
+	m_pTitleBarPanelCtl = NULL;
 	m_pRotationPanelCtl = NULL;
 	m_pTiltCorrectionPanelCtl = NULL;
 	m_pUnsharpMaskPanelCtl = NULL;
@@ -357,6 +361,10 @@ LRESULT CMainDlg::OnInitDialog(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam
 	// Create info button panel (on top, left)
 	m_pInfoButtonPanelCtl = new CInfoButtonPanelCtl(this, m_pImageProcPanelCtl->GetPanel());
 	m_pPanelMgr->AddPanelController(m_pInfoButtonPanelCtl);
+
+	// Create title bar panel (file path on top, left and window buttons on top, right)
+	m_pTitleBarPanelCtl = new CTitleBarPanelCtl(this);
+	m_pPanelMgr->AddPanelController(m_pTitleBarPanelCtl);
 
 	// Create zoom navigator
 	m_pZoomNavigatorCtl = new CZoomNavigatorCtl(this, m_pImageProcPanelCtl->GetPanel(), m_pNavPanelCtl->GetPanel());
@@ -820,7 +828,59 @@ LRESULT CMainDlg::OnNCHitTest(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 		return HTCAPTION;
 	}
 
+	if (m_bTransparentTitleBar && !m_bFullScreenMode) {
+		// There is no system title bar in this mode: the painted title bar drags the window and
+		// the window borders resize it. Without this, both would be lost.
+		const int SM_CXP_ADDEDBORDER = 92;  // in MSDN this is SM_CXPADDEDBORDER, but for some reason it's not always available depending on configuration
+		CPoint pt(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)); // screen coordinates
+		CPoint ptClient(pt);
+		this->ScreenToClient(&ptClient);
+
+		// the window buttons are left out of the resize border, they would be hard to hit if their topmost pixels resized the window
+		bool bOnWindowButton = m_pTitleBarPanelCtl != NULL && m_pTitleBarPanelCtl->IsPointInButtonArea(ptClient);
+		if (!::IsZoomed(m_hWnd) && !bOnWindowButton) {
+			CRect windowRect;
+			this->GetWindowRect(&windowRect);
+			int nFrame = ::GetSystemMetrics(SM_CXSIZEFRAME) + ::GetSystemMetrics(SM_CXP_ADDEDBORDER);
+			bool bLeft = pt.x < windowRect.left + nFrame;
+			bool bRight = pt.x >= windowRect.right - nFrame;
+			bool bTop = pt.y < windowRect.top + nFrame;
+			bool bBottom = pt.y >= windowRect.bottom - nFrame;
+			if (bTop) return bLeft ? HTTOPLEFT : bRight ? HTTOPRIGHT : HTTOP;
+			if (bBottom) return bLeft ? HTBOTTOMLEFT : bRight ? HTBOTTOMRIGHT : HTBOTTOM;
+			if (bLeft) return HTLEFT;
+			if (bRight) return HTRIGHT;
+		}
+		if (m_pTitleBarPanelCtl != NULL && m_pTitleBarPanelCtl->IsPointInDragArea(ptClient)) {
+			return HTCAPTION;
+		}
+	}
+
 	bHandled = FALSE;  // if not moving window, considered unhandled, or else all the mouse button code stops working
+	return 0;
+}
+
+// In transparent title bar mode the window keeps WS_THICKFRAME so that it stays resizable, but the
+// frame that would be drawn for it is removed here so that the image fills the whole window.
+LRESULT CMainDlg::OnNCCalcSize(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled) {
+	if (!m_bTransparentTitleBar || m_bFullScreenMode || wParam == FALSE) {
+		bHandled = FALSE;
+		return 0;
+	}
+
+	NCCALCSIZE_PARAMS* pParams = (NCCALCSIZE_PARAMS*)lParam;
+	if (::IsZoomed(m_hWnd)) {
+		// a maximized window with WS_THICKFRAME extends beyond the monitor borders by the frame size,
+		// so here the frame has to be kept to not push the image off screen
+		const int SM_CXP_ADDEDBORDER = 92;  // in MSDN this is SM_CXPADDEDBORDER, but for some reason it's not always available depending on configuration
+		int nFrameX = ::GetSystemMetrics(SM_CXSIZEFRAME) + ::GetSystemMetrics(SM_CXP_ADDEDBORDER);
+		int nFrameY = ::GetSystemMetrics(SM_CYSIZEFRAME) + ::GetSystemMetrics(SM_CXP_ADDEDBORDER);
+		pParams->rgrc[0].left += nFrameX;
+		pParams->rgrc[0].right -= nFrameX;
+		pParams->rgrc[0].top += nFrameY;
+		pParams->rgrc[0].bottom -= nFrameY;
+	}
+	// for a non maximized window the client area covers the whole window, nothing to adjust
 	return 0;
 }
 
@@ -1164,6 +1224,7 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	if (m_bSpanVirtualDesktop) ::CheckMenuItem(hMenuZoom,  IDM_SPAN_SCREENS, MF_CHECKED);
 	if (m_bFullScreenMode) ::CheckMenuItem(hMenuZoom,  IDM_FULL_SCREEN_MODE, MF_CHECKED);
 	if (m_bWindowBorderless) ::CheckMenuItem(hMenuZoom, IDM_HIDE_TITLE_BAR, MF_CHECKED);
+	if (m_bTransparentTitleBar) ::CheckMenuItem(hMenuZoom, IDM_TRANSPARENT_TITLE_BAR, MF_CHECKED);
 	if (m_bAlwaysOnTop) ::CheckMenuItem(hMenuZoom, IDM_ALWAYS_ON_TOP, MF_CHECKED);
 	if (IsAdjustWindowToImage() && IsImageExactlyFittingWindow()) ::CheckMenuItem(hMenuZoom, IDM_FIT_WINDOW_TO_IMAGE, MF_CHECKED);
 	HMENU hMenuAutoZoomMode = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_AUTOZOOMMODE);
@@ -1194,6 +1255,7 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	if (m_bFullScreenMode) ::EnableMenuItem(hMenuZoom, IDM_FIT_WINDOW_TO_IMAGE, MF_BYCOMMAND | MF_GRAYED);
 	if (!m_bFullScreenMode) ::EnableMenuItem(hMenuZoom, IDM_SPAN_SCREENS, MF_BYCOMMAND | MF_GRAYED);
 	if (m_bFullScreenMode) ::EnableMenuItem(hMenuZoom, IDM_HIDE_TITLE_BAR, MF_BYCOMMAND | MF_GRAYED);
+	if (m_bFullScreenMode) ::EnableMenuItem(hMenuZoom, IDM_TRANSPARENT_TITLE_BAR, MF_BYCOMMAND | MF_GRAYED);
 
 	::EnableMenuItem(hMenuMovie, IDM_SLIDESHOW_START, MF_BYCOMMAND | MF_GRAYED);
 	::EnableMenuItem(hMenuMovie, IDM_MOVIE_START_FPS, MF_BYCOMMAND | MF_GRAYED);
@@ -1791,52 +1853,28 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			this->SetWindowPos(NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOCOPYBITS | SWP_FRAMECHANGED);
 			break;
 		case IDM_HIDE_TITLE_BAR:
+			SetWindowBorderless(!m_bWindowBorderless);
+			break;
+		case IDM_TRANSPARENT_TITLE_BAR:
 			if (!m_bFullScreenMode) {
 				// only available when full screen mode is not active
-
-				m_bWindowBorderless = !m_bWindowBorderless;
-				SetCurrentWindowStyle();
-
-				// get the size of the border to shift the window pos downwards
-				int windowCaptionHeight = Helpers::GetWindowCaptionSize();
-				double dZoom = -1;
-				CRect windowRect = Helpers::GetWindowRectMatchingImageSize(
-					m_hWnd, CSize(MIN_WND_WIDTH, MIN_WND_HEIGHT), HUGE_SIZE, dZoom, m_pCurrentImage, false, true, m_bWindowBorderless);
-
-				// don't try to adjust for an image that isn't loaded!
-				if (m_pCurrentImage != NULL)
-				{
-					// this is the new top to move it to so that the experience seems seamless
-					int newTop;
-					int t = m_pCurrentImage->OrigHeight();
-
-					// these are experimental values figured out through trial and error
-					// it appears if the caption size is odd, and just using /2,
-					// it causes the window to shift up one pixel at a time when going between borderless and not borderless repeatedly
-					// in other cases, it shifts downwards depending on rounding errors resizing the window and image... hard to hunt down but it's as good as it can get right now
-					if (windowCaptionHeight % 2 == 0) {
-						newTop = m_bWindowBorderless ?
-							windowRect.top + (windowCaptionHeight / 2) :
-							windowRect.top - (windowCaptionHeight / 2);
-					} else {
-						newTop = m_bWindowBorderless ?
-							windowRect.top + (windowCaptionHeight / 2) :
-							windowRect.top - (windowCaptionHeight / 2) + 1;
-					}
-
-					// tell the window the Frame has changed, not sure if it makes a difference
-					this->SetWindowPos(HWND_TOP, windowRect.left, newTop, windowRect.Width(), windowRect.Height(), SWP_NOZORDER | SWP_NOCOPYBITS | SWP_FRAMECHANGED);
-
-					// don't auto adjust unless auto is selected in options
-					if (IsAdjustWindowToImage() && !(m_bAutoFitWndToImage && !IsImageExactlyFittingWindow())) {
-						AdjustWindowToImage(false);
-						this->Invalidate(FALSE);
-					}
-
-					StartLowQTimer(ZOOM_TIMEOUT);  // trigger a redraw as if zoom changed (might not be necessary)
+				m_bTransparentTitleBar = !m_bTransparentTitleBar;
+				if (m_bWindowBorderless == m_bTransparentTitleBar) {
+					// the window is already borderless (or already has its title bar back),
+					// only the window style flags have to be updated
+					SetCurrentWindowStyle();
+					this->SetWindowPos(NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOCOPYBITS | SWP_FRAMECHANGED);
+				} else {
+					SetWindowBorderless(m_bTransparentTitleBar);
 				}
+				if (m_pTitleBarPanelCtl != NULL) m_pTitleBarPanelCtl->UpdateFilePath();
+				this->Invalidate(FALSE);
 			}
-
+			break;
+		case IDM_MAXIMIZE_RESTORE:
+			if (!m_bFullScreenMode) {
+				this->ShowWindow(::IsZoomed(m_hWnd) ? SW_RESTORE : SW_MAXIMIZE);
+			}
 			break;
 		case IDM_ALWAYS_ON_TOP:
 			ToggleAlwaysOnTop();
@@ -2114,14 +2152,72 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 // Setting window styles have gotten out of hand with the addition of no title bar
 // instead of each call trying to figure out the logic, consolidate it to one function
 LONG CMainDlg::SetCurrentWindowStyle() {
+	LONG nStyle = this->GetWindowLongW(GWL_STYLE);
 	if (!m_bWindowBorderless) {
-		return this->SetWindowLongW(GWL_STYLE, this->GetWindowLongW(GWL_STYLE) | WS_OVERLAPPEDWINDOW | WS_VISIBLE);
+		return this->SetWindowLongW(GWL_STYLE, nStyle | WS_OVERLAPPEDWINDOW | WS_VISIBLE);
+	} else if (m_bTransparentTitleBar) {
+		// The title bar is painted over the image. WS_THICKFRAME is kept so that the window can still be
+		// resized by dragging its borders - OnNCCalcSize removes the frame that would be drawn for it.
+		return this->SetWindowLongW(GWL_STYLE, (nStyle & ~WS_CAPTION) | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_VISIBLE);
 	} else {
 		return this->SetWindowLongW(GWL_STYLE, this->GetWindowLongW(GWL_STYLE) & ~WS_OVERLAPPEDWINDOW | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_VISIBLE);  // lose resizing
 		// just doing (& ~WS_CAPTION) leads to having a sliver of white bar on top but allows for resizing
 	}
 }
 
+
+// Switches the window between showing a system title bar and being borderless.
+// The window position is compensated so that the displayed image does not jump.
+void CMainDlg::SetWindowBorderless(bool bBorderless) {
+	if (m_bFullScreenMode || m_bWindowBorderless == bBorderless) {
+		return; // only available when full screen mode is not active, and nothing to do when unchanged
+	}
+
+	m_bWindowBorderless = bBorderless;
+	SetCurrentWindowStyle();
+
+	// get the size of the border to shift the window pos downwards
+	int windowCaptionHeight = Helpers::GetWindowCaptionSize();
+	double dZoom = -1;
+	CRect windowRect = Helpers::GetWindowRectMatchingImageSize(
+		m_hWnd, CSize(MIN_WND_WIDTH, MIN_WND_HEIGHT), HUGE_SIZE, dZoom, m_pCurrentImage, false, true, m_bWindowBorderless);
+
+	// don't try to adjust for an image that isn't loaded!
+	if (m_pCurrentImage != NULL)
+	{
+		// this is the new top to move it to so that the experience seems seamless
+		int newTop;
+
+		// these are experimental values figured out through trial and error
+		// it appears if the caption size is odd, and just using /2,
+		// it causes the window to shift up one pixel at a time when going between borderless and not borderless repeatedly
+		// in other cases, it shifts downwards depending on rounding errors resizing the window and image... hard to hunt down but it's as good as it can get right now
+		if (windowCaptionHeight % 2 == 0) {
+			newTop = m_bWindowBorderless ?
+				windowRect.top + (windowCaptionHeight / 2) :
+				windowRect.top - (windowCaptionHeight / 2);
+		} else {
+			newTop = m_bWindowBorderless ?
+				windowRect.top + (windowCaptionHeight / 2) :
+				windowRect.top - (windowCaptionHeight / 2) + 1;
+		}
+
+		// tell the window the Frame has changed, not sure if it makes a difference
+		this->SetWindowPos(HWND_TOP, windowRect.left, newTop, windowRect.Width(), windowRect.Height(), SWP_NOZORDER | SWP_NOCOPYBITS | SWP_FRAMECHANGED);
+
+		// don't auto adjust unless auto is selected in options
+		if (IsAdjustWindowToImage() && !(m_bAutoFitWndToImage && !IsImageExactlyFittingWindow())) {
+			AdjustWindowToImage(false);
+			this->Invalidate(FALSE);
+		}
+
+		StartLowQTimer(ZOOM_TIMEOUT);  // trigger a redraw as if zoom changed (might not be necessary)
+	} else {
+		// no image to adjust to, but the frame changed and the window still has to be told about it
+		this->SetWindowPos(NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOCOPYBITS | SWP_FRAMECHANGED);
+		this->Invalidate(FALSE);
+	}
+}
 
 void CMainDlg::ExploreFile() {
 	ITEMIDLIST* pidl = ILCreateFromPath(CurrentFileName(false));

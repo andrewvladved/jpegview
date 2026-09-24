@@ -26,13 +26,14 @@ public:
 protected:
 	virtual void RepositionAll();
 
-private:
+public:
 	// Painting handlers for the buttons
 	static void PaintMinimizeBtn(void* pContext, const CRect& rect, CDC& dc);
 	static void PaintRestoreBtn(void* pContext, const CRect& rect, CDC& dc);
 	static void PaintCloseBtn(void* pContext, const CRect& rect, CDC& dc);
 
+private:
 	CPanel* m_pImageProcPanel;
 	CRect m_clientRect;
 	int m_nWidth, m_nHeight;
-};
+};

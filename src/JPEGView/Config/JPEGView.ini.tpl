@@ -151,6 +151,11 @@ MinimalWindowSize=320 240
 ; The window mode can be changed after startup
 WindowBorderlessOnStartup=false
 
+; If set to 'true', window starts with a transparent title bar
+; (only the file path and the window buttons are painted on top of the image)
+; The window mode can be changed after startup
+TransparentTitleBarOnStartup=false
+
 ; If set to 'true', window starts in always-on-top mode (window will always be visible on top of other windows)
 ; The window mode can be changed after startup
 WindowAlwaysOnTopOnStartup=false
