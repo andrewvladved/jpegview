@@ -17,7 +17,6 @@ CTitleBarPanel::CTitleBarPanel(HWND hWnd, INotifiyMouseCapture* pNotifyMouseCapt
 	: CPanel(hWnd, pNotifyMouseCapture, false, true) { // not framed, clicks not consumed by the panel itself
 	m_clientRect = CRect(0, 0, 0, 0);
 	m_fDPIScale *= CSettingsProvider::This().ScaleFactorNavPanel();
-	m_nButtonAreaWidth = 0;
 	m_nHeight = (int)(TITLEBAR_PANEL_HEIGHT*m_fDPIScale);
 
 	AddText(ID_txtFilePath, _T(""), false);
@@ -41,16 +40,19 @@ CRect CTitleBarPanel::PanelRect() {
 
 CRect CTitleBarPanel::ButtonAreaRect() {
 	CRect panelRect = PanelRect();
-	if (m_nButtonAreaWidth == 0) {
-		int nButtonSize = m_nHeight - 4 * TITLEBAR_BORDER;
-		int nNumButtons = NumberOfButtons();
-		m_nButtonAreaWidth = 4 * TITLEBAR_BORDER + (nNumButtons - 1) * TITLEBAR_BORDER * 3 + nNumButtons * nButtonSize;
-	}
-	return CRect(CPoint(panelRect.right - m_nButtonAreaWidth, panelRect.top), CSize(m_nButtonAreaWidth, m_nHeight));
+	int nButtonSize = m_nHeight - 4 * TITLEBAR_BORDER;
+	int nNumButtons = NumberOfButtons();
+	// the width is not cached: this is also called while the panel is still being filled with controls
+	int nWidth = (nNumButtons <= 0) ? 0 :
+		4 * TITLEBAR_BORDER + (nNumButtons - 1) * TITLEBAR_BORDER * 3 + nNumButtons * nButtonSize;
+	return CRect(CPoint(panelRect.right - nWidth, panelRect.top), CSize(nWidth, m_nHeight));
 }
 
 void CTitleBarPanel::SetFilePath(LPCTSTR sFilePath) {
-	GetTextFilePath()->SetText((sFilePath == NULL) ? _T("") : sFilePath);
+	CTextCtrl* pText = GetTextFilePath();
+	if (pText != NULL) {
+		pText->SetText((sFilePath == NULL) ? _T("") : sFilePath);
+	}
 }
 
 void CTitleBarPanel::RequestRepositioning() {
@@ -73,10 +75,15 @@ void CTitleBarPanel::RepositionAll() {
 		}
 	}
 
-	// the file path text gets all the space left of the buttons
-	int nTextMargin = (int)(TITLEBAR_TEXT_MARGIN*m_fDPIScale);
-	int nTextWidth = max(0, buttonAreaRect.left - panelRect.left - 2 * nTextMargin);
-	GetTextFilePath()->SetPosition(CRect(CPoint(panelRect.left + nTextMargin, nStartY), CSize(nTextWidth, nButtonSize)));
+	// The file path text gets all the space left of the buttons.
+	// Note: CPanel::AddText() only puts the control into the map after its constructor has run, and that
+	// constructor already asks for repositioning - so the control can still be missing when we get here.
+	CTextCtrl* pText = GetTextFilePath();
+	if (pText != NULL) {
+		int nTextMargin = (int)(TITLEBAR_TEXT_MARGIN*m_fDPIScale);
+		int nTextWidth = max(0, buttonAreaRect.left - panelRect.left - 2 * nTextMargin);
+		pText->SetPosition(CRect(CPoint(panelRect.left + nTextMargin, nStartY), CSize(nTextWidth, nButtonSize)));
+	}
 }
 
 void CTitleBarPanel::PaintMinimizeBtn(void* pContext, const CRect& rect, CDC& dc) {

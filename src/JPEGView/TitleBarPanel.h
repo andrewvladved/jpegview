@@ -46,5 +46,5 @@ private:
 	int NumberOfButtons();
 
 	CRect m_clientRect;
-	int m_nButtonAreaWidth, m_nHeight;
+	int m_nHeight;
 };
