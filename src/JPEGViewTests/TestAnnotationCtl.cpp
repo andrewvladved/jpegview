@@ -73,7 +73,7 @@ TEST(PenWidthIsStoredInImagePixels) {
 	CFakeHost host;
 	host.m_fZoom = 4.0f;
 	CAnnotationCtl ctl(&host);
-	ctl.SetStyle(RGB(255, 0, 0), 200, 8, 24);
+	ctl.InitStyle(RGB(255, 0, 0), 200, 8, 24);
 	ctl.SetTool(ATOOL_Freehand);
 	ctl.OnLButtonDown(0, 0);
 	ctl.OnMouseMove(40, 40);
@@ -298,7 +298,7 @@ TEST(TextClickRecordsAPendingPositionAndConsumesTheClick) {
 TEST(CommitTextAddsATextAnnotation) {
 	CFakeHost host;
 	CAnnotationCtl ctl(&host);
-	ctl.SetStyle(RGB(0, 255, 0), 255, 4, 30);
+	ctl.InitStyle(RGB(0, 255, 0), 255, 4, 30);
 	ctl.SetTool(ATOOL_Text);
 	ctl.OnLButtonDown(100, 100);
 	ctl.CommitText(_T("hello"));
@@ -496,7 +496,7 @@ TEST(ShiftClickIsIgnoredOutsideTheFreehandTool) {
 TEST(FreehandInvalidatesOnlyTheNewSegment) {
 	CFakeHost host;
 	CAnnotationCtl ctl(&host);
-	ctl.SetStyle(RGB(255, 0, 0), 255, 4, 24);
+	ctl.InitStyle(RGB(255, 0, 0), 255, 4, 24);
 	ctl.SetTool(ATOOL_Freehand);
 	ctl.OnLButtonDown(100, 100);
 	// draw a long stroke across the image
@@ -511,7 +511,7 @@ TEST(FreehandInvalidatesOnlyTheNewSegment) {
 TEST(FreehandInvalidationCoversTheNewSegment) {
 	CFakeHost host;
 	CAnnotationCtl ctl(&host);
-	ctl.SetStyle(RGB(255, 0, 0), 255, 4, 24);
+	ctl.InitStyle(RGB(255, 0, 0), 255, 4, 24);
 	ctl.SetTool(ATOOL_Freehand);
 	ctl.OnLButtonDown(200, 200);
 	ctl.OnMouseMove(260, 240);
