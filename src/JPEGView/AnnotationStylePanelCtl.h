@@ -17,10 +17,13 @@ public:
 	virtual void SetVisible(bool bVisible);
 	virtual void SetActive(bool bActive) { SetVisible(bActive); }
 
-	// Dimmed, unlike the transparent title bar: this strip has controls to aim at and
-	// needs to stay readable over any image.
-	virtual float DimFactor() { return 0.5f; }
-	virtual bool BlendPanel() { return true; }
+	// Dimmed, unlike the transparent title bar: this strip has colour swatches and thin
+	// slider marks that must stay legible over any image, including a bright one.
+	// BlendPanel is false as it is for every other panel carrying controls - only the
+	// navigation panel sets it, and only to drive its fade-in animation. Leaving it on
+	// blended the strip a second time on top of the dimming and made it washed out.
+	virtual float DimFactor() { return 0.75f; }
+	virtual bool BlendPanel() { return false; }
 
 	void Toggle() { SetVisible(!m_bVisible); }
 

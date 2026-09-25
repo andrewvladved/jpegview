@@ -320,6 +320,7 @@ BEGIN
         MENUITEM "Show picture info (EXIF)",    IDM_SHOW_FILEINFO
         MENUITEM "Show filename",               IDM_SHOW_FILENAME
         MENUITEM "Show navigation panel",       IDM_SHOW_NAVPANEL
+        MENUITEM "Transparent window title bar", IDM_TRANSPARENT_TITLE_BAR
         MENUITEM SEPARATOR
         MENUITEM "Next image",                  IDM_NEXT
         MENUITEM "Previous image",              IDM_PREV
@@ -438,7 +439,6 @@ BEGIN
             MENUITEM "Fit window to image",         IDM_FIT_WINDOW_TO_IMAGE
             MENUITEM SEPARATOR
             MENUITEM "Hide window title bar",       IDM_HIDE_TITLE_BAR
-            MENUITEM "Transparent window title bar", IDM_TRANSPARENT_TITLE_BAR
             MENUITEM "Set window always on top",    IDM_ALWAYS_ON_TOP
             MENUITEM SEPARATOR
             MENUITEM "400 %",                       IDM_ZOOM_400
