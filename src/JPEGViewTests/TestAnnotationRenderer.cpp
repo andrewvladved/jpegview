@@ -215,25 +215,29 @@ static CAnnotation MakeHorizontalStroke(bool bArrow) {
 	a.bArrowHead = bArrow;
 	a.color = RGB(255, 0, 0);
 	a.nAlpha = 255;
-	a.fPenWidth = 6.0f;
-	CPointF p0 = { 40.0f, 100.0f };
-	CPointF p1 = { 120.0f, 100.0f };
+	// Wide and long on purpose: the arrow head is ARROW_LENGTH_IN_PEN_WIDTHS long and
+	// 1.2 pen widths to each side at its base, against half a pen width for the line, so
+	// at this size the two differ by more than antialiasing can blur.
+	a.fPenWidth = 20.0f;
+	CPointF p0 = { 20.0f, 100.0f };
+	CPointF p1 = { 180.0f, 100.0f };
 	a.points.push_back(p0);
 	a.points.push_back(p1);
 	return a;
 }
 
-// The arrow head is wider than the line, so a point well off the line near its end is
-// painted only when the head is there.
+// The arrow head is wider than the line, so a point beside the line near its end is
+// painted only when the head is there. The line spans y 90..110; the head reaches out to
+// y 76..124 at its base, which is at x = 100.
 TEST(ArrowHeadPaintsBesideTheEndOfTheStroke) {
-	Gdiplus::Color plain = RenderAndSample(MakeHorizontalStroke(false), 1.0f, 108, 112);
+	Gdiplus::Color plain = RenderAndSample(MakeHorizontalStroke(false), 1.0f, 105, 118);
 	CHECK(plain.GetG() > 200);
-	Gdiplus::Color arrow = RenderAndSample(MakeHorizontalStroke(true), 1.0f, 108, 112);
+	Gdiplus::Color arrow = RenderAndSample(MakeHorizontalStroke(true), 1.0f, 105, 118);
 	CHECK(arrow.GetG() < 200);
 }
 
 TEST(AStrokeWithoutTheArrowFlagIsUnchanged) {
-	Gdiplus::Color color = RenderAndSample(MakeHorizontalStroke(false), 1.0f, 80, 100);
+	Gdiplus::Color color = RenderAndSample(MakeHorizontalStroke(false), 1.0f, 60, 100);
 	CHECK(color.GetR() == 255);
 	CHECK(color.GetG() == 0);
 	CHECK(color.GetB() == 0);
@@ -245,7 +249,7 @@ TEST(ArrowStrokeWithRepeatedEndPointStillDrawsTheLine) {
 	CAnnotation a = MakeHorizontalStroke(true);
 	a.points.push_back(a.points.back());
 	a.points.push_back(a.points.back());
-	Gdiplus::Color color = RenderAndSample(a, 1.0f, 80, 100);
+	Gdiplus::Color color = RenderAndSample(a, 1.0f, 60, 100);
 	CHECK(color.GetR() == 255);
 	CHECK(color.GetG() == 0);
 }
