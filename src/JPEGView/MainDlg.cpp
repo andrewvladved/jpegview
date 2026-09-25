@@ -940,6 +940,29 @@ LRESULT CMainDlg::OnNCHitTest(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 
 // In transparent title bar mode the window keeps WS_THICKFRAME so that it stays resizable, but the
 // frame that would be drawn for it is removed here so that the image fills the whole window.
+// With WS_CAPTION cleared but WS_THICKFRAME kept, the non client area still exists as far
+// as Windows is concerned. On every activation change DefWindowProc repaints it, drawing
+// the default frame - which showed up as a bright border after switching to another
+// window and back. Both messages are swallowed while the transparent title bar is on.
+LRESULT CMainDlg::OnNCActivate(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOOL& bHandled) {
+	if (!m_bTransparentTitleBar || m_bFullScreenMode) {
+		bHandled = FALSE;
+		return 0;
+	}
+	// Passing -1 as the region tells DefWindowProc to change the active state without
+	// redrawing the frame. Returning TRUE keeps the window from being denied activation.
+	::DefWindowProc(m_hWnd, WM_NCACTIVATE, wParam, (LPARAM)-1);
+	return TRUE;
+}
+
+LRESULT CMainDlg::OnNCPaint(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& bHandled) {
+	if (!m_bTransparentTitleBar || m_bFullScreenMode) {
+		bHandled = FALSE;
+		return 0;
+	}
+	return 0; // the client area covers the window, so there is no frame to draw
+}
+
 LRESULT CMainDlg::OnNCCalcSize(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled) {
 	if (!m_bTransparentTitleBar || m_bFullScreenMode || wParam == FALSE) {
 		bHandled = FALSE;
