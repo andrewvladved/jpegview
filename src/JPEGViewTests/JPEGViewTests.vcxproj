@@ -96,7 +96,7 @@
     <ClCompile Include="TestMain.cpp" />
     <ClCompile Include="TestAnnotationModel.cpp" />
     <ClCompile Include="..\JPEGView\AnnotationModel.cpp" />
-.    <ClCompile Include="..\JPEGView\AnnotationGeometry.cpp" />
+    <ClCompile Include="..\JPEGView\AnnotationGeometry.cpp" />
     <ClCompile Include="TestAnnotationGeometry.cpp" />
   </ItemGroup>
   <ItemGroup>
