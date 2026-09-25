@@ -10,8 +10,7 @@
 #include "MainDlg.h"
 #include "AnnotationRenderer.h"
 #include "AnnotationStylePanelCtl.h"
-#include <commctrl.h>
-#pragma comment(lib, "comctl32.lib")
+#include "SaveAnnotationsDlg.h"
 #include "HelpDlg.h"
 #include "FileList.h"
 #include "JPEGProvider.h"
@@ -1465,7 +1464,7 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 	// These change the image geometry, so annotations stored in image coordinates would
 	// end up in the wrong place. One rule instead of a special case in each command.
 	switch (nCommand) {
-		case IDM_ROTATE_90: case IDM_ROTATE_270: case IDM_ROTATE_180:
+		case IDM_ROTATE_90: case IDM_ROTATE_270:
 		case IDM_ROTATE: case IDM_PERSPECTIVE: case IDM_CHANGESIZE:
 		case IDM_CROP_SEL: case IDM_LOSSLESS_CROP_SEL:
 		case IDM_OPEN: case IDM_RELOAD:
@@ -3464,42 +3463,13 @@ bool CMainDlg::PromptSaveAnnotations() {
 		OnAnnotationTextCommitted();
 	}
 
-	const int ID_OVERWRITE = 1001, ID_SAVEAS = 1002, ID_DISCARD = 1003;
-	CString sOverwrite = CNLS::GetString(_T("Overwrite"));
-	CString sSaveAs = CNLS::GetString(_T("Save as..."));
-	CString sDiscard = CNLS::GetString(_T("Do not save"));
-	TASKDIALOG_BUTTON buttons[3];
-	buttons[0].nButtonID = ID_OVERWRITE; buttons[0].pszButtonText = sOverwrite;
-	buttons[1].nButtonID = ID_SAVEAS;    buttons[1].pszButtonText = sSaveAs;
-	buttons[2].nButtonID = ID_DISCARD;   buttons[2].pszButtonText = sDiscard;
-
-	CString sTitle = CNLS::GetString(_T("JPEGView"));
-	CString sMain = CNLS::GetString(_T("This image has annotations that have not been saved"));
-	CString sContent = CurrentFileName(false);
-
-	TASKDIALOGCONFIG config;
-	memset(&config, 0, sizeof(config));
-	config.cbSize = sizeof(config);
-	config.hwndParent = m_hWnd;
-	config.dwFlags = TDF_ALLOW_DIALOG_CANCELLATION | TDF_USE_COMMAND_LINKS;
-	config.dwCommonButtons = TDCBF_CANCEL_BUTTON;
-	config.pszWindowTitle = sTitle;
-	config.pszMainIcon = TD_WARNING_ICON;
-	config.pszMainInstruction = sMain;
-	config.pszContent = sContent;
-	config.cButtons = 3;
-	config.pButtons = buttons;
-	config.nDefaultButton = ID_SAVEAS; // the choice that cannot destroy an original
-
-	int nButton = 0;
-	if (FAILED(::TaskDialogIndirect(&config, &nButton, NULL, NULL))) {
-		return false; // could not ask, so do not risk losing the annotations
-	}
+	CSaveAnnotationsDlg dlg(CurrentFileName(false));
+	int nButton = (int)dlg.DoModal(m_hWnd);
 
 	if (nButton == IDCANCEL) {
 		return false;
 	}
-	if (nButton == ID_DISCARD) {
+	if (nButton == IDC_ANNOT_DISCARD) {
 		m_pAnnotationCtl->Clear();
 		Invalidate(FALSE);
 		return true;
@@ -3510,7 +3480,7 @@ bool CMainDlg::PromptSaveAnnotations() {
 			CNLS::GetString(_T("Error")), MB_ICONSTOP | MB_OK);
 		return false;
 	}
-	bool bSaved = (nButton == ID_OVERWRITE)
+	bool bSaved = (nButton == IDC_ANNOT_OVERWRITE)
 		? SaveImageNoPrompt(CurrentFileName(false), true)
 		: SaveImage(true);
 	if (!bSaved) {

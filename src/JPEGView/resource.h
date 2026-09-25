@@ -53,6 +53,7 @@
 #define IDC_NUMCORES 1007
 
 #define IDD_SET_CROP_SIZE 3000
+#define IDD_SAVE_ANNOTATIONS 3010
 #define IDC_EDT_X 1001
 #define IDC_EDT_Y 1002
 #define IDC_RB_SCREEN 1003
@@ -135,6 +136,11 @@
 #define IDC_PD_ED_BOTTOM                2036
 #define IDC_PD_CM3                      2037
 #define IDC_ANNOTATION_EDIT             2040
+#define IDC_ANNOT_TITLE                 2041
+#define IDC_ANNOT_FILENAME              2042
+#define IDC_ANNOT_OVERWRITE             2043
+#define IDC_ANNOT_SAVEAS                2044
+#define IDC_ANNOT_DISCARD               2045
 
 // this is not used anywhere in code, but defined in KeyMap as an "invalid command", so make sure the defined number doesn't match anything!
 #define IDM_DONOTHING		1			// :KeyMap: do nothing (can be used to disable a standard command for a mouse button)

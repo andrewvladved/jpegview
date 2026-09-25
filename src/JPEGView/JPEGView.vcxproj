@@ -369,6 +369,7 @@
     <ClCompile Include="AnnotationStylePanel.cpp" />
     <ClCompile Include="AnnotationStylePanelCtl.cpp" />
     <ClCompile Include="AnnotationTextEdit.cpp" />
+    <ClCompile Include="SaveAnnotationsDlg.cpp" />
     <ClCompile Include="AnnotationModel.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
@@ -472,6 +473,7 @@
     <ClInclude Include="AnnotationStylePanel.h" />
     <ClInclude Include="AnnotationStylePanelCtl.h" />
     <ClInclude Include="AnnotationTextEdit.h" />
+    <ClInclude Include="SaveAnnotationsDlg.h" />
     <ClInclude Include="AnnotationModel.h" />
     <ClInclude Include="TitleBarPanel.h" />
     <ClInclude Include="TitleBarPanelCtl.h" />
