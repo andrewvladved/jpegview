@@ -1,4 +1,3 @@
-#include "StdAfx.h"
 #include "AnnotationModel.h"
 
 // RED STUB - compiles, returns wrong answers on purpose so the tests fail against

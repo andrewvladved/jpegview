@@ -1,4 +1,3 @@
-#include "StdAfx.h"
 #include "TestFramework.h"
 #include "AnnotationModel.h"
 

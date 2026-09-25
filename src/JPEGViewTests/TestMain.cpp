@@ -1,4 +1,3 @@
-#include "StdAfx.h"
 #include "TestFramework.h"
 
 int g_nFailures = 0;

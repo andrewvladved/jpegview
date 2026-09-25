@@ -353,7 +353,9 @@
     </ClCompile>
     <ClCompile Include="TiltCorrectionPanel.cpp" />
     <ClCompile Include="TiltCorrectionPanelCtl.cpp" />
-    <ClCompile Include="AnnotationModel.cpp" />
+    <ClCompile Include="AnnotationModel.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="TitleBarPanel.cpp" />
     <ClCompile Include="TitleBarPanelCtl.cpp" />
     <ClCompile Include="TJPEGWrapper.cpp" />
