@@ -34,7 +34,7 @@ TEST(UndoRemovesLastAnnotation) {
 	model.Add(MakeStroke(5));
 	model.Add(MakeStroke(7));
 	CHECK(model.Undo());
-	CHECK(model.Count() == 1);
+	REQUIRE(model.Count() == 1);
 	CHECK(model.Annotations()[0].points.size() == 5);
 }
 
@@ -48,7 +48,7 @@ TEST(RedoRestoresUndoneAnnotation) {
 	model.Add(MakeStroke(5));
 	model.Undo();
 	CHECK(model.Redo());
-	CHECK(model.Count() == 1);
+	REQUIRE(model.Count() == 1);
 	CHECK(model.Annotations()[0].points.size() == 5);
 }
 

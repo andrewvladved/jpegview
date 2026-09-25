@@ -8,6 +8,8 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: windows-2022
+    # A test binary that stalls must fail the job, not occupy a runner for hours.
+    timeout-minutes: 10
 
     steps:
     - uses: actions/checkout@v4

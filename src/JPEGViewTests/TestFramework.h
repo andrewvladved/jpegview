@@ -35,6 +35,19 @@ struct CTestRegistrar {
 		} \
 	} while (0)
 
+// Like CHECK, but abandons the rest of the test. Use it before indexing into a
+// container whose size the test has just asserted: with a wrong implementation the
+// container can be empty, and an out-of-range subscript in a debug build trips a
+// C runtime assertion instead of reporting a plain failure.
+#define REQUIRE(condition) \
+	do { \
+		if (!(condition)) { \
+			printf("FAIL %s:%d  %s (required)\n", __FILE__, __LINE__, #condition); \
+			g_nFailures++; \
+			return; \
+		} \
+	} while (0)
+
 #define CHECK_NEAR(actual, expected, tolerance) \
 	do { \
 		double a = (double)(actual), e = (double)(expected); \
