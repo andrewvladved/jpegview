@@ -229,6 +229,10 @@ CSettingsProvider::CSettingsProvider(void) {
 	m_colorSlider = GetColor(_T("SliderColor"), RGB(255, 0, 80));
 	m_colorFileName = GetColor(_T("FileNameColor"), m_colorGUI);
 	m_colorTransparency = GetColor(_T("TransparencyColor"), m_colorBackground);
+	m_colorAnnotation = GetColor(_T("AnnotationColor"), RGB(255, 0, 0));
+	m_nAnnotationOpacity = GetInt(_T("AnnotationOpacity"), 70, 0, 100);
+	m_nAnnotationPenWidth = GetInt(_T("AnnotationPenWidth"), 4, 1, 100);
+	m_nAnnotationFontSize = GetInt(_T("AnnotationFontSize"), 24, 4, 400);
 
 	m_defaultGUIFont = GetString(_T("DefaultGUIFont"), _T("Default"));
 	m_fileNameFont = GetString(_T("FileNameFont"), _T("Default"));
@@ -872,4 +876,18 @@ void CSettingsProvider::WriteInt(LPCTSTR sKey, int nValue) {
 	TCHAR buff[32];
 	_stprintf_s(buff, 32, _T("%d"), nValue);
 	WriteString(sKey, buff);
+}
+
+void CSettingsProvider::SaveAnnotationStyle(COLORREF color, int nOpacityPercent, int nPenWidth, int nFontSize) {
+	MakeSureUserINIExists();
+	CString sColor;
+	sColor.Format(_T("%d %d %d"), GetRValue(color), GetGValue(color), GetBValue(color));
+	WriteString(_T("AnnotationColor"), sColor);
+	WriteInt(_T("AnnotationOpacity"), nOpacityPercent);
+	WriteInt(_T("AnnotationPenWidth"), nPenWidth);
+	WriteInt(_T("AnnotationFontSize"), nFontSize);
+	m_colorAnnotation = color;
+	m_nAnnotationOpacity = nOpacityPercent;
+	m_nAnnotationPenWidth = nPenWidth;
+	m_nAnnotationFontSize = nFontSize;
 }

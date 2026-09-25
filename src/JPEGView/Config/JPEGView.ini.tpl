@@ -156,6 +156,15 @@ WindowBorderlessOnStartup=false
 ; The window mode can be changed after startup
 TransparentTitleBarOnStartup=false
 
+; Default colour for annotations (freehand, text, rectangles), R G B format as used by BackgroundColor
+AnnotationColor=255 0 0
+; Default annotation opacity in percent, 0 (invisible) .. 100 (opaque)
+AnnotationOpacity=70
+; Default annotation line width in screen pixels
+AnnotationPenWidth=4
+; Default annotation font size in screen pixels
+AnnotationFontSize=24
+
 ; If set to 'true', window starts in always-on-top mode (window will always be visible on top of other windows)
 ; The window mode can be changed after startup
 WindowAlwaysOnTopOnStartup=false

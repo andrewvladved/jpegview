@@ -287,6 +287,13 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_pCropCtl = new CCropCtl(this);
 	m_pAnnotationCtl = new CAnnotationCtl(this);
 	m_ptImageOrigin = CPoint(0, 0);
+	{
+		// Opacity is a percentage in the INI but an alpha byte in an annotation.
+		CSettingsProvider& spAnnot = CSettingsProvider::This();
+		m_pAnnotationCtl->SetStyle(spAnnot.AnnotationColor(),
+			spAnnot.AnnotationOpacity() * 255 / 100,
+			spAnnot.AnnotationPenWidth(), spAnnot.AnnotationFontSize());
+	}
 	m_pKeyMap = new CKeyMap(); // routine to load the keymap, it's not as simple as just loading one file anymore, but all logic handled by CKeyMap
 	m_pPrintImage = new CPrintImage(CSettingsProvider::This().PrintMargin(), CSettingsProvider::This().DefaultPrintWidth());
 	m_pHelpDlg = NULL;

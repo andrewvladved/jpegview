@@ -108,6 +108,15 @@ public:
 	COLORREF ColorSlider() { return m_colorSlider; }
 	COLORREF ColorFileName() { return m_colorFileName; }
 	COLORREF ColorTransparency() { return m_colorTransparency; }
+	// Annotation defaults. Sizes are in screen pixels; CAnnotationCtl converts them
+	// to image pixels using the current zoom when an element is created.
+	COLORREF AnnotationColor() { return m_colorAnnotation; }
+	int AnnotationOpacity() { return m_nAnnotationOpacity; } // percent, 0 .. 100
+	int AnnotationPenWidth() { return m_nAnnotationPenWidth; }
+	int AnnotationFontSize() { return m_nAnnotationFontSize; }
+
+	// Remembers the style the user last picked, so it survives a restart.
+	void SaveAnnotationStyle(COLORREF color, int nOpacityPercent, int nPenWidth, int nFontSize);
 	LPCTSTR DefaultGUIFont() { return m_defaultGUIFont; }
 	LPCTSTR FileNameFont() { return m_fileNameFont; }
 	const CUnsharpMaskParams& UnsharpMaskParams() { return m_unsharpMaskParms; }
@@ -279,6 +288,10 @@ private:
 	COLORREF m_colorSlider;
 	COLORREF m_colorFileName;
 	COLORREF m_colorTransparency;
+	COLORREF m_colorAnnotation;
+	int m_nAnnotationOpacity;
+	int m_nAnnotationPenWidth;
+	int m_nAnnotationFontSize;
 	CString m_defaultGUIFont;
 	CString m_fileNameFont;
 	CUnsharpMaskParams m_unsharpMaskParms;
