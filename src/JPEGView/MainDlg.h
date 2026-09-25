@@ -334,6 +334,8 @@ private:
 	CFont m_annotationEditFont;
 	bool m_bAnnotationEditActive;
 	void StartAnnotationTextEdit();
+	void OnAnnotationTextCommitted();
+	void OnAnnotationTextCancelled();
 	CZoomNavigatorCtl* m_pZoomNavigatorCtl;
 	CImageProcPanelCtl* m_pImageProcPanelCtl;
 	CNavigationPanelCtl* m_pNavPanelCtl;
