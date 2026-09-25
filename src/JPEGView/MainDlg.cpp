@@ -1,4 +1,4 @@
-// MainDlg.cpp : implementation of the CMainDlg class
+﻿// MainDlg.cpp : implementation of the CMainDlg class
 //
 /////////////////////////////////////////////////////////////////////////////
 
@@ -2375,17 +2375,49 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 	}
 }
 
+// The frame of a WS_THICKFRAME window is rendered by the desktop window manager, not by the window
+// procedure, so swallowing WM_NCACTIVATE and WM_NCPAINT does not remove it: after switching to
+// another application and back a bright border appeared around the image. Turning off DWM non
+// client rendering for the window removes it. dwmapi.dll is resolved at run time because the
+// project targets Windows XP, where the library does not exist at all.
+static void SetDWMFrameRendering(HWND hWnd, bool bEnabled) {
+	typedef HRESULT (WINAPI *TDwmSetWindowAttribute)(HWND, DWORD, LPCVOID, DWORD);
+	static TDwmSetWindowAttribute pDwmSetWindowAttribute = NULL;
+	static bool bResolved = false;
+	if (!bResolved) {
+		bResolved = true;
+		HMODULE hDwmApi = ::LoadLibrary(_T("dwmapi.dll"));
+		if (hDwmApi != NULL) {
+			pDwmSetWindowAttribute = (TDwmSetWindowAttribute)::GetProcAddress(hDwmApi, "DwmSetWindowAttribute");
+		}
+	}
+	if (pDwmSetWindowAttribute == NULL) {
+		return; // no desktop window manager, nothing draws a frame behind the window
+	}
+	// values of DWMWINDOWATTRIBUTE and DWMNCRENDERINGPOLICY from dwmapi.h, spelled out here
+	// because that header is not available for the Windows XP target the project builds against
+	const DWORD NCRENDERING_POLICY = 2;
+	const DWORD USE_WINDOW_STYLE = 0;
+	const DWORD DISABLED = 1;
+	DWORD nPolicy = bEnabled ? USE_WINDOW_STYLE : DISABLED;
+	pDwmSetWindowAttribute(hWnd, NCRENDERING_POLICY, &nPolicy, sizeof(nPolicy));
+}
+
 // Setting window styles have gotten out of hand with the addition of no title bar
 // instead of each call trying to figure out the logic, consolidate it to one function
 LONG CMainDlg::SetCurrentWindowStyle() {
 	LONG nStyle = this->GetWindowLongW(GWL_STYLE);
 	if (!m_bWindowBorderless) {
+		SetDWMFrameRendering(m_hWnd, true);
 		return this->SetWindowLongW(GWL_STYLE, nStyle | WS_OVERLAPPEDWINDOW | WS_VISIBLE);
 	} else if (m_bTransparentTitleBar) {
 		// The title bar is painted over the image. WS_THICKFRAME is kept so that the window can still be
-		// resized by dragging its borders - OnNCCalcSize removes the frame that would be drawn for it.
+		// resized by dragging its borders - OnNCCalcSize removes the frame that would be drawn for it
+		// and SetDWMFrameRendering removes the one the desktop window manager would draw.
+		SetDWMFrameRendering(m_hWnd, false);
 		return this->SetWindowLongW(GWL_STYLE, (nStyle & ~WS_CAPTION) | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_VISIBLE);
 	} else {
+		SetDWMFrameRendering(m_hWnd, true);
 		return this->SetWindowLongW(GWL_STYLE, this->GetWindowLongW(GWL_STYLE) & ~WS_OVERLAPPEDWINDOW | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_VISIBLE);  // lose resizing
 		// just doing (& ~WS_CAPTION) leads to having a sliver of white bar on top but allows for resizing
 	}
