@@ -114,9 +114,10 @@ public:
 	int AnnotationOpacity() { return m_nAnnotationOpacity; } // percent, 0 .. 100
 	int AnnotationPenWidth() { return m_nAnnotationPenWidth; }
 	int AnnotationFontSize() { return m_nAnnotationFontSize; }
+	COLORREF AnnotationTextBackColor() { return m_colorAnnotationTextBack; }
 
 	// Remembers the style the user last picked, so it survives a restart.
-	void SaveAnnotationStyle(COLORREF color, int nOpacityPercent, int nPenWidth, int nFontSize);
+	void SaveAnnotationStyle(COLORREF color, int nOpacityPercent, int nPenWidth, int nFontSize, COLORREF backColor);
 	LPCTSTR DefaultGUIFont() { return m_defaultGUIFont; }
 	LPCTSTR FileNameFont() { return m_fileNameFont; }
 	const CUnsharpMaskParams& UnsharpMaskParams() { return m_unsharpMaskParms; }
@@ -292,6 +293,7 @@ private:
 	int m_nAnnotationOpacity;
 	int m_nAnnotationPenWidth;
 	int m_nAnnotationFontSize;
+	COLORREF m_colorAnnotationTextBack;
 	CString m_defaultGUIFont;
 	CString m_fileNameFont;
 	CUnsharpMaskParams m_unsharpMaskParms;

@@ -233,6 +233,7 @@ CSettingsProvider::CSettingsProvider(void) {
 	m_nAnnotationOpacity = GetInt(_T("AnnotationOpacity"), 70, 0, 100);
 	m_nAnnotationPenWidth = GetInt(_T("AnnotationPenWidth"), 4, 1, 100);
 	m_nAnnotationFontSize = GetInt(_T("AnnotationFontSize"), 24, 4, 400);
+	m_colorAnnotationTextBack = GetColor(_T("AnnotationTextBackColor"), RGB(0, 0, 0));
 
 	m_defaultGUIFont = GetString(_T("DefaultGUIFont"), _T("Default"));
 	m_fileNameFont = GetString(_T("FileNameFont"), _T("Default"));
@@ -878,7 +879,7 @@ void CSettingsProvider::WriteInt(LPCTSTR sKey, int nValue) {
 	WriteString(sKey, buff);
 }
 
-void CSettingsProvider::SaveAnnotationStyle(COLORREF color, int nOpacityPercent, int nPenWidth, int nFontSize) {
+void CSettingsProvider::SaveAnnotationStyle(COLORREF color, int nOpacityPercent, int nPenWidth, int nFontSize, COLORREF backColor) {
 	MakeSureUserINIExists();
 	m_bUserINIExists = true; // as every other writer does, or GetString keeps skipping it
 	CString sColor;
@@ -887,6 +888,10 @@ void CSettingsProvider::SaveAnnotationStyle(COLORREF color, int nOpacityPercent,
 	WriteInt(_T("AnnotationOpacity"), nOpacityPercent);
 	WriteInt(_T("AnnotationPenWidth"), nPenWidth);
 	WriteInt(_T("AnnotationFontSize"), nFontSize);
+	CString sBackColor;
+	sBackColor.Format(_T("%d %d %d"), GetRValue(backColor), GetGValue(backColor), GetBValue(backColor));
+	WriteString(_T("AnnotationTextBackColor"), sBackColor);
+	m_colorAnnotationTextBack = backColor;
 	m_colorAnnotation = color;
 	m_nAnnotationOpacity = nOpacityPercent;
 	m_nAnnotationPenWidth = nPenWidth;

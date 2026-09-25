@@ -12,10 +12,8 @@ CAnnotationStylePanelCtl::CAnnotationStylePanelCtl(CMainDlg* pMainDlg, CPanel* p
 	CSettingsProvider& sp = CSettingsProvider::This();
 	m_bVisible = false;
 	m_color = sp.AnnotationColor();
-	m_nPenWidth = sp.AnnotationPenWidth();
-	m_nFontSize = sp.AnnotationFontSize();
 	m_dOpacity = sp.AnnotationOpacity();
-	m_dWidth = m_nPenWidth;
+	m_dWidth = sp.AnnotationPenWidth();
 
 	m_pPanel = m_pStylePanel = new CAnnotationStylePanel(pMainDlg->GetHWND(), this, pNavPanel,
 		pMainDlg->GetAnnotationCtl(), &m_dOpacity, &m_dWidth);
@@ -40,6 +38,10 @@ CAnnotationStylePanelCtl::CAnnotationStylePanelCtl(CMainDlg* pMainDlg, CPanel* p
 	if (pOther != NULL) {
 		pOther->SetButtonPressedHandler(&OnOtherColorPressed, this);
 	}
+	CButtonCtrl* pBackColor = m_pStylePanel->GetBtnBackColor();
+	if (pBackColor != NULL) {
+		pBackColor->SetButtonPressedHandler(&OnBackColorPressed, this);
+	}
 }
 
 CAnnotationStylePanelCtl::~CAnnotationStylePanelCtl() {
@@ -54,13 +56,29 @@ void CAnnotationStylePanelCtl::SetVisible(bool bVisible) {
 	if (bVisible) {
 		LoadFromControl();
 		RelabelWidthSlider();
+		UpdateBackColorButton();
 		m_pStylePanel->RequestRepositioning();
 	}
 	InvalidateMainDlg();
 }
 
-// The width slider drives the font size while the text tool is active and the line width
-// otherwise, so the two values are kept separately and swapped in when the strip opens.
+// The strip stays open while the user switches tools from the panel, the menu or a
+// shortcut, so it has to follow along instead of showing the numbers of the tool it
+// happened to be opened with - which is how a thin line for the shapes used to end up
+// as the font size.
+void CAnnotationStylePanelCtl::OnToolChanged() {
+	if (!m_bVisible) {
+		return;
+	}
+	LoadFromControl();
+	RelabelWidthSlider();
+	UpdateBackColorButton();
+	m_pStylePanel->RequestRepositioning();
+	InvalidateMainDlg();
+}
+
+// The opacity and the width belong to the selected tool; the annotation controller keeps
+// one pair per tool and hands out the pair of whichever tool is active.
 void CAnnotationStylePanelCtl::LoadFromControl() {
 	CAnnotationCtl* pCtl = m_pMainDlg->GetAnnotationCtl();
 	if (pCtl == NULL) {
@@ -68,9 +86,16 @@ void CAnnotationStylePanelCtl::LoadFromControl() {
 	}
 	m_color = pCtl->GetColor();
 	m_dOpacity = pCtl->GetAlpha() * 100.0 / 255.0;
-	m_nPenWidth = pCtl->GetPenWidthScreen();
-	m_nFontSize = pCtl->GetFontSizeScreen();
-	m_dWidth = (pCtl->GetTool() == ATOOL_Text) ? m_nFontSize : m_nPenWidth;
+	m_dWidth = pCtl->GetWidthScreen();
+}
+
+void CAnnotationStylePanelCtl::UpdateBackColorButton() {
+	CButtonCtrl* pBackColor = m_pStylePanel->GetBtnBackColor();
+	CAnnotationCtl* pCtl = m_pMainDlg->GetAnnotationCtl();
+	if (pBackColor == NULL || pCtl == NULL) {
+		return;
+	}
+	pBackColor->SetShow(pCtl->GetTool() == ATOOL_Text && pCtl->IsTextBackground(), false);
 }
 
 void CAnnotationStylePanelCtl::RelabelWidthSlider() {
@@ -88,16 +113,16 @@ void CAnnotationStylePanelCtl::ApplyStyle(bool bPersist) {
 	if (pCtl == NULL) {
 		return;
 	}
-	if (pCtl->GetTool() == ATOOL_Text) {
-		m_nFontSize = max(4, min(400, (int)(m_dWidth + 0.5)));
-	} else {
-		m_nPenWidth = max(1, min(100, (int)(m_dWidth + 0.5)));
-	}
+	bool bText = pCtl->GetTool() == ATOOL_Text;
+	int nWidth = max(bText ? 4 : 1, min(bText ? 400 : 100, (int)(m_dWidth + 0.5)));
 	int nOpacityPercent = max(0, min(100, (int)(m_dOpacity + 0.5)));
-	pCtl->SetStyle(m_color, nOpacityPercent * 255 / 100, m_nPenWidth, m_nFontSize);
+	pCtl->SetStyleForCurrentTool(m_color, nOpacityPercent * 255 / 100, nWidth);
 	if (bPersist) {
 		// Writing the INI on every mouse-move would be hundreds of file writes per drag.
-		CSettingsProvider::This().SaveAnnotationStyle(m_color, nOpacityPercent, m_nPenWidth, m_nFontSize);
+		// The file holds one starting value per kind, which every tool picks up at the
+		// next start; the per-tool split only lives for the session.
+		CSettingsProvider::This().SaveAnnotationStyle(m_color, nOpacityPercent,
+			pCtl->GetPenWidthScreen(), pCtl->GetFontSizeScreen(), pCtl->GetTextBackColor());
 	}
 	InvalidateMainDlg();
 }
@@ -110,6 +135,27 @@ void CAnnotationStylePanelCtl::OnSwatchPressed(void* pContext, int nParameter, C
 
 void CAnnotationStylePanelCtl::OnOtherColorPressed(void* pContext, int nParameter, CButtonCtrl& sender) {
 	CAnnotationStylePanelCtl* pThis = (CAnnotationStylePanelCtl*)pContext;
+	COLORREF color = pThis->m_color;
+	if (PickColor(pThis->m_pMainDlg, color)) {
+		pThis->m_color = color;
+		pThis->ApplyStyle(true);
+	}
+}
+
+void CAnnotationStylePanelCtl::OnBackColorPressed(void* pContext, int nParameter, CButtonCtrl& sender) {
+	CAnnotationStylePanelCtl* pThis = (CAnnotationStylePanelCtl*)pContext;
+	CAnnotationCtl* pCtl = pThis->m_pMainDlg->GetAnnotationCtl();
+	if (pCtl == NULL) {
+		return;
+	}
+	COLORREF color = pCtl->GetTextBackColor();
+	if (PickColor(pThis->m_pMainDlg, color)) {
+		pCtl->SetTextBackColor(color);
+		pThis->ApplyStyle(true);
+	}
+}
+
+bool CAnnotationStylePanelCtl::PickColor(CMainDlg* pMainDlg, COLORREF& color) {
 	// Custom colours persist for the session, the way the system dialog expects.
 	static COLORREF customColors[16] = {
 		RGB(255,255,255), RGB(255,255,255), RGB(255,255,255), RGB(255,255,255),
@@ -120,14 +166,15 @@ void CAnnotationStylePanelCtl::OnOtherColorPressed(void* pContext, int nParamete
 	CHOOSECOLOR cc;
 	memset(&cc, 0, sizeof(cc));
 	cc.lStructSize = sizeof(cc);
-	cc.hwndOwner = pThis->m_pMainDlg->GetHWND();
+	cc.hwndOwner = pMainDlg->GetHWND();
 	cc.lpCustColors = customColors;
-	cc.rgbResult = pThis->m_color;
+	cc.rgbResult = color;
 	cc.Flags = CC_FULLOPEN | CC_RGBINIT;
-	if (::ChooseColor(&cc)) {
-		pThis->m_color = cc.rgbResult;
-		pThis->ApplyStyle(true);
+	if (!::ChooseColor(&cc)) {
+		return false;
 	}
+	color = cc.rgbResult;
+	return true;
 }
 
 bool CAnnotationStylePanelCtl::OnMouseLButton(EMouseEvent eMouseEvent, int nX, int nY) {

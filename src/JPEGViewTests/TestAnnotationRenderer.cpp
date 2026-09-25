@@ -253,3 +253,70 @@ TEST(ArrowStrokeWithRepeatedEndPointStillDrawsTheLine) {
 	CHECK(color.GetR() == 255);
 	CHECK(color.GetG() == 0);
 }
+
+static CAnnotation MakeLabel(bool bBackground) {
+	CAnnotation a;
+	a.eType = AT_Text;
+	a.color = RGB(255, 0, 0);
+	a.backColor = RGB(0, 0, 255);
+	a.bBackground = bBackground;
+	a.nAlpha = 255;
+	a.fFontHeight = 40.0f;
+	CPointF anchor = { 20.0f, 20.0f };
+	a.points.push_back(anchor);
+	a.sText = _T("IIII");
+	return a;
+}
+
+static int CountNonWhite(const CAnnotation& annotation) {
+	Gdiplus::Bitmap bitmap(200, 200, PixelFormat32bppARGB);
+	Gdiplus::Graphics g(&bitmap);
+	g.Clear(Gdiplus::Color(255, 255, 255, 255));
+	std::vector<CAnnotation> annotations;
+	annotations.push_back(annotation);
+	CAnnotationRenderer::Render(g, annotations, 1.0f, Gdiplus::PointF(0.0f, 0.0f));
+	int nCount = 0;
+	for (int y = 0; y < 200; y++) {
+		for (int x = 0; x < 200; x++) {
+			Gdiplus::Color c;
+			bitmap.GetPixel(x, y, &c);
+			if (c.GetR() < 250 || c.GetG() < 250 || c.GetB() < 250) {
+				nCount++;
+			}
+		}
+	}
+	return nCount;
+}
+
+// A filled backing covers far more of the bitmap than the glyphs alone.
+TEST(TextBackgroundCoversMuchMoreThanTheGlyphs) {
+	int nPlain = CountNonWhite(MakeLabel(false));
+	int nBacked = CountNonWhite(MakeLabel(true));
+	CHECK(nPlain > 0);
+	CHECK(nBacked > nPlain * 3);
+}
+
+// Just inside the top left of the backing, above the glyph tops, the background colour
+// is what shows - not the text colour.
+TEST(TextBackgroundUsesItsOwnColour) {
+	Gdiplus::Color color = RenderAndSample(MakeLabel(true), 1.0f, 22, 22);
+	CHECK(color.GetB() > 200);
+	CHECK(color.GetR() < 100);
+}
+
+TEST(TextWithoutBackgroundLeavesThatCornerWhite) {
+	Gdiplus::Color color = RenderAndSample(MakeLabel(false), 1.0f, 22, 22);
+	CHECK(color.GetR() > 240);
+	CHECK(color.GetG() > 240);
+	CHECK(color.GetB() > 240);
+}
+
+// The background is as transparent as the text, so a translucent label does not turn
+// into an opaque block.
+TEST(TranslucentLabelHasATranslucentBackground) {
+	CAnnotation a = MakeLabel(true);
+	a.nAlpha = 128;
+	Gdiplus::Color color = RenderAndSample(a, 1.0f, 22, 22);
+	CHECK(color.GetR() > 100 && color.GetR() < 160);
+	CHECK(color.GetB() > 200);
+}

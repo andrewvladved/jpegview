@@ -105,7 +105,7 @@ void CHelpDisplayCtl::GenerateHelpDisplay() {
 		CNLS::GetString(_T("Draw freehand, press again to add an arrow head to the line")));
 	m_pHelpDisplay->AddLineInfo(_KeyDesc(IDM_ANNOTATE_TEXT),
 		m_pMainDlg->GetAnnotationCtl() != NULL && m_pMainDlg->GetAnnotationCtl()->GetTool() == ATOOL_Text,
-		CNLS::GetString(_T("Add a text label to the image")));
+		CNLS::GetString(_T("Add a text label, press again for a filled background behind it")));
 	m_pHelpDisplay->AddLineInfo(_KeyDesc(IDM_ANNOTATE_RECT),
 		m_pMainDlg->GetAnnotationCtl() != NULL && m_pMainDlg->GetAnnotationCtl()->GetTool() == ATOOL_Shape,
 		CNLS::GetString(_T("Draw a shape, press again for rectangle, ellipse or triangle")));

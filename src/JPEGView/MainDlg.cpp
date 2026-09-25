@@ -300,9 +300,10 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	{
 		// Opacity is a percentage in the INI but an alpha byte in an annotation.
 		CSettingsProvider& spAnnot = CSettingsProvider::This();
-		m_pAnnotationCtl->SetStyle(spAnnot.AnnotationColor(),
+		m_pAnnotationCtl->InitStyle(spAnnot.AnnotationColor(),
 			spAnnot.AnnotationOpacity() * 255 / 100,
 			spAnnot.AnnotationPenWidth(), spAnnot.AnnotationFontSize());
+		m_pAnnotationCtl->SetTextBackColor(spAnnot.AnnotationTextBackColor());
 	}
 	m_pKeyMap = new CKeyMap(); // routine to load the keymap, it's not as simple as just loading one file anymore, but all logic handled by CKeyMap
 	m_pPrintImage = new CPrintImage(CSettingsProvider::This().PrintMargin(), CSettingsProvider::This().DefaultPrintWidth());
@@ -570,22 +571,7 @@ LRESULT CMainDlg::OnPaint(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 			// zoomed image that DIB shows, and is non-zero whenever the image is larger than
 			// the window or has been panned. The origin is where image pixel (0,0) would land.
 			m_ptImageOrigin = ptDIBStart - offsetsInImage;
-			if (m_pAnnotationCtl != NULL) {
-				Gdiplus::PointF ptOrigin((float)m_ptImageOrigin.x, (float)m_ptImageOrigin.y);
-				float fScale = (float)m_dRealizedZoom;
-				CRect rcImageOnScreen(ptDIBStart, clippedSize);
-				if (!m_pAnnotationCtl->Model().IsEmpty()) {
-					Gdiplus::Graphics graphics(dc);
-					graphics.SetClip(Gdiplus::Rect(rcImageOnScreen.left, rcImageOnScreen.top, rcImageOnScreen.Width(), rcImageOnScreen.Height()));
-					CAnnotationRenderer::Render(graphics, m_pAnnotationCtl->Model().Annotations(), fScale, ptOrigin);
-				}
-				const CAnnotation* pPending = m_pAnnotationCtl->PendingAnnotation();
-				if (pPending != NULL) {
-					Gdiplus::Graphics graphics(dc);
-					graphics.SetClip(Gdiplus::Rect(rcImageOnScreen.left, rcImageOnScreen.top, rcImageOnScreen.Width(), rcImageOnScreen.Height()));
-					CAnnotationRenderer::RenderOne(graphics, *pPending, fScale, ptOrigin);
-				}
-			}
+			PaintAnnotations(dc, ptDIBStart, clippedSize, pDIBData, &bmInfo);
 		}
 		if (m_bZoomMode) m_offsets = unlimitedOffsets;
 	}
@@ -3524,6 +3510,72 @@ void CMainDlg::DestroyAnnotationEdit(CEdit& edit, bool& bActive) {
 		edit.DestroyWindow();
 	}
 	this->SetFocus();
+}
+
+// Draws the annotations onto the image, under the panels, which paint afterwards.
+//
+// While a shape is dragged its whole area is invalidated on every mouse move. Blitting
+// the image there and then drawing the shape on top of it leaves the bare image on
+// screen in between, which is the flicker. So whenever something is being drawn, the
+// dirty part of the image is assembled in a memory DC - image first, annotations on top -
+// and put on screen in one blit. A freehand stroke only ever dirties the segment just
+// added, too small to notice, but it costs nothing to route it the same way.
+void CMainDlg::PaintAnnotations(CPaintDC& dc, const CPoint& ptDIBStart, const CSize& clippedSize,
+		void* pDIBData, BITMAPINFO* pBitmapInfo) {
+	if (m_pAnnotationCtl == NULL) {
+		return;
+	}
+	const CAnnotation* pPending = m_pAnnotationCtl->PendingAnnotation();
+	bool bHasCommitted = !m_pAnnotationCtl->Model().IsEmpty();
+	if (!bHasCommitted && pPending == NULL) {
+		return;
+	}
+	Gdiplus::PointF ptOrigin((float)m_ptImageOrigin.x, (float)m_ptImageOrigin.y);
+	float fScale = (float)m_dRealizedZoom;
+	CRect rcImageOnScreen(ptDIBStart, clippedSize);
+
+	CRect rcBuffer(0, 0, 0, 0);
+	if (pPending != NULL) {
+		// The clip box is the area this paint has to fill, which during a drag is just
+		// the shape's old and new outlines.
+		dc.GetClipBox(&rcBuffer);
+		rcBuffer.IntersectRect(&rcBuffer, &rcImageOnScreen);
+	}
+	if (rcBuffer.IsRectEmpty()) {
+		// Nothing is being drawn: no old pixels to replace, so no flicker to avoid.
+		Gdiplus::Graphics graphics(dc);
+		graphics.SetClip(Gdiplus::Rect(rcImageOnScreen.left, rcImageOnScreen.top,
+			rcImageOnScreen.Width(), rcImageOnScreen.Height()));
+		CAnnotationRenderer::Render(graphics, m_pAnnotationCtl->Model().Annotations(), fScale, ptOrigin);
+		return;
+	}
+
+	HBITMAP hOffscreenBitmap = NULL;
+	{
+		CDC memDC;
+		hOffscreenBitmap = CPaintMemDCMgr::PrepareRectForMemDCPainting(memDC, dc, rcBuffer);
+		if (memDC.m_hDC == NULL) {
+			return;
+		}
+		CSize dibSize(abs(pBitmapInfo->bmiHeader.biWidth), abs(pBitmapInfo->bmiHeader.biHeight));
+		memDC.SetDIBitsToDevice(ptDIBStart.x - rcBuffer.left, ptDIBStart.y - rcBuffer.top,
+			dibSize.cx, dibSize.cy, 0, 0, 0, dibSize.cy, pDIBData, pBitmapInfo, DIB_RGB_COLORS);
+		{
+			Gdiplus::Graphics graphics(memDC);
+			// Everything below is written in screen coordinates; the transform moves it
+			// into the memory bitmap, and SetClip is applied through that transform.
+			graphics.TranslateTransform(-(float)rcBuffer.left, -(float)rcBuffer.top);
+			graphics.SetClip(Gdiplus::Rect(rcImageOnScreen.left, rcImageOnScreen.top,
+				rcImageOnScreen.Width(), rcImageOnScreen.Height()));
+			CAnnotationRenderer::Render(graphics, m_pAnnotationCtl->Model().Annotations(), fScale, ptOrigin);
+			CAnnotationRenderer::RenderOne(graphics, *pPending, fScale, ptOrigin);
+		}
+		dc.BitBlt(rcBuffer.left, rcBuffer.top, rcBuffer.Width(), rcBuffer.Height(), memDC, 0, 0, SRCCOPY);
+	}
+	// Deleted only once the memory DC is gone: a bitmap selected into a DC cannot be.
+	if (hOffscreenBitmap != NULL) {
+		::DeleteObject(hOffscreenBitmap);
+	}
 }
 
 void CMainDlg::StartAnnotationTextEdit() {

@@ -27,6 +27,11 @@ public:
 
 	void Toggle() { SetVisible(!m_bVisible); }
 
+	// Called whenever the selected tool or one of its modes changes. The two numbers
+	// belong to the tool, so the sliders have to be reloaded, the width slider
+	// relabelled, and the back colour button shown only for a text label with a backing.
+	void OnToolChanged();
+
 	// Called back by CMainDlg when the user typed a number into one of the two fields.
 	enum { ENTRY_OPACITY = 1, ENTRY_WIDTH = 2 };
 	void SetValueFromEntry(int nWhich, int nValue);
@@ -37,17 +42,18 @@ public:
 private:
 	static void OnSwatchPressed(void* pContext, int nParameter, CButtonCtrl& sender);
 	static void OnOtherColorPressed(void* pContext, int nParameter, CButtonCtrl& sender);
+	static void OnBackColorPressed(void* pContext, int nParameter, CButtonCtrl& sender);
+	static bool PickColor(CMainDlg* pMainDlg, COLORREF& color);
 
 	void ApplyStyle(bool bPersist);
 	void LoadFromControl();
 	void RelabelWidthSlider();
+	void UpdateBackColorButton();
 	void CheckForValueEntry();
 
 	CAnnotationStylePanel* m_pStylePanel;
 	bool m_bVisible;
 	double m_dOpacity;   // percent, bound to the opacity slider
 	double m_dWidth;     // screen pixels, bound to the width slider
-	int m_nPenWidth;     // kept apart so switching tools does not lose the other one
-	int m_nFontSize;
 	COLORREF m_color;
 };

@@ -325,7 +325,7 @@
 
 // annotation commands
 #define IDM_ANNOTATE_FREEHAND   21000		// :KeyMap: select the freehand annotation tool, press again to toggle the arrow head
-#define IDM_ANNOTATE_TEXT       21001		// :KeyMap: select the text annotation tool
+#define IDM_ANNOTATE_TEXT       21001		// :KeyMap: select the text annotation tool, press again to toggle the filled background
 #define IDM_ANNOTATE_RECT       21002		// :KeyMap: select the shape annotation tool, press again for the next shape
 #define IDM_ANNOTATE_UNDO       21003		// :KeyMap: undo the last annotation
 #define IDM_ANNOTATE_REDO       21004		// :KeyMap: redo the last undone annotation

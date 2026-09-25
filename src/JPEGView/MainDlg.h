@@ -347,6 +347,7 @@ private:
 	int m_nAnnotationValueEditMin, m_nAnnotationValueEditMax;
 	bool m_bAnnotationsBurnedIn;   // the pixels already carry them; do not burn twice
 	bool m_bInSaveAnnotationsPrompt; // the prompt runs a message loop, so it can re-enter
+	void PaintAnnotations(CPaintDC& dc, const CPoint& ptDIBStart, const CSize& clippedSize, void* pDIBData, BITMAPINFO* pBitmapInfo);
 	void StartAnnotationTextEdit();
 	void DestroyAnnotationEdit(CEdit& edit, bool& bActive);
 	void OnAnnotationTextCommitted();

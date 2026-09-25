@@ -401,6 +401,12 @@ void CNavigationPanelCtl::UpdateAnnotationButtons() {
 	// Fill is a style, not a tool, so its button shows whether fill is on rather than
 	// whether it is the tool in use.
 	if (pFill != NULL) pFill->SetActive(pCtl->IsFillEnabled());
+	// Every route that changes the tool or one of its modes passes through here, so this
+	// is where the style strip is told to follow: its two numbers belong to the tool.
+	CAnnotationStylePanelCtl* pStyle = m_pMainDlg->GetAnnotationStylePanelCtl();
+	if (pStyle != NULL) {
+		pStyle->OnToolChanged();
+	}
 }
 
 void CNavigationPanelCtl::OnToggleAnnotationStyle(void* pContext, int nParameter, CButtonCtrl& sender) {

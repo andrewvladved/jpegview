@@ -36,11 +36,15 @@ public:
 
 	// Selecting the tool that is already selected cycles it: the shape tool steps
 	// rectangle -> ellipse -> triangle -> rectangle, the freehand tool turns its arrow
-	// head on and off. Leaving annotation mode is done with SetTool(ATOOL_None).
+	// head on and off, the text tool turns the filled backing behind the glyphs on and
+	// off. Leaving annotation mode is done with SetTool(ATOOL_None).
 	void SetTool(EAnnotationTool eTool);
 	EAnnotationTool GetTool() const { return m_eTool; }
 	EAnnotationShape GetShape() const { return m_eShape; }
 	bool IsFreehandArrow() const { return m_bFreehandArrow; }
+	bool IsTextBackground() const { return m_bTextBackground; }
+	COLORREF GetTextBackColor() const { return m_textBackColor; }
+	void SetTextBackColor(COLORREF color) { m_textBackColor = color; }
 
 	// Fill has a button of its own, so unlike the shape it is a style setting: it keeps
 	// its value while the user switches tools, the way the colour does.
@@ -77,13 +81,23 @@ public:
 	// The annotation being drawn right now, or NULL. Painted on top of the committed ones.
 	const CAnnotation* PendingAnnotation() const { return m_bDrawing ? &m_pending : NULL; }
 
-	void SetStyle(COLORREF color, int nAlpha, int nPenWidthScreen, int nFontSizeScreen);
+	// The colour is one choice for the whole feature, but the opacity and the width
+	// belong to the tool: picking a two pixel line for the shapes must not shrink the
+	// text to two pixels as well. The text tool's width is its font size.
+	void InitStyle(COLORREF color, int nAlpha, int nPenWidthScreen, int nFontSizeScreen);
+	void SetStyleForCurrentTool(COLORREF color, int nAlpha, int nWidthScreen);
 	COLORREF GetColor() const { return m_color; }
-	int GetAlpha() const { return m_nAlpha; }
-	int GetPenWidthScreen() const { return m_nPenWidthScreen; }
-	int GetFontSizeScreen() const { return m_nFontSizeScreen; }
+	int GetAlpha() const { return m_nAlpha[StyleSlot()]; }
+	int GetWidthScreen() const { return m_nWidthScreen[StyleSlot()]; }
+	int GetFontSizeScreen() const { return m_nWidthScreen[SLOT_Text]; }
+	int GetPenWidthScreen() const { return m_nWidthScreen[SLOT_Freehand]; }
 
 private:
+	// One set of numbers per tool. ATOOL_None borrows the freehand set, so the style
+	// strip still shows something sensible when no tool is selected.
+	enum { SLOT_Freehand = 0, SLOT_Text = 1, SLOT_Shape = 2, NUM_STYLE_SLOTS = 3 };
+	int StyleSlot() const;
+
 	CPointF ToImage(int nX, int nY);
 	EAnnotationType CurrentShapeType() const;
 	void StartStyle(CAnnotation& annotation, EAnnotationType eType);
@@ -96,6 +110,7 @@ private:
 	EAnnotationShape m_eShape;
 	bool m_bFill;
 	bool m_bFreehandArrow;
+	bool m_bTextBackground;
 	bool m_bDrawing;
 	CAnnotation m_pending;
 	// The corner the shape drag started from. Kept apart from m_pending.points,
@@ -106,8 +121,8 @@ private:
 	bool m_bPendingText;
 	CPoint m_ptPendingText;
 
-	COLORREF m_color;
-	int m_nAlpha;
-	int m_nPenWidthScreen;
-	int m_nFontSizeScreen;
+	COLORREF m_color;          // shared by every tool
+	COLORREF m_textBackColor;  // shared, used only by the text tool
+	int m_nAlpha[NUM_STYLE_SLOTS];
+	int m_nWidthScreen[NUM_STYLE_SLOTS];
 };

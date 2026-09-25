@@ -530,3 +530,129 @@ TEST(RectangleStillInvalidatesItsWholeShape) {
 	CHECK(host.m_lastInvalidated.Width() >= 380);
 	CHECK(host.m_lastInvalidated.Height() >= 280);
 }
+
+// Each tool keeps its own opacity and its own width, so setting a thin line for the
+// shapes cannot shrink the text, which is what the shared pair used to do.
+TEST(WidthIsKeptPerTool) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.InitStyle(RGB(255, 0, 0), 180, 4, 24);
+	ctl.SetTool(ATOOL_Text);
+	ctl.SetStyleForCurrentTool(RGB(255, 0, 0), 180, 30);
+	ctl.SetTool(ATOOL_Shape);
+	ctl.SetStyleForCurrentTool(RGB(255, 0, 0), 180, 2);
+	CHECK(ctl.GetWidthScreen() == 2);
+	ctl.SetTool(ATOOL_Text);
+	CHECK(ctl.GetWidthScreen() == 30);
+	CHECK(ctl.GetFontSizeScreen() == 30);
+	ctl.SetTool(ATOOL_Freehand);
+	CHECK(ctl.GetWidthScreen() == 4); // untouched, still the initial value
+}
+
+TEST(OpacityIsKeptPerTool) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.InitStyle(RGB(255, 0, 0), 180, 4, 24);
+	ctl.SetTool(ATOOL_Freehand);
+	ctl.SetStyleForCurrentTool(RGB(255, 0, 0), 60, 4);
+	ctl.SetTool(ATOOL_Text);
+	CHECK(ctl.GetAlpha() == 180);
+	ctl.SetTool(ATOOL_Freehand);
+	CHECK(ctl.GetAlpha() == 60);
+}
+
+// The colour is one choice for the whole feature, unlike the two numbers.
+TEST(ColourIsSharedByEveryTool) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.InitStyle(RGB(255, 0, 0), 180, 4, 24);
+	ctl.SetTool(ATOOL_Shape);
+	ctl.SetStyleForCurrentTool(RGB(0, 255, 0), 180, 4);
+	ctl.SetTool(ATOOL_Text);
+	CHECK(ctl.GetColor() == RGB(0, 255, 0));
+}
+
+TEST(InitStyleGivesEveryToolTheSameStartingPoint) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.InitStyle(RGB(1, 2, 3), 100, 7, 33);
+	ctl.SetTool(ATOOL_Freehand);
+	CHECK(ctl.GetAlpha() == 100);
+	CHECK(ctl.GetWidthScreen() == 7);
+	ctl.SetTool(ATOOL_Shape);
+	CHECK(ctl.GetAlpha() == 100);
+	CHECK(ctl.GetWidthScreen() == 7);
+	ctl.SetTool(ATOOL_Text);
+	CHECK(ctl.GetAlpha() == 100);
+	CHECK(ctl.GetWidthScreen() == 33); // the text tool's width is its font size
+}
+
+TEST(EachToolDrawsWithItsOwnWidth) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.InitStyle(RGB(255, 0, 0), 255, 4, 24);
+	ctl.SetTool(ATOOL_Shape);
+	ctl.SetStyleForCurrentTool(RGB(255, 0, 0), 255, 2);
+	ctl.OnLButtonDown(10, 10);
+	ctl.OnMouseMove(60, 60);
+	ctl.OnLButtonUp(60, 60);
+	ctl.SetTool(ATOOL_Freehand);
+	ctl.OnLButtonDown(100, 10);
+	ctl.OnMouseMove(150, 60);
+	ctl.OnLButtonUp(150, 60);
+	REQUIRE(ctl.Model().Count() == 2);
+	CHECK_NEAR(ctl.Model().Annotations()[0].fPenWidth, 2.0, 0.001);
+	CHECK_NEAR(ctl.Model().Annotations()[1].fPenWidth, 4.0, 0.001);
+}
+
+TEST(RepeatSelectionOfTextTogglesTheBackground) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.SetTool(ATOOL_Text);
+	CHECK(!ctl.IsTextBackground());
+	ctl.SetTool(ATOOL_Text);
+	CHECK(ctl.IsTextBackground());
+	ctl.SetTool(ATOOL_Text);
+	CHECK(!ctl.IsTextBackground());
+}
+
+TEST(TextBackgroundSurvivesSwitchingToAnotherToolAndBack) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.SetTool(ATOOL_Text);
+	ctl.SetTool(ATOOL_Text); // background on
+	ctl.SetTool(ATOOL_Freehand);
+	ctl.SetTool(ATOOL_Text);
+	CHECK(ctl.IsTextBackground());
+}
+
+TEST(TheLabelCarriesTheBackgroundFlagAndItsColour) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.SetTool(ATOOL_Text);
+	ctl.SetTool(ATOOL_Text); // background on
+	ctl.SetTextBackColor(RGB(0, 0, 128));
+	ctl.OnLButtonDown(50, 50);
+	ctl.CommitText(_T("hello"));
+	REQUIRE(ctl.Model().Count() == 1);
+	CHECK(ctl.Model().Annotations()[0].bBackground);
+	CHECK(ctl.Model().Annotations()[0].backColor == RGB(0, 0, 128));
+}
+
+TEST(NoBackgroundFlagReachesAStrokeOrAShape) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.SetTool(ATOOL_Text);
+	ctl.SetTool(ATOOL_Text); // background on
+	ctl.SetTool(ATOOL_Shape);
+	ctl.OnLButtonDown(10, 10);
+	ctl.OnMouseMove(60, 60);
+	ctl.OnLButtonUp(60, 60);
+	ctl.SetTool(ATOOL_Freehand);
+	ctl.OnLButtonDown(100, 10);
+	ctl.OnMouseMove(150, 60);
+	ctl.OnLButtonUp(150, 60);
+	REQUIRE(ctl.Model().Count() == 2);
+	CHECK(!ctl.Model().Annotations()[0].bBackground);
+	CHECK(!ctl.Model().Annotations()[1].bBackground);
+}

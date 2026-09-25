@@ -13,7 +13,8 @@ public:
 		ID_swatch4, ID_swatch5, ID_swatch6, ID_swatch7,
 		ID_slOpacity,
 		ID_slWidth,
-		ID_btnOtherColor
+		ID_btnOtherColor,
+		ID_btnBackColor
 	};
 
 	static const int NUM_SWATCHES = 8;
@@ -26,6 +27,7 @@ public:
 
 	CButtonCtrl* GetSwatch(int nIndex) { return GetControl<CButtonCtrl*>(ID_swatch0 + nIndex); }
 	CButtonCtrl* GetBtnOtherColor() { return GetControl<CButtonCtrl*>(ID_btnOtherColor); }
+	CButtonCtrl* GetBtnBackColor() { return GetControl<CButtonCtrl*>(ID_btnBackColor); }
 	CSliderDouble* GetSliderOpacity() { return GetControl<CSliderDouble*>(ID_slOpacity); }
 	CSliderDouble* GetSliderWidth() { return GetControl<CSliderDouble*>(ID_slWidth); }
 

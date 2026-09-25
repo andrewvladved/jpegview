@@ -115,9 +115,22 @@ void CAnnotationRenderer::RenderOne(Gdiplus::Graphics& g, const CAnnotation& ann
 				return;
 			}
 			Gdiplus::PointF ptAnchor = Transform(annotation.points[0], fScale, ptOrigin);
+			float fHeight = max(1.0f, annotation.fFontHeight * fScale);
 			Gdiplus::FontFamily fontFamily(L"Segoe UI");
-			Gdiplus::Font font(&fontFamily, max(1.0f, annotation.fFontHeight * fScale),
-				Gdiplus::FontStyleRegular, Gdiplus::UnitPixel);
+			Gdiplus::Font font(&fontFamily, fHeight, Gdiplus::FontStyleRegular, Gdiplus::UnitPixel);
+			if (annotation.bBackground) {
+				// A filled backing behind the glyphs, which is what makes a label
+				// readable over a busy picture. It carries the same alpha as the text,
+				// so a translucent label does not turn into an opaque block.
+				Gdiplus::RectF bounds;
+				g.MeasureString(annotation.sText, -1, &font, ptAnchor, &bounds);
+				Gdiplus::Color back((BYTE)annotation.nAlpha, GetRValue(annotation.backColor),
+					GetGValue(annotation.backColor), GetBValue(annotation.backColor));
+				Gdiplus::SolidBrush backBrush(back);
+				float fPad = max(1.0f, fHeight * 0.1f);
+				g.FillRectangle(&backBrush, bounds.X - fPad, bounds.Y - fPad,
+					bounds.Width + 2 * fPad, bounds.Height + 2 * fPad);
+			}
 			Gdiplus::SolidBrush brush(color);
 			g.DrawString(annotation.sText, -1, &font, ptAnchor, &brush);
 			break;

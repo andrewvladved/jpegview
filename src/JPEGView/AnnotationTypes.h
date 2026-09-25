@@ -40,11 +40,13 @@ const float ARROW_LENGTH_IN_PEN_WIDTHS = 4.0f;
 //   AT_Ellipse,
 //   AT_Triangle  - points holds exactly two opposite corners of the box the shape is
 //                  drawn in, bFilled selects fill or outline
-//   AT_Text      - points holds one anchor (top left of the text), sText and fFontHeight are used
+//   AT_Text      - points holds one anchor (top left of the text), sText and fFontHeight
+//                  are used, bBackground fills backColor behind the glyphs
 // All coordinates and sizes are in pixels of the image as currently displayed.
 struct CAnnotation {
 	CAnnotation() : eType(AT_Freehand), color(0), nAlpha(255), fPenWidth(1.0f),
-		bFilled(false), bArrowHead(false), fFontHeight(12.0f) {}
+		bFilled(false), bArrowHead(false), bBackground(false), backColor(0),
+		fFontHeight(12.0f) {}
 
 	EAnnotationType      eType;
 	COLORREF             color;
@@ -52,6 +54,8 @@ struct CAnnotation {
 	float                fPenWidth;   // image pixels
 	bool                 bFilled;     // shapes only
 	bool                 bArrowHead;  // freehand only
+	bool                 bBackground; // text only
+	COLORREF             backColor;   // text only, the colour behind the glyphs
 	std::vector<CPointF> points;
 	CString              sText;       // text only
 	float                fFontHeight; // text only, image pixels

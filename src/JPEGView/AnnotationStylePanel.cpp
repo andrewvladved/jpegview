@@ -51,6 +51,13 @@ CAnnotationStylePanel::CAnnotationStylePanel(HWND hWnd, INotifiyMouseCapture* pN
 		AddUserPaintButton(ID_swatch0 + i, _T(""), &PaintSwatch, NULL, (void*)&s_swatchIndex[i], NULL, i);
 	}
 	AddButton(ID_btnOtherColor, CNLS::GetString(_T("Other colour...")));
+	// Only meaningful for a text label with a filled backing, so the controller shows and
+	// hides it with that mode. A hidden control is skipped by painting and hit testing.
+	AddButton(ID_btnBackColor, CNLS::GetString(_T("Back colour...")));
+	CButtonCtrl* pBackColor = GetBtnBackColor();
+	if (pBackColor != NULL) {
+		pBackColor->SetShow(false, false);
+	}
 	// The width slider is relabelled by the controller when the text tool is active,
 	// because there it sets the font size instead of the line width.
 	AddSlider(ID_slOpacity, CNLS::GetString(_T("Opacity")), pdOpacity, NULL,
@@ -81,6 +88,10 @@ CRect CAnnotationStylePanel::PanelRect() {
 		CButtonCtrl* pOther = GetBtnOtherColor();
 		if (pOther != NULL) {
 			nOther = pOther->GetMinSize().cx;
+		}
+		CButtonCtrl* pBackColor = GetBtnBackColor();
+		if (pBackColor != NULL && pBackColor->IsShown()) {
+			nOther += m_nGap + pBackColor->GetMinSize().cx;
 		}
 		int nSliders = 0;
 		CSliderDouble* pOpacity = GetSliderOpacity();
@@ -135,6 +146,16 @@ void CAnnotationStylePanel::RepositionAll() {
 	CSize sizeOther = pOther->GetMinSize();
 	pOther->SetPosition(CRect(CPoint(nX, nYCenter - sizeOther.cy / 2), sizeOther));
 	nX += sizeOther.cx + m_nGap;
+
+	CButtonCtrl* pBackColor = GetBtnBackColor();
+	if (pBackColor == NULL) {
+		return;
+	}
+	if (pBackColor->IsShown()) {
+		CSize sizeBack = pBackColor->GetMinSize();
+		pBackColor->SetPosition(CRect(CPoint(nX, nYCenter - sizeBack.cy / 2), sizeBack));
+		nX += sizeBack.cx + m_nGap;
+	}
 
 	CSliderDouble* pOpacity = GetSliderOpacity();
 	if (pOpacity == NULL) {

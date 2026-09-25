@@ -7,6 +7,7 @@ CAnnotationCtl::CAnnotationCtl(IAnnotationHost* pHost) {
 	m_eShape = SHAPE_Rectangle;
 	m_bFill = false;
 	m_bFreehandArrow = false;
+	m_bTextBackground = false;
 	m_bDrawing = false;
 	m_bPendingText = false;
 	m_ptPendingText = CPoint(0, 0);
@@ -14,9 +15,16 @@ CAnnotationCtl::CAnnotationCtl(IAnnotationHost* pHost) {
 	m_ptLastStrokeEnd.x = m_ptLastStrokeEnd.y = 0.0f;
 	m_bHasLastStrokeEnd = false;
 	m_color = RGB(255, 0, 0);
-	m_nAlpha = 180;
-	m_nPenWidthScreen = 4;
-	m_nFontSizeScreen = 24;
+	m_textBackColor = RGB(0, 0, 0);
+	InitStyle(m_color, 180, 4, 24);
+}
+
+int CAnnotationCtl::StyleSlot() const {
+	switch (m_eTool) {
+		case ATOOL_Text: return SLOT_Text;
+		case ATOOL_Shape: return SLOT_Shape;
+		default: return SLOT_Freehand; // also where ATOOL_None looks
+	}
 }
 
 void CAnnotationCtl::SetTool(EAnnotationTool eTool) {
@@ -30,6 +38,12 @@ void CAnnotationCtl::SetTool(EAnnotationTool eTool) {
 	if (eTool == ATOOL_Freehand && m_eTool == ATOOL_Freehand) {
 		// Likewise, pressing freehand again puts an arrow head on the end of the line.
 		m_bFreehandArrow = !m_bFreehandArrow;
+		return;
+	}
+	if (eTool == ATOOL_Text && m_eTool == ATOOL_Text) {
+		// And pressing text again puts a filled backing behind the glyphs, which is what
+		// makes a label readable over a busy picture.
+		m_bTextBackground = !m_bTextBackground;
 		return;
 	}
 	if (eTool != ATOOL_Text) {
@@ -50,11 +64,19 @@ EAnnotationType CAnnotationCtl::CurrentShapeType() const {
 	}
 }
 
-void CAnnotationCtl::SetStyle(COLORREF color, int nAlpha, int nPenWidthScreen, int nFontSizeScreen) {
+void CAnnotationCtl::InitStyle(COLORREF color, int nAlpha, int nPenWidthScreen, int nFontSizeScreen) {
 	m_color = color;
-	m_nAlpha = max(0, min(255, nAlpha));
-	m_nPenWidthScreen = max(1, nPenWidthScreen);
-	m_nFontSizeScreen = max(4, nFontSizeScreen);
+	for (int i = 0; i < NUM_STYLE_SLOTS; i++) {
+		m_nAlpha[i] = max(0, min(255, nAlpha));
+		m_nWidthScreen[i] = (i == SLOT_Text) ? max(4, nFontSizeScreen) : max(1, nPenWidthScreen);
+	}
+}
+
+void CAnnotationCtl::SetStyleForCurrentTool(COLORREF color, int nAlpha, int nWidthScreen) {
+	int nSlot = StyleSlot();
+	m_color = color;
+	m_nAlpha[nSlot] = max(0, min(255, nAlpha));
+	m_nWidthScreen[nSlot] = max((nSlot == SLOT_Text) ? 4 : 1, nWidthScreen);
 }
 
 CPointF CAnnotationCtl::ToImage(int nX, int nY) {
@@ -71,15 +93,20 @@ void CAnnotationCtl::StartStyle(CAnnotation& annotation, EAnnotationType eType) 
 	annotation = CAnnotation();
 	annotation.eType = eType;
 	annotation.color = m_color;
-	annotation.nAlpha = m_nAlpha;
+	// The element takes the numbers of the tool drawing it, not of whichever tool the
+	// style strip last showed.
+	int nSlot = (eType == AT_Text) ? SLOT_Text : (IsTwoCornerShape(eType) ? SLOT_Shape : SLOT_Freehand);
+	annotation.nAlpha = m_nAlpha[nSlot];
 	// The user picks sizes in screen pixels; they are stored in image pixels so a stroke
 	// keeps its apparent thickness while drawing and scales with the image when saved.
-	annotation.fPenWidth = m_nPenWidthScreen / fZoom;
-	annotation.fFontHeight = m_nFontSizeScreen / fZoom;
+	annotation.fPenWidth = m_nWidthScreen[nSlot] / fZoom;
+	annotation.fFontHeight = m_nWidthScreen[SLOT_Text] / fZoom;
 	// Fill belongs to the shapes and the arrow head to the freehand line; neither must
 	// leak onto the other kind of element.
 	annotation.bFilled = m_bFill && IsTwoCornerShape(eType);
 	annotation.bArrowHead = m_bFreehandArrow && eType == AT_Freehand;
+	annotation.bBackground = m_bTextBackground && eType == AT_Text;
+	annotation.backColor = m_textBackColor;
 }
 
 // A freehand stroke only ever grows, and the part already on screen is unchanged, so

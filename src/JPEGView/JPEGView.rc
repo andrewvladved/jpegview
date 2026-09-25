@@ -405,7 +405,7 @@ BEGIN
         POPUP "Annotations"
         BEGIN
             MENUITEM "Freehand",                    IDM_ANNOTATE_FREEHAND
-            MENUITEM "Text",                        IDM_ANNOTATE_TEXT
+            MENUITEM "Text (press again for a background)", IDM_ANNOTATE_TEXT
             MENUITEM "Shape (rectangle, ellipse, triangle)", IDM_ANNOTATE_RECT
             MENUITEM "Fill shapes",                 IDM_ANNOTATE_FILL
             MENUITEM SEPARATOR

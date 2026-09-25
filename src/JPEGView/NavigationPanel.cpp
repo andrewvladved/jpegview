@@ -464,12 +464,13 @@ void CNavigationPanel::PaintAnnotateRectBtn(void* pContext, const CRect& rect, C
 }
 
 void CNavigationPanel::PaintAnnotateFillBtn(void* pContext, const CRect& rect, CDC& dc) {
-	// The same shape, solid when fill is on and hollow when it is off, so the button
-	// shows what pressing it will do to the shape next to it.
+	// Always the solid shape, so the button never looks like a copy of the outline one
+	// beside it. Whether fill is currently on is shown the way every other toggle on
+	// this panel shows it, by the button drawing itself as pressed.
 	CNavigationPanel* pPanel = (CNavigationPanel*)pContext;
 	CAnnotationCtl* pCtl = (pPanel == NULL) ? NULL : pPanel->m_pAnnotationCtl;
 	CRect r = Helpers::InflateRect(rect, 0.25f);
-	DrawShapeGlyph(r, dc, pCtl != NULL && pCtl->IsFillEnabled(), pCtl);
+	DrawShapeGlyph(r, dc, true, pCtl);
 }
 
 void CNavigationPanel::PaintAnnotateClearBtn(void* pContext, const CRect& rect, CDC& dc) {
@@ -490,7 +491,7 @@ void CNavigationPanel::PaintAnnotateStyleBtn(void* pContext, const CRect& rect, 
 	COLORREF color = RGB(255, 0, 0);
 	if (pPanel != NULL && pPanel->m_pAnnotationCtl != NULL) {
 		color = pPanel->m_pAnnotationCtl->GetColor();
-		int nWidth = min(20, max(1, pPanel->m_pAnnotationCtl->GetPenWidthScreen()));
+		int nWidth = min(20, max(1, pPanel->m_pAnnotationCtl->GetWidthScreen()));
 		nRadius = max(2, 2 + (nMaxRadius - 2) * nWidth / 20);
 	}
 	CPoint ptCenter((r.left + r.right) / 2, (r.top + r.bottom) / 2);
