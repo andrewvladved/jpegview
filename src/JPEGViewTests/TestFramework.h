@@ -48,11 +48,16 @@ struct CTestRegistrar {
 		} \
 	} while (0)
 
+// The locals below are deliberately named so that no caller's variable can collide
+// with them: short names like `a` shadow the caller's own `a` inside the expansion,
+// and the expression passed in then resolves to the macro's local instead.
 #define CHECK_NEAR(actual, expected, tolerance) \
 	do { \
-		double a = (double)(actual), e = (double)(expected); \
-		if (a < e - (tolerance) || a > e + (tolerance)) { \
-			printf("FAIL %s:%d  %s: got %f, expected %f\n", __FILE__, __LINE__, #actual, a, e); \
+		double dCheckNearActual_ = (double)(actual), dCheckNearExpected_ = (double)(expected); \
+		if (dCheckNearActual_ < dCheckNearExpected_ - (tolerance) || \
+		    dCheckNearActual_ > dCheckNearExpected_ + (tolerance)) { \
+			printf("FAIL %s:%d  %s: got %f, expected %f\n", __FILE__, __LINE__, #actual, \
+				dCheckNearActual_, dCheckNearExpected_); \
 			g_nFailures++; \
 		} \
 	} while (0)
