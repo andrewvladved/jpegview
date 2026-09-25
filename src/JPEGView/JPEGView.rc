@@ -388,6 +388,18 @@ BEGIN
             MENUITEM "Mirror horizontally",         IDM_MIRROR_H
             MENUITEM "Mirror vertically",           IDM_MIRROR_V
         END
+        POPUP "Annotations"
+        BEGIN
+            MENUITEM "Freehand",                    IDM_ANNOTATE_FREEHAND
+            MENUITEM "Text",                        IDM_ANNOTATE_TEXT
+            MENUITEM "Rectangle",                   IDM_ANNOTATE_RECT
+            MENUITEM SEPARATOR
+            MENUITEM "Undo annotation",             IDM_ANNOTATE_UNDO
+            MENUITEM "Redo annotation",             IDM_ANNOTATE_REDO
+            MENUITEM "Clear annotations",           IDM_ANNOTATE_CLEAR
+            MENUITEM SEPARATOR
+            MENUITEM "Save image with annotations", IDM_ANNOTATE_APPLY_SAVE
+        END
         POPUP "Lossless JPEG transformations"
         BEGIN
             MENUITEM "Rotate +90\t0x24B9",          IDM_ROTATE_90_LOSSLESS

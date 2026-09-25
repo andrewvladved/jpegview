@@ -315,6 +315,16 @@
 #define IDM_CROPMODE_IMAGE         20899
 #define IDM_CROPMODE_USER          20900
 
+// annotation commands
+#define IDM_ANNOTATE_FREEHAND   21000		// :KeyMap: select the freehand annotation tool
+#define IDM_ANNOTATE_TEXT       21001		// :KeyMap: select the text annotation tool
+#define IDM_ANNOTATE_RECT       21002		// :KeyMap: select the rectangle annotation tool, press again to toggle fill
+#define IDM_ANNOTATE_UNDO       21003		// :KeyMap: undo the last annotation
+#define IDM_ANNOTATE_REDO       21004		// :KeyMap: redo the last undone annotation
+#define IDM_ANNOTATE_CLEAR      21005		// :KeyMap: remove all annotations from the current image
+#define IDM_ANNOTATE_OFF        21006		// :KeyMap: leave annotation mode
+#define IDM_ANNOTATE_APPLY_SAVE 21007		// :KeyMap: burn the annotations into the image and save it
+
 #define IDM_FIRST_USER_CMD  22000
 #define IDM_LAST_USER_CMD   22099
 

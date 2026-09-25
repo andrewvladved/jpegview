@@ -519,3 +519,20 @@ Zoom to Selection	Масштабировать до выделенного
 //! * Total (Strings + Menu) = 429
 //! * Done = 429
 //! * Missing = 0 (0%)
+Annotations	Разметка
+Freehand	От руки
+Rectangle	Прямоугольник
+Undo annotation	Отменить элемент разметки
+Redo annotation	Вернуть элемент разметки
+Clear annotations	Очистить разметку
+Save image with annotations	Сохранить изображение с разметкой
+Draw freehand	Рисовать от руки
+Add text	Добавить текст
+Draw rectangle (outline)	Прямоугольник (контур)
+Draw rectangle (filled)	Прямоугольник (заливка)
+Annotation colour, opacity and width	Цвет, прозрачность и толщина разметки
+Line width	Толщина линии
+Font size	Размер шрифта
+Opacity	Прозрачность
+Other colour...	Другой цвет...
+Text	Текст
