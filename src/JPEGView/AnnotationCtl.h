@@ -75,6 +75,9 @@ private:
 	bool m_bRectangleFilled;
 	bool m_bDrawing;
 	CAnnotation m_pending;
+	// The corner the rectangle drag started from. Kept apart from m_pending.points,
+	// which gets reordered on every move so the live preview has a positive size.
+	CPointF m_ptRectAnchor;
 	bool m_bPendingText;
 	CPoint m_ptPendingText;
 

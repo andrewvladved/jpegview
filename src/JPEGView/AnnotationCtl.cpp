@@ -8,6 +8,7 @@ CAnnotationCtl::CAnnotationCtl(IAnnotationHost* pHost) {
 	m_bDrawing = false;
 	m_bPendingText = false;
 	m_ptPendingText = CPoint(0, 0);
+	m_ptRectAnchor.x = m_ptRectAnchor.y = 0.0f;
 	m_color = RGB(255, 0, 0);
 	m_nAlpha = 180;
 	m_nPenWidthScreen = 4;
@@ -83,8 +84,9 @@ bool CAnnotationCtl::OnLButtonDown(int nX, int nY) {
 			return true;
 		case ATOOL_Rectangle:
 			StartStyle(m_pending, AT_Rectangle);
-			m_pending.points.push_back(ToImage(nX, nY));
-			m_pending.points.push_back(ToImage(nX, nY));
+			m_ptRectAnchor = ToImage(nX, nY);
+			m_pending.points.push_back(m_ptRectAnchor);
+			m_pending.points.push_back(m_ptRectAnchor);
 			m_bDrawing = true;
 			return true;
 	}
@@ -99,9 +101,12 @@ bool CAnnotationCtl::OnMouseMove(int nX, int nY) {
 	if (m_pending.eType == AT_Freehand) {
 		m_pending.points.push_back(ToImage(nX, nY));
 	} else if (m_pending.eType == AT_Rectangle) {
+		// Rebuild from the anchor rather than moving points[1], because normalising may
+		// already have swapped the two corners on an earlier move.
+		m_pending.points[0] = m_ptRectAnchor;
 		m_pending.points[1] = ToImage(nX, nY);
-		// GDI+ draws nothing for a negative width or height, so a drag up or left would
-		// show no preview at all until the button came up.
+		// GDI+ draws nothing for a negative width or height, so without this a drag up
+		// or left would show no preview at all until the button came up.
 		AnnotationGeometry::NormalizeRectangle(m_pending);
 	}
 	InvalidatePending(); // and the area it covers after the move
@@ -113,6 +118,7 @@ bool CAnnotationCtl::OnLButtonUp(int nX, int nY) {
 		return false;
 	}
 	if (m_pending.eType == AT_Rectangle) {
+		m_pending.points[0] = m_ptRectAnchor;
 		m_pending.points[1] = ToImage(nX, nY);
 		AnnotationGeometry::NormalizeRectangle(m_pending);
 	}
