@@ -100,6 +100,9 @@ bool CAnnotationCtl::OnMouseMove(int nX, int nY) {
 		m_pending.points.push_back(ToImage(nX, nY));
 	} else if (m_pending.eType == AT_Rectangle) {
 		m_pending.points[1] = ToImage(nX, nY);
+		// GDI+ draws nothing for a negative width or height, so a drag up or left would
+		// show no preview at all until the button came up.
+		AnnotationGeometry::NormalizeRectangle(m_pending);
 	}
 	InvalidatePending(); // and the area it covers after the move
 	return true;

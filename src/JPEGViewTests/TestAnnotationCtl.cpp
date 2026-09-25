@@ -246,3 +246,41 @@ TEST(PendingAnnotationIsVisibleOnlyDuringTheDrag) {
 	ctl.OnLButtonUp(50, 50);
 	CHECK(ctl.PendingAnnotation() == NULL);
 }
+
+// Found in review: the pending rectangle was only normalised on button-up, so while
+// dragging up-left GDI+ was handed a negative width and drew nothing at all - the user
+// got no preview for that drag direction.
+TEST(PendingRectangleIsNormalisedWhileDragging) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.SetTool(ATOOL_Rectangle);
+	ctl.OnLButtonDown(300, 250);
+	ctl.OnMouseMove(100, 50);
+	const CAnnotation* pPending = ctl.PendingAnnotation();
+	REQUIRE(pPending != NULL);
+	REQUIRE(pPending->points.size() == 2);
+	CHECK(pPending->points[0].x < pPending->points[1].x);
+	CHECK(pPending->points[0].y < pPending->points[1].y);
+}
+
+// Found in review: the host origin is the screen position of image pixel (0,0), which is
+// negative whenever the image is larger than the window. The controller must simply
+// subtract it, with no assumption that it is positive.
+TEST(NegativeHostOriginMapsToPositiveImageCoordinates) {
+	CFakeHost host;
+	host.m_ptOrigin = CPoint(-1500, -800); // image scrolled left and up, as when panned
+	host.m_fZoom = 2.0f;
+	host.m_sizeImage = CSize(4000, 4000);
+	CAnnotationCtl ctl(&host);
+	ctl.SetTool(ATOOL_Freehand);
+	ctl.OnLButtonDown(500, 400);
+	ctl.OnMouseMove(700, 600);
+	ctl.OnLButtonUp(700, 600);
+	REQUIRE(ctl.Model().Count() == 1);
+	REQUIRE(ctl.Model().Annotations()[0].points.size() == 2);
+	const CAnnotation& ann = ctl.Model().Annotations()[0];
+	CHECK_NEAR(ann.points[0].x, 1000.0, 0.01); // (500 + 1500) / 2
+	CHECK_NEAR(ann.points[0].y, 600.0, 0.01);  // (400 + 800) / 2
+	CHECK_NEAR(ann.points[1].x, 1100.0, 0.01);
+	CHECK_NEAR(ann.points[1].y, 700.0, 0.01);
+}

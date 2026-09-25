@@ -73,7 +73,7 @@ void CAnnotationStylePanelCtl::RelabelWidthSlider() {
 		? CNLS::GetString(_T("Font size")) : CNLS::GetString(_T("Line width")));
 }
 
-void CAnnotationStylePanelCtl::ApplyStyle() {
+void CAnnotationStylePanelCtl::ApplyStyle(bool bPersist) {
 	CAnnotationCtl* pCtl = m_pMainDlg->GetAnnotationCtl();
 	if (pCtl == NULL) {
 		return;
@@ -85,14 +85,17 @@ void CAnnotationStylePanelCtl::ApplyStyle() {
 	}
 	int nOpacityPercent = max(0, min(100, (int)(m_dOpacity + 0.5)));
 	pCtl->SetStyle(m_color, nOpacityPercent * 255 / 100, m_nPenWidth, m_nFontSize);
-	CSettingsProvider::This().SaveAnnotationStyle(m_color, nOpacityPercent, m_nPenWidth, m_nFontSize);
+	if (bPersist) {
+		// Writing the INI on every mouse-move would be hundreds of file writes per drag.
+		CSettingsProvider::This().SaveAnnotationStyle(m_color, nOpacityPercent, m_nPenWidth, m_nFontSize);
+	}
 	InvalidateMainDlg();
 }
 
 void CAnnotationStylePanelCtl::OnSwatchPressed(void* pContext, int nParameter, CButtonCtrl& sender) {
 	CAnnotationStylePanelCtl* pThis = (CAnnotationStylePanelCtl*)pContext;
 	pThis->m_color = CAnnotationStylePanel::SwatchColor(nParameter);
-	pThis->ApplyStyle();
+	pThis->ApplyStyle(true);
 }
 
 void CAnnotationStylePanelCtl::OnOtherColorPressed(void* pContext, int nParameter, CButtonCtrl& sender) {
@@ -113,14 +116,14 @@ void CAnnotationStylePanelCtl::OnOtherColorPressed(void* pContext, int nParamete
 	cc.Flags = CC_FULLOPEN | CC_RGBINIT;
 	if (::ChooseColor(&cc)) {
 		pThis->m_color = cc.rgbResult;
-		pThis->ApplyStyle();
+		pThis->ApplyStyle(true);
 	}
 }
 
 bool CAnnotationStylePanelCtl::OnMouseLButton(EMouseEvent eMouseEvent, int nX, int nY) {
 	bool bConsumed = CPanelController::OnMouseLButton(eMouseEvent, nX, nY);
 	if (bConsumed && eMouseEvent == MouseEvent_BtnUp) {
-		ApplyStyle(); // a slider was released, or a swatch clicked
+		ApplyStyle(true); // a slider was released, or a swatch clicked
 	}
 	return bConsumed;
 }
@@ -128,7 +131,7 @@ bool CAnnotationStylePanelCtl::OnMouseLButton(EMouseEvent eMouseEvent, int nX, i
 bool CAnnotationStylePanelCtl::OnMouseMove(int nX, int nY) {
 	bool bConsumed = CPanelController::OnMouseMove(nX, nY);
 	if (bConsumed && m_pStylePanel->MouseCursorCaptured()) {
-		ApplyStyle(); // dragging a slider, so the change is visible while dragging
+		ApplyStyle(false); // live feedback while dragging, without touching disk
 	}
 	return bConsumed;
 }

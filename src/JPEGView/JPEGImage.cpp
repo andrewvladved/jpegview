@@ -354,7 +354,13 @@ bool CJPEGImage::ApplyAnnotationsToOriginalPixels(const std::vector<CAnnotation>
 			return false;
 		}
 		Gdiplus::Graphics graphics(&bitmap);
+		if (graphics.GetLastStatus() != Gdiplus::Ok) {
+			return false; // reporting success here would save the file without the marks
+		}
 		CAnnotationRenderer::Render(graphics, annotations, 1.0f, Gdiplus::PointF(0.0f, 0.0f));
+		if (graphics.GetLastStatus() != Gdiplus::Ok) {
+			return false;
+		}
 	}
 
 	MarkAsDestructivelyProcessed();

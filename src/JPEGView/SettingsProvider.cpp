@@ -880,6 +880,7 @@ void CSettingsProvider::WriteInt(LPCTSTR sKey, int nValue) {
 
 void CSettingsProvider::SaveAnnotationStyle(COLORREF color, int nOpacityPercent, int nPenWidth, int nFontSize) {
 	MakeSureUserINIExists();
+	m_bUserINIExists = true; // as every other writer does, or GetString keeps skipping it
 	CString sColor;
 	sColor.Format(_T("%d %d %d"), GetRValue(color), GetGValue(color), GetBValue(color));
 	WriteString(_T("AnnotationColor"), sColor);

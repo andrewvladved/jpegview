@@ -333,6 +333,8 @@ private:
 	CEdit m_annotationEdit;
 	CFont m_annotationEditFont;
 	bool m_bAnnotationEditActive;
+	bool m_bAnnotationsBurnedIn;   // the pixels already carry them; do not burn twice
+	bool m_bInSaveAnnotationsPrompt; // the prompt runs a message loop, so it can re-enter
 	void StartAnnotationTextEdit();
 	void OnAnnotationTextCommitted();
 	void OnAnnotationTextCancelled();

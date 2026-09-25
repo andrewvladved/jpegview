@@ -290,6 +290,8 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_pAnnotationCtl = new CAnnotationCtl(this);
 	m_pAnnotationStylePanelCtl = NULL;
 	m_bAnnotationEditActive = false;
+	m_bAnnotationsBurnedIn = false;
+	m_bInSaveAnnotationsPrompt = false;
 	m_ptImageOrigin = CPoint(0, 0);
 	{
 		// Opacity is a percentage in the INI but an alpha byte in an annotation.
@@ -560,17 +562,23 @@ LRESULT CMainDlg::OnPaint(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 			memDCMgr.BlitImageToMemDC(pDIBData, &bmInfo, ptDIBStart, m_pNavPanelCtl->CurrentBlendingFactor());
 
 			// Annotations sit on the image and under the panels, which paint afterwards.
-			m_ptImageOrigin = ptDIBStart;
+			// ptDIBStart only centres the *clipped* DIB; offsetsInImage says which part of the
+			// zoomed image that DIB shows, and is non-zero whenever the image is larger than
+			// the window or has been panned. The origin is where image pixel (0,0) would land.
+			m_ptImageOrigin = ptDIBStart - offsetsInImage;
 			if (m_pAnnotationCtl != NULL) {
-				Gdiplus::PointF ptOrigin((float)ptDIBStart.x, (float)ptDIBStart.y);
+				Gdiplus::PointF ptOrigin((float)m_ptImageOrigin.x, (float)m_ptImageOrigin.y);
 				float fScale = (float)m_dRealizedZoom;
+				CRect rcImageOnScreen(ptDIBStart, clippedSize);
 				if (!m_pAnnotationCtl->Model().IsEmpty()) {
 					Gdiplus::Graphics graphics(dc);
+					graphics.SetClip(Gdiplus::Rect(rcImageOnScreen.left, rcImageOnScreen.top, rcImageOnScreen.Width(), rcImageOnScreen.Height()));
 					CAnnotationRenderer::Render(graphics, m_pAnnotationCtl->Model().Annotations(), fScale, ptOrigin);
 				}
 				const CAnnotation* pPending = m_pAnnotationCtl->PendingAnnotation();
 				if (pPending != NULL) {
 					Gdiplus::Graphics graphics(dc);
+					graphics.SetClip(Gdiplus::Rect(rcImageOnScreen.left, rcImageOnScreen.top, rcImageOnScreen.Width(), rcImageOnScreen.Height()));
 					CAnnotationRenderer::RenderOne(graphics, *pPending, fScale, ptOrigin);
 				}
 			}
@@ -971,6 +979,10 @@ LRESULT CMainDlg::OnMButtonUp(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*
 }
 
 LRESULT CMainDlg::OnLButtonDblClk(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL& /*bHandled*/) {
+	if (IsAnnotating()) {
+		// The second click of two quick dots must not toggle the zoom mode.
+		return 0;
+	}
 	if (!m_bDragging && !m_pCropCtl->IsCropping()) {
 		if (m_pPanelMgr->OnMouseLButton(MouseEvent_BtnDblClk, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam))) {
 			return 0;
@@ -1475,6 +1487,11 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 	// end up in the wrong place. One rule instead of a special case in each command.
 	switch (nCommand) {
 		case IDM_ROTATE_90: case IDM_ROTATE_270:
+		case IDM_MIRROR_H: case IDM_MIRROR_V:
+		case IDM_ROTATE_90_LOSSLESS: case IDM_ROTATE_90_LOSSLESS_CONFIRM:
+		case IDM_ROTATE_270_LOSSLESS: case IDM_ROTATE_270_LOSSLESS_CONFIRM:
+		case IDM_ROTATE_180_LOSSLESS:
+		case IDM_MIRROR_H_LOSSLESS: case IDM_MIRROR_V_LOSSLESS:
 		case IDM_ROTATE: case IDM_PERSPECTIVE: case IDM_CHANGESIZE:
 		case IDM_CROP_SEL: case IDM_LOSSLESS_CROP_SEL:
 		case IDM_OPEN: case IDM_RELOAD:
@@ -2391,6 +2408,16 @@ bool CMainDlg::OpenFileWithDialog(bool bFullScreen, bool bAfterStartup) {
 }
 
 void CMainDlg::OpenFile(LPCTSTR sFileName, bool bAfterStartup) {
+	// Not routed through GotoImage, so without this a dropped file would inherit the
+	// previous image's annotations - and a later save would burn them into a file the
+	// user never annotated.
+	if (!PromptSaveAnnotations()) {
+		return;
+	}
+	if (m_pAnnotationCtl != NULL) {
+		m_pAnnotationCtl->Clear();
+		m_pAnnotationCtl->SetTool(ATOOL_None);
+	}
 	StopMovieMode();
 	StopAnimation();
 	// recreate file list based on image opened
@@ -2653,11 +2680,16 @@ void CMainDlg::GotoImage(EImagePosition ePos) {
 }
 
 void CMainDlg::GotoImage(EImagePosition ePos, int nFlags) {
-	// Leaving this image is where annotations would be lost, so ask here. Cancelling
-	// during a slideshow also stops it, or the timer would reopen the prompt forever.
-	if (!PromptSaveAnnotations()) {
-		StopSlideShowTimer();
-		return;
+	// An animation frame is the same image being re-decoded, not a move away from it:
+	// prompting there would open a dialog per frame and wipe the annotations each tick.
+	bool bSameImage = (ePos == POS_NextAnimation);
+	if (!bSameImage) {
+		// Leaving this image is where annotations would be lost, so ask here. Cancelling
+		// during a slideshow also stops it, or the timer would reopen the prompt forever.
+		if (!PromptSaveAnnotations()) {
+			StopSlideShowTimer();
+			return;
+		}
 	}
 	// Timer handling for slideshows
 	if (ePos == POS_Next || ePos == POS_NextSlideShow) {
@@ -2764,11 +2796,12 @@ void CMainDlg::GotoImage(EImagePosition ePos, int nFlags) {
 		m_pJPEGProvider->ClearRequest(m_pCurrentImage, ePos == POS_AwayFromCurrent);
 	}
 	m_pCurrentImage = NULL;
-	if (m_pAnnotationCtl != NULL) {
+	if (m_pAnnotationCtl != NULL && !bSameImage) {
 		// The prompt has already been answered by now; a different image must not inherit
 		// annotations drawn on the previous one.
 		m_pAnnotationCtl->Clear();
 		m_pAnnotationCtl->SetTool(ATOOL_None);
+		m_bAnnotationsBurnedIn = false;
 	}
 
 	// do not perform a new image request if flagged
@@ -3465,41 +3498,71 @@ void CMainDlg::OnAnnotationTextCancelled() {
 // Returns false when the caller must abandon whatever it was about to do, because the
 // user cancelled or the save failed and the annotations are still unsaved.
 bool CMainDlg::PromptSaveAnnotations() {
-	if (m_pAnnotationCtl == NULL || !m_pAnnotationCtl->HasUnsavedAnnotations() || m_pCurrentImage == NULL) {
+	// The dialog below runs a message loop, so WM_TIMER keeps arriving and can call us
+	// again through GotoImage. Without this guard an animated image stacks one prompt
+	// per frame.
+	if (m_bInSaveAnnotationsPrompt) {
+		return false;
+	}
+	if (m_pCurrentImage == NULL || m_pAnnotationCtl == NULL) {
 		return true;
 	}
 	if (m_bAnnotationEditActive) {
-		OnAnnotationTextCommitted();
+		OnAnnotationTextCommitted(); // whatever is being typed counts as work
+	}
+	if (!m_pAnnotationCtl->HasUnsavedAnnotations() && !m_bAnnotationsBurnedIn) {
+		return true;
 	}
 
-	CSaveAnnotationsDlg dlg(CurrentFileName(false));
-	int nButton = (int)dlg.DoModal(m_hWnd);
+	m_bInSaveAnnotationsPrompt = true;
+	StopAnimation();
+	StopSlideShowTimer();
+	int nButton = IDCANCEL;
+	{
+		CSaveAnnotationsDlg dlg(CurrentFileName(false));
+		nButton = (int)dlg.DoModal(m_hWnd);
+	}
+	m_bInSaveAnnotationsPrompt = false;
 
 	if (nButton == IDCANCEL) {
 		return false;
 	}
 	if (nButton == IDC_ANNOT_DISCARD) {
 		m_pAnnotationCtl->Clear();
+		m_bAnnotationsBurnedIn = false;
 		Invalidate(FALSE);
 		return true;
 	}
 
-	if (!m_pCurrentImage->ApplyAnnotationsToOriginalPixels(m_pAnnotationCtl->Model().Annotations())) {
-		::MessageBox(m_hWnd, CNLS::GetString(_T("Could not apply the annotations to the image")),
-			CNLS::GetString(_T("Error")), MB_ICONSTOP | MB_OK);
-		return false;
+	// Burn once. A second pass over an already-burned buffer would print the marks
+	// twice, which is what happens if the first save is cancelled and then retried.
+	if (!m_bAnnotationsBurnedIn) {
+		if (!m_pCurrentImage->ApplyAnnotationsToOriginalPixels(m_pAnnotationCtl->Model().Annotations())) {
+			::MessageBox(m_hWnd, CNLS::GetString(_T("Could not apply the annotations to the image")),
+				CNLS::GetString(_T("Error")), MB_ICONSTOP | MB_OK);
+			return false;
+		}
+		m_bAnnotationsBurnedIn = true;
+		// The pixels hold them now, so the model must stop drawing them on top.
+		m_pAnnotationCtl->MarkSaved();
+		m_pAnnotationCtl->Clear();
+		Invalidate(FALSE);
 	}
-	bool bSaved = (nButton == IDC_ANNOT_OVERWRITE)
-		? SaveImageNoPrompt(CurrentFileName(false), true)
-		: SaveImage(true);
+
+	bool bSaved;
+	if (nButton == IDC_ANNOT_OVERWRITE && !m_pCurrentImage->IsClipboardImage()) {
+		bSaved = SaveImageNoPrompt(CurrentFileName(false), true);
+	} else {
+		// A pasted image has no file to overwrite; CurrentFileName would return the
+		// placeholder text, so it always goes through the save dialog.
+		bSaved = SaveImage(true);
+	}
 	if (!bSaved) {
-		// The pixels already carry the annotations, so the model must not be cleared;
-		// staying on this image is what keeps the work recoverable.
+		// The marks are in the displayed pixels but not on disk. Staying here is what
+		// lets the user try again; leaving would lose them like any unsaved edit.
 		return false;
 	}
-	m_pAnnotationCtl->MarkSaved();
-	m_pAnnotationCtl->Clear();
-	Invalidate(FALSE);
+	m_bAnnotationsBurnedIn = false;
 	return true;
 }
 
@@ -3821,6 +3884,12 @@ void CMainDlg::AnimateTransition() {
 }
 
 void CMainDlg::CleanupAndTerminate() {
+	// Every way of quitting lands here - IDM_EXIT from both of JPEGView's own close
+	// buttons, Esc, Alt+F4, movie auto-exit - and none of them raises WM_CLOSE, so this
+	// is the only place that catches them all.
+	if (!PromptSaveAnnotations()) {
+		return;
+	}
 	StopMovieMode();
 	StopAnimation();
 	delete m_pJPEGProvider; // delete this early to properly shut down the loading threads

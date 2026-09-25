@@ -31,7 +31,7 @@ private:
 	static void OnSwatchPressed(void* pContext, int nParameter, CButtonCtrl& sender);
 	static void OnOtherColorPressed(void* pContext, int nParameter, CButtonCtrl& sender);
 
-	void ApplyStyle();
+	void ApplyStyle(bool bPersist);
 	void LoadFromControl();
 	void RelabelWidthSlider();
 
