@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "resource.h"
 #include "AnnotationStylePanelCtl.h"
 #include "AnnotationStylePanel.h"
 #include "AnnotationCtl.h"
@@ -88,13 +89,13 @@ void CAnnotationStylePanelCtl::ApplyStyle() {
 	InvalidateMainDlg();
 }
 
-void CAnnotationStylePanelCtl::OnSwatchPressed(void* pContext, int nParameter) {
+void CAnnotationStylePanelCtl::OnSwatchPressed(void* pContext, int nParameter, CButtonCtrl& sender) {
 	CAnnotationStylePanelCtl* pThis = (CAnnotationStylePanelCtl*)pContext;
 	pThis->m_color = CAnnotationStylePanel::SwatchColor(nParameter);
 	pThis->ApplyStyle();
 }
 
-void CAnnotationStylePanelCtl::OnOtherColorPressed(void* pContext, int nParameter) {
+void CAnnotationStylePanelCtl::OnOtherColorPressed(void* pContext, int nParameter, CButtonCtrl& sender) {
 	CAnnotationStylePanelCtl* pThis = (CAnnotationStylePanelCtl*)pContext;
 	// Custom colours persist for the session, the way the system dialog expects.
 	static COLORREF customColors[16] = {

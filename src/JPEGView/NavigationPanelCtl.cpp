@@ -380,7 +380,7 @@ void CNavigationPanelCtl::UpdateAnnotationButtons() {
 	if (pRect != NULL) pRect->SetActive(eTool == ATOOL_Rectangle);
 }
 
-void CNavigationPanelCtl::OnToggleAnnotationStyle(void* pContext, int nParameter) {
+void CNavigationPanelCtl::OnToggleAnnotationStyle(void* pContext, int nParameter, CButtonCtrl& sender) {
 	CNavigationPanelCtl* pThis = (CNavigationPanelCtl*)pContext;
 	CAnnotationStylePanelCtl* pStyle = pThis->m_pMainDlg->GetAnnotationStylePanelCtl();
 	if (pStyle != NULL) {

@@ -3,6 +3,7 @@
 #include "PanelController.h"
 
 class CAnnotationStylePanel;
+class CButtonCtrl;
 
 // Shows and hides the annotation style strip and pushes what the user picks into the
 // annotation controller, then persists it so the style survives a restart.
@@ -27,8 +28,8 @@ public:
 	virtual bool OnMouseMove(int nX, int nY);
 
 private:
-	static void OnSwatchPressed(void* pContext, int nParameter);
-	static void OnOtherColorPressed(void* pContext, int nParameter);
+	static void OnSwatchPressed(void* pContext, int nParameter, CButtonCtrl& sender);
+	static void OnOtherColorPressed(void* pContext, int nParameter, CButtonCtrl& sender);
 
 	void ApplyStyle();
 	void LoadFromControl();
