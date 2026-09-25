@@ -25,6 +25,7 @@ class CUnsharpMaskPanelCtl;
 class CWndButtonPanelCtl;
 class CInfoButtonPanelCtl;
 class CTitleBarPanelCtl;
+class CAnnotationStylePanelCtl;
 class CZoomNavigatorCtl;
 class CCropCtl;
 class CKeyMap;
@@ -182,6 +183,7 @@ public:
 	CWndButtonPanelCtl* GetWndButtonPanelCtl() { return m_pWndButtonPanelCtl; }
 	CInfoButtonPanelCtl* GetInfoButtonPanelCtl() { return m_pInfoButtonPanelCtl; }
 	CTitleBarPanelCtl* GetTitleBarPanelCtl() { return m_pTitleBarPanelCtl; }
+	CAnnotationStylePanelCtl* GetAnnotationStylePanelCtl() { return m_pAnnotationStylePanelCtl; }
 	CCropCtl* GetCropCtl() { return m_pCropCtl; }
 	CAnnotationCtl* GetAnnotationCtl() { return m_pAnnotationCtl; }
 	bool IsAnnotating() { return m_pAnnotationCtl != NULL && m_pAnnotationCtl->IsAnnotating(); }
@@ -335,6 +337,7 @@ private:
 	CWndButtonPanelCtl* m_pWndButtonPanelCtl;
 	CInfoButtonPanelCtl* m_pInfoButtonPanelCtl;
 	CTitleBarPanelCtl* m_pTitleBarPanelCtl;
+	CAnnotationStylePanelCtl* m_pAnnotationStylePanelCtl;
 	CUnsharpMaskPanelCtl* m_pUnsharpMaskPanelCtl;
 	CRotationPanelCtl* m_pRotationPanelCtl;
 	CTiltCorrectionPanelCtl* m_pTiltCorrectionPanelCtl;

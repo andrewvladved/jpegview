@@ -523,6 +523,18 @@ CSliderDouble::CSliderDouble(CPanel* pPanel, LPCTSTR sName, int nSliderLen, doub
 	m_nNameWidth = pbEnable ? m_textSize.cx + m_nCheckHeight + m_nCheckHeight/2 : m_textSize.cx;
 }
 
+void CSliderDouble::SetName(LPCTSTR sName) {
+	if (m_sName == sName) {
+		return;
+	}
+	m_sName = sName;
+	// CClientDC, not the CPaintDC the constructor uses: this runs outside WM_PAINT.
+	CClientDC dc(m_pPanel->GetHWND());
+	m_textSize = GetTextRect(dc, sName);
+	m_nNameWidth = (m_pEnable != NULL) ? m_textSize.cx + m_nCheckHeight + m_nCheckHeight / 2 : m_textSize.cx;
+	m_pPanel->RequestRepositioning();
+}
+
 CSize CSliderDouble::GetMinSize() {
 	return CSize(m_nNumberWidth + m_nNameWidth + m_nSliderLen + m_nNumberWidth / 4, m_nSliderHeight + m_textSize.cy);
 }

@@ -29,6 +29,8 @@ public:
 	// Redraws the annotation buttons so the active tool is shown pressed.
 	void UpdateAnnotationButtons();
 
+	static void OnToggleAnnotationStyle(void* pContext, int nParameter);
+
 	virtual bool OnMouseLButton(EMouseEvent eMouseEvent, int nX, int nY);
 	virtual bool OnMouseMove(int nX, int nY);
 	virtual bool OnTimer(int nTimerId);

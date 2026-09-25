@@ -9,6 +9,7 @@
 
 #include "MainDlg.h"
 #include "AnnotationRenderer.h"
+#include "AnnotationStylePanelCtl.h"
 #include "HelpDlg.h"
 #include "FileList.h"
 #include "JPEGProvider.h"
@@ -286,6 +287,7 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_pNavPanelCtl = NULL;
 	m_pCropCtl = new CCropCtl(this);
 	m_pAnnotationCtl = new CAnnotationCtl(this);
+	m_pAnnotationStylePanelCtl = NULL;
 	m_ptImageOrigin = CPoint(0, 0);
 	{
 		// Opacity is a percentage in the INI but an alpha byte in an annotation.
@@ -376,6 +378,10 @@ LRESULT CMainDlg::OnInitDialog(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam
 	// Create title bar panel (file path on top, left and window buttons on top, right)
 	m_pTitleBarPanelCtl = new CTitleBarPanelCtl(this);
 	m_pPanelMgr->AddPanelController(m_pTitleBarPanelCtl);
+
+	// Create the annotation style strip, which sits above the navigation panel
+	m_pAnnotationStylePanelCtl = new CAnnotationStylePanelCtl(this, m_pNavPanelCtl->GetPanel());
+	m_pPanelMgr->AddPanelController(m_pAnnotationStylePanelCtl);
 
 	// Create zoom navigator
 	m_pZoomNavigatorCtl = new CZoomNavigatorCtl(this, m_pImageProcPanelCtl->GetPanel(), m_pNavPanelCtl->GetPanel());

@@ -3,6 +3,7 @@
 #include "MainDlg.h"
 #include "JPEGImage.h"
 #include "NavigationPanelCtl.h"
+#include "AnnotationStylePanelCtl.h"
 #include "NavigationPanel.h"
 #include "SettingsProvider.h"
 #include "TimerEventIDs.h"
@@ -58,6 +59,7 @@ CNavigationPanelCtl::CNavigationPanelCtl(CMainDlg* pMainDlg, CPanel* pImageProcP
 	m_pNavPanel->GetBtnAnnotateText()->SetButtonPressedHandler(&CMainDlg::OnExecuteCommand, pMainDlg, IDM_ANNOTATE_TEXT);
 	m_pNavPanel->GetBtnAnnotateRect()->SetButtonPressedHandler(&CMainDlg::OnExecuteCommand, pMainDlg, IDM_ANNOTATE_RECT);
 	m_pNavPanel->GetBtnAnnotateClear()->SetButtonPressedHandler(&CMainDlg::OnExecuteCommand, pMainDlg, IDM_ANNOTATE_CLEAR);
+	m_pNavPanel->GetBtnAnnotateStyle()->SetButtonPressedHandler(&OnToggleAnnotationStyle, this);
 }
 
 CNavigationPanelCtl::~CNavigationPanelCtl() {
@@ -376,4 +378,12 @@ void CNavigationPanelCtl::UpdateAnnotationButtons() {
 	if (pFreehand != NULL) pFreehand->SetActive(eTool == ATOOL_Freehand);
 	if (pText != NULL) pText->SetActive(eTool == ATOOL_Text);
 	if (pRect != NULL) pRect->SetActive(eTool == ATOOL_Rectangle);
+}
+
+void CNavigationPanelCtl::OnToggleAnnotationStyle(void* pContext, int nParameter) {
+	CNavigationPanelCtl* pThis = (CNavigationPanelCtl*)pContext;
+	CAnnotationStylePanelCtl* pStyle = pThis->m_pMainDlg->GetAnnotationStylePanelCtl();
+	if (pStyle != NULL) {
+		pStyle->Toggle();
+	}
 }

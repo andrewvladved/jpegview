@@ -306,6 +306,9 @@ public:
 public:
 	virtual CSize GetMinSize();
 	void SetSliderLen(int nSliderLen) { m_nSliderLen = nSliderLen; }
+	// Relabels a slider whose meaning depends on the current mode. Recomputes the
+	// cached label metrics, which the panel layout depends on.
+	void SetName(LPCTSTR sName);
 	virtual bool OnMouseLButton(EMouseEvent eMouseEvent, int nX, int nY);
 	virtual bool OnMouseMove(int nX, int nY);
 	virtual void OnPaint(CDC & dc, const CPoint& offset);
