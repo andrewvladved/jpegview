@@ -413,6 +413,7 @@ BEGIN
             MENUITEM "Fit window to image",         IDM_FIT_WINDOW_TO_IMAGE
             MENUITEM SEPARATOR
             MENUITEM "Hide window title bar",       IDM_HIDE_TITLE_BAR
+            MENUITEM "Transparent window title bar", IDM_TRANSPARENT_TITLE_BAR
             MENUITEM "Set window always on top",    IDM_ALWAYS_ON_TOP
             MENUITEM SEPARATOR
             MENUITEM "400 %",                       IDM_ZOOM_400

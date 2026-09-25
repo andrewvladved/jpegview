@@ -246,6 +246,8 @@
 #define IDM_FULL_SCREEN_MODE 12011		// :KeyMap: toggle full screen mode
 #define IDM_HIDE_TITLE_BAR  12012		// :KeyMap: toggle hiding window title bar.  Note: in this mode, the window can't be manually resized
 #define IDM_ALWAYS_ON_TOP   12013		// :KeyMap: toggle window mode to always on top
+#define IDM_TRANSPARENT_TITLE_BAR 12014		// :KeyMap: toggle transparent window title bar (shows only the file path and the window buttons over the image)
+#define IDM_MAXIMIZE_RESTORE 12015		// :KeyMap: maximize the window, or restore it when it is maximized
 #define IDM_ZOOM_400        12020		// :KeyMap: zoom to 400 %
 #define IDM_ZOOM_200		12030		// :KeyMap: zoom to 200 %
 #define IDM_ZOOM_100		12040		// :KeyMap: zoom to 100 %

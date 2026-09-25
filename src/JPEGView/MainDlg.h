@@ -23,6 +23,7 @@ class CTiltCorrectionPanelCtl;
 class CUnsharpMaskPanelCtl;
 class CWndButtonPanelCtl;
 class CInfoButtonPanelCtl;
+class CTitleBarPanelCtl;
 class CZoomNavigatorCtl;
 class CCropCtl;
 class CKeyMap;
@@ -64,6 +65,7 @@ public:
 		MESSAGE_HANDLER(WM_GETMINMAXINFO, OnGetMinMaxInfo)
 		MESSAGE_HANDLER(WM_PAINT, OnPaint)
 		MESSAGE_HANDLER(WM_NCHITTEST, OnNCHitTest)
+		MESSAGE_HANDLER(WM_NCCALCSIZE, OnNCCalcSize)
 		MESSAGE_HANDLER(WM_NCLBUTTONDOWN, OnNCLButtonDown)
 		MESSAGE_HANDLER(WM_LBUTTONDOWN, OnLButtonDown)
 		MESSAGE_HANDLER(WM_LBUTTONUP, OnLButtonUp)
@@ -109,6 +111,7 @@ public:
 	LRESULT OnLButtonDown(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnNCLButtonDown(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnNCHitTest(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
+	LRESULT OnNCCalcSize(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnRButtonDown(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnRButtonUp(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnLButtonUp(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
@@ -158,6 +161,7 @@ public:
 	bool IsPanMouseCursorSet() { return m_bPanMouseCursorSet; }
 	bool IsMouseOn() { return m_bMouseOn; }
 	bool IsWindowBorderless() { return m_bWindowBorderless; }
+	bool IsTransparentTitleBar() { return m_bTransparentTitleBar; }
 	bool IsAlwaysOnTop() { return m_bAlwaysOnTop; }
 
 	CPoint GetMousePos() { return CPoint(m_nMouseX, m_nMouseY); }
@@ -176,6 +180,7 @@ public:
 	CZoomNavigatorCtl* GetZoomNavigatorCtl() { return m_pZoomNavigatorCtl; }
 	CWndButtonPanelCtl* GetWndButtonPanelCtl() { return m_pWndButtonPanelCtl; }
 	CInfoButtonPanelCtl* GetInfoButtonPanelCtl() { return m_pInfoButtonPanelCtl; }
+	CTitleBarPanelCtl* GetTitleBarPanelCtl() { return m_pTitleBarPanelCtl; }
 	CCropCtl* GetCropCtl() { return m_pCropCtl; }
 	const CRect& ClientRect() { return m_clientRect; }
 	const CRect& WindowRectOnClose() { return m_windowRectOnClose; } // only valid after having closed the window
@@ -317,6 +322,7 @@ private:
 	CEXIFDisplayCtl* m_pEXIFDisplayCtl;
 	CWndButtonPanelCtl* m_pWndButtonPanelCtl;
 	CInfoButtonPanelCtl* m_pInfoButtonPanelCtl;
+	CTitleBarPanelCtl* m_pTitleBarPanelCtl;
 	CUnsharpMaskPanelCtl* m_pUnsharpMaskPanelCtl;
 	CRotationPanelCtl* m_pRotationPanelCtl;
 	CTiltCorrectionPanelCtl* m_pTiltCorrectionPanelCtl;
@@ -331,10 +337,13 @@ private:
 	bool m_isBeforeFileSelected;
 	double m_dLastImageDisplayTime;
 	bool m_bWindowBorderless;
+	bool m_bTransparentTitleBar;
 	bool m_bAlwaysOnTop;
 	bool m_bSelectZoom;  // keeps track of select-to-zoom mode when CTRL+SHIFT+LMouse
 
 	void ExploreFile();
+	// Switches the window between having a system title bar and being borderless
+	void SetWindowBorderless(bool bBorderless);
 	bool OpenFileWithDialog(bool bFullScreen, bool bAfterStartup);
 	void OpenFile(LPCTSTR sFileName, bool bAfterStartup);
 	bool SaveImage(bool bFullSize);

@@ -26,22 +26,26 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset Condition="'$(VisualStudioVersion)'=='16.0'">v142</PlatformToolset>
+    <PlatformToolset Condition="'$(PlatformToolset)'==''">v143</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset Condition="'$(VisualStudioVersion)'=='16.0'">v142</PlatformToolset>
+    <PlatformToolset Condition="'$(PlatformToolset)'==''">v143</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset Condition="'$(VisualStudioVersion)'=='16.0'">v142</PlatformToolset>
+    <PlatformToolset Condition="'$(PlatformToolset)'==''">v143</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset Condition="'$(VisualStudioVersion)'=='16.0'">v142</PlatformToolset>
+    <PlatformToolset Condition="'$(PlatformToolset)'==''">v143</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -353,6 +357,8 @@
     </ClCompile>
     <ClCompile Include="TiltCorrectionPanel.cpp" />
     <ClCompile Include="TiltCorrectionPanelCtl.cpp" />
+    <ClCompile Include="TitleBarPanel.cpp" />
+    <ClCompile Include="TitleBarPanelCtl.cpp" />
     <ClCompile Include="TJPEGWrapper.cpp" />
     <ClCompile Include="TransformPanel.cpp" />
     <ClCompile Include="TransformPanelCtl.cpp" />
@@ -444,6 +450,8 @@
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="TiltCorrectionPanel.h" />
     <ClInclude Include="TiltCorrectionPanelCtl.h" />
+    <ClInclude Include="TitleBarPanel.h" />
+    <ClInclude Include="TitleBarPanelCtl.h" />
     <ClInclude Include="TimerEventIDs.h" />
     <ClInclude Include="TJPEGWrapper.h" />
     <ClInclude Include="TransformPanel.h" />

@@ -47,6 +47,7 @@ F8                      IDM_LOOP_RECURSIVELY
 F9                      IDM_LOOP_SIBLINGS
 F11                     IDM_FULL_SCREEN_MODE
 Shift+F11               IDM_HIDE_TITLE_BAR
+Ctrl+Shift+F11          IDM_TRANSPARENT_TITLE_BAR
 Ctrl+F11                IDM_FIT_WINDOW_TO_IMAGE
 F12                     IDM_SPAN_SCREENS
 Ctrl+F12                IDM_TOGGLE_MONITOR

@@ -210,6 +210,12 @@
     <ClCompile Include="TiltCorrectionPanelCtl.cpp">
       <Filter>Source Files\Panels</Filter>
     </ClCompile>
+    <ClCompile Include="TitleBarPanel.cpp">
+      <Filter>Source Files\Panels</Filter>
+    </ClCompile>
+    <ClCompile Include="TitleBarPanelCtl.cpp">
+      <Filter>Source Files\Panels</Filter>
+    </ClCompile>
     <ClCompile Include="JPEGLosslessTransform.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -468,6 +474,12 @@
       <Filter>Header Files\GUI</Filter>
     </ClInclude>
     <ClInclude Include="TiltCorrectionPanelCtl.h">
+      <Filter>Header Files\Panels</Filter>
+    </ClInclude>
+    <ClInclude Include="TitleBarPanel.h">
+      <Filter>Header Files\Panels</Filter>
+    </ClInclude>
+    <ClInclude Include="TitleBarPanelCtl.h">
       <Filter>Header Files\Panels</Filter>
     </ClInclude>
     <ClInclude Include="TransformPanelCtl.h">
