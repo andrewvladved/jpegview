@@ -8,6 +8,7 @@
 #include <limits.h>
 
 #include "MainDlg.h"
+#include "AnnotationRenderer.h"
 #include "HelpDlg.h"
 #include "FileList.h"
 #include "JPEGProvider.h"
@@ -284,6 +285,8 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_pImageProcPanelCtl = NULL;
 	m_pNavPanelCtl = NULL;
 	m_pCropCtl = new CCropCtl(this);
+	m_pAnnotationCtl = new CAnnotationCtl(this);
+	m_ptImageOrigin = CPoint(0, 0);
 	m_pKeyMap = new CKeyMap(); // routine to load the keymap, it's not as simple as just loading one file anymore, but all logic handled by CKeyMap
 	m_pPrintImage = new CPrintImage(CSettingsProvider::This().PrintMargin(), CSettingsProvider::This().DefaultPrintWidth());
 	m_pHelpDlg = NULL;
@@ -297,6 +300,7 @@ CMainDlg::~CMainDlg() {
 	delete m_pImageProcParamsKept;
 	delete m_pZoomNavigatorCtl;
 	delete m_pCropCtl;
+	delete m_pAnnotationCtl;
 	delete m_pPanelMgr; // this will delete all panel controllers and all panels
 	delete m_pKeyMap;
 }
@@ -539,6 +543,22 @@ LRESULT CMainDlg::OnPaint(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 			CPoint ptDIBStart = HelpersGUI::DrawDIB32bppWithBlackBorders(dc, bmInfo, pDIBData, backBrush, m_clientRect, clippedSize, m_DIBOffsets);
 			// The DIB is also blitted into the memory DCs of the panels
 			memDCMgr.BlitImageToMemDC(pDIBData, &bmInfo, ptDIBStart, m_pNavPanelCtl->CurrentBlendingFactor());
+
+			// Annotations sit on the image and under the panels, which paint afterwards.
+			m_ptImageOrigin = ptDIBStart;
+			if (m_pAnnotationCtl != NULL) {
+				Gdiplus::PointF ptOrigin((float)ptDIBStart.x, (float)ptDIBStart.y);
+				float fScale = (float)m_dRealizedZoom;
+				if (!m_pAnnotationCtl->Model().IsEmpty()) {
+					Gdiplus::Graphics graphics(dc);
+					CAnnotationRenderer::Render(graphics, m_pAnnotationCtl->Model().Annotations(), fScale, ptOrigin);
+				}
+				const CAnnotation* pPending = m_pAnnotationCtl->PendingAnnotation();
+				if (pPending != NULL) {
+					Gdiplus::Graphics graphics(dc);
+					CAnnotationRenderer::RenderOne(graphics, *pPending, fScale, ptOrigin);
+				}
+			}
 		}
 		if (m_bZoomMode) m_offsets = unlimitedOffsets;
 	}
@@ -764,6 +784,11 @@ LRESULT CMainDlg::OnLButtonDown(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 		bool bCtrl = (::GetKeyState(VK_CONTROL) & 0x8000) != 0;
 		bool bShift = (::GetKeyState(VK_SHIFT) & 0x8000) != 0;
 
+		// A selected annotation tool owns the drag: no panning, cropping or select-to-zoom.
+		if (m_pAnnotationCtl != NULL && m_pAnnotationCtl->OnLButtonDown(pointClicked.x, pointClicked.y)) {
+			return 0;
+		}
+
 		bool bDraggingRequired = m_virtualImageSize.cx > m_clientRect.Width() || m_virtualImageSize.cy > m_clientRect.Height();
 		bool bHandleByCropping = isCropping || m_pCropCtl->HitHandle(pointClicked.x, pointClicked.y) != CCropCtl::HH_None;
 		bool bTransformPanelShown = m_pRotationPanelCtl->IsVisible() || m_pTiltCorrectionPanelCtl->IsVisible();
@@ -792,6 +817,11 @@ LRESULT CMainDlg::OnLButtonDown(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 }
 
 LRESULT CMainDlg::OnLButtonUp(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL& /*bHandled*/) {
+	if (m_pAnnotationCtl != NULL && m_pAnnotationCtl->OnLButtonUp(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam))) {
+		Invalidate(FALSE);
+		::ReleaseCapture();
+		return 0;
+	}
 	if (m_bZoomMode) {
 		m_bZoomMode = false;
 		AdjustWindowToImage(false);
@@ -978,6 +1008,8 @@ LRESULT CMainDlg::OnMouseMove(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, B
 		PerformZoom(m_dStartZoom * dFactor, false, true, false);
 	} else if (m_bDragging) {
 		DoDragging();
+	} else if (m_pAnnotationCtl != NULL && m_pAnnotationCtl->OnMouseMove(m_nMouseX, m_nMouseY)) {
+		bMouseCursorSet = true;
 	} else if (m_pCropCtl->IsCropping()) {
 		bMouseCursorSet = m_pCropCtl->DoCropping(m_nMouseX, m_nMouseY);
 	} else if (!m_pPanelMgr->OnMouseMove(m_nMouseX, m_nMouseY)) {
@@ -1020,6 +1052,12 @@ LRESULT CMainDlg::OnKeyDown(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOO
 	} else if (wParam == VK_ESCAPE && m_pCropCtl->IsCropping()) {
 		bHandled = true;
 		m_pCropCtl->AbortCropping();
+	} else if (wParam == VK_ESCAPE && m_pAnnotationCtl != NULL && m_pAnnotationCtl->IsAnnotating()) {
+		// After the crop case, so cropping keeps priority over leaving annotation mode.
+		bHandled = true;
+		m_pAnnotationCtl->SetTool(ATOOL_None);
+		SetCursorForMoveSection();
+		Invalidate(FALSE);
 	} else if (!bCtrl && wParam != VK_ESCAPE && m_nLastLoadError == HelpersGUI::FileLoad_NoFilesInDirectory && !m_sStartupFile.IsEmpty()) {
 		// search in subfolders if initial directory has no images
 		bHandled = true;
@@ -1854,6 +1892,52 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			break;
 		case IDM_HIDE_TITLE_BAR:
 			SetWindowBorderless(!m_bWindowBorderless);
+			break;
+		case IDM_ANNOTATE_FREEHAND:
+			if (m_pAnnotationCtl != NULL) {
+				m_pAnnotationCtl->SetTool(ATOOL_Freehand);
+				SetCursorForMoveSection();
+				this->Invalidate(FALSE);
+			}
+			break;
+		case IDM_ANNOTATE_TEXT:
+			if (m_pAnnotationCtl != NULL) {
+				m_pAnnotationCtl->SetTool(ATOOL_Text);
+				SetCursorForMoveSection();
+				this->Invalidate(FALSE);
+			}
+			break;
+		case IDM_ANNOTATE_RECT:
+			if (m_pAnnotationCtl != NULL) {
+				m_pAnnotationCtl->SetTool(ATOOL_Rectangle);
+				SetCursorForMoveSection();
+				this->Invalidate(FALSE);
+			}
+			break;
+		case IDM_ANNOTATE_OFF:
+			if (m_pAnnotationCtl != NULL) {
+				m_pAnnotationCtl->SetTool(ATOOL_None);
+				SetCursorForMoveSection();
+				this->Invalidate(FALSE);
+			}
+			break;
+		case IDM_ANNOTATE_UNDO:
+			if (m_pAnnotationCtl != NULL) {
+				m_pAnnotationCtl->Undo();
+				this->Invalidate(FALSE);
+			}
+			break;
+		case IDM_ANNOTATE_REDO:
+			if (m_pAnnotationCtl != NULL) {
+				m_pAnnotationCtl->Redo();
+				this->Invalidate(FALSE);
+			}
+			break;
+		case IDM_ANNOTATE_CLEAR:
+			if (m_pAnnotationCtl != NULL) {
+				m_pAnnotationCtl->Clear();
+				this->Invalidate(FALSE);
+			}
 			break;
 		case IDM_TRANSPARENT_TITLE_BAR:
 			if (!m_bFullScreenMode) {
@@ -3249,7 +3333,19 @@ LPCTSTR CMainDlg::CurrentFileName(bool bFileTitle) {
 	}
 }
 
+// IAnnotationHost. OnPaint calls CJPEGImage::VerifyRotation before anything else,
+// so OrigSize() already reports the dimensions of the image as it is displayed,
+// including any 90 degree rotation the user applied.
+CSize CMainDlg::GetImageSize() {
+	return (m_pCurrentImage == NULL) ? CSize(0, 0) : m_pCurrentImage->OrigSize();
+}
+
 void CMainDlg::SetCursorForMoveSection() {
+	if (IsAnnotating()) {
+		::SetCursor(::LoadCursor(NULL, IDC_CROSS));
+		m_bPanMouseCursorSet = true; // keeps OnMouseMove from resetting it to the arrow
+		return;
+	}
 	if (!m_pCropCtl->IsCropping()) {
 		if (m_pZoomNavigatorCtl->IsPointInZoomNavigatorThumbnail(CPoint(m_nMouseX, m_nMouseY)) || m_bDragging) {
 			::SetCursor(::LoadCursor(NULL, IDC_SIZEALL));

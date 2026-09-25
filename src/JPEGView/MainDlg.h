@@ -7,6 +7,7 @@
 #include "ProcessParams.h"
 #include "Helpers.h"
 #include "CropCtl.h"
+#include "AnnotationCtl.h"
 
 class CFileList;
 class CJPEGProvider;
@@ -36,7 +37,7 @@ enum EMouseEvent;
 
 // The main dialog is a full screen modal dialog with no border and no window title.
 // This dialog is the main window of the JPEGView application.
-class CMainDlg : public CDialogImpl<CMainDlg>
+class CMainDlg : public CDialogImpl<CMainDlg>, public IAnnotationHost
 {
 public:
 	enum { IDD = IDD_MAINDLG };
@@ -182,6 +183,14 @@ public:
 	CInfoButtonPanelCtl* GetInfoButtonPanelCtl() { return m_pInfoButtonPanelCtl; }
 	CTitleBarPanelCtl* GetTitleBarPanelCtl() { return m_pTitleBarPanelCtl; }
 	CCropCtl* GetCropCtl() { return m_pCropCtl; }
+	CAnnotationCtl* GetAnnotationCtl() { return m_pAnnotationCtl; }
+	bool IsAnnotating() { return m_pAnnotationCtl != NULL && m_pAnnotationCtl->IsAnnotating(); }
+
+	// IAnnotationHost - lets CAnnotationCtl place annotations without knowing this class.
+	virtual CPoint GetImageOrigin() { return m_ptImageOrigin; }
+	virtual float GetRealizedZoom() { return (m_dRealizedZoom > 0.0) ? (float)m_dRealizedZoom : 1.0f; }
+	virtual CSize GetImageSize();
+	virtual void InvalidateScreenRect(const CRect& rect) { this->InvalidateRect(&rect, FALSE); }
 	const CRect& ClientRect() { return m_clientRect; }
 	const CRect& WindowRectOnClose() { return m_windowRectOnClose; } // only valid after having closed the window
 	const CRect& MonitorRect() { return m_monitorRect; }
@@ -213,6 +222,7 @@ public:
 	bool ScreenToImage(float & fX, float & fY); 
 	bool ImageToScreen(float & fX, float & fY);
 	void ExecuteCommand(int nCommand);
+	bool PromptSaveAnnotations(); // false means the caller must abandon what it was about to do
 	bool PrepareForModalPanel(); // returns if navigation panel was enabled, turns it off
 	int TrackPopupMenu(CPoint pos, HMENU hMenu);
 	void AdjustWindowToImage(bool bAfterStartup);
@@ -316,6 +326,8 @@ private:
 	CString m_sSaveDirectory;
 	CString m_sSaveExtension;
 	CCropCtl* m_pCropCtl;
+	CAnnotationCtl* m_pAnnotationCtl;
+	CPoint m_ptImageOrigin; // screen position of the image's top left corner, set in OnPaint
 	CZoomNavigatorCtl* m_pZoomNavigatorCtl;
 	CImageProcPanelCtl* m_pImageProcPanelCtl;
 	CNavigationPanelCtl* m_pNavPanelCtl;
