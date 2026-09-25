@@ -940,18 +940,19 @@ LRESULT CMainDlg::OnNCHitTest(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 
 // In transparent title bar mode the window keeps WS_THICKFRAME so that it stays resizable, but the
 // frame that would be drawn for it is removed here so that the image fills the whole window.
-// With WS_CAPTION cleared but WS_THICKFRAME kept, the non client area still exists as far
-// as Windows is concerned. On every activation change DefWindowProc repaints it, drawing
-// the default frame - which showed up as a bright border after switching to another
-// window and back. Both messages are swallowed while the transparent title bar is on.
-LRESULT CMainDlg::OnNCActivate(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOOL& bHandled) {
+// With WS_CAPTION cleared but WS_THICKFRAME kept, the non client area still exists as far as
+// Windows is concerned. When the window is deactivated DefWindowProc paints the sizing border
+// into it itself, without going through WM_NCPAINT, which is where the bright border around the
+// image came from after switching to another application. So DefWindowProc is not called for this
+// message at all; returning TRUE accepts the activation change. OnNCCalcSize has made the client
+// area cover the whole window, so invalidating it repaints the image over anything already drawn
+// there by an earlier Windows version of this message.
+LRESULT CMainDlg::OnNCActivate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& bHandled) {
 	if (!m_bTransparentTitleBar || m_bFullScreenMode) {
 		bHandled = FALSE;
 		return 0;
 	}
-	// Passing -1 as the region tells DefWindowProc to change the active state without
-	// redrawing the frame. Returning TRUE keeps the window from being denied activation.
-	::DefWindowProc(m_hWnd, WM_NCACTIVATE, wParam, (LPARAM)-1);
+	this->Invalidate(FALSE);
 	return TRUE;
 }
 
@@ -2375,49 +2376,17 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 	}
 }
 
-// The frame of a WS_THICKFRAME window is rendered by the desktop window manager, not by the window
-// procedure, so swallowing WM_NCACTIVATE and WM_NCPAINT does not remove it: after switching to
-// another application and back a bright border appeared around the image. Turning off DWM non
-// client rendering for the window removes it. dwmapi.dll is resolved at run time because the
-// project targets Windows XP, where the library does not exist at all.
-static void SetDWMFrameRendering(HWND hWnd, bool bEnabled) {
-	typedef HRESULT (WINAPI *TDwmSetWindowAttribute)(HWND, DWORD, LPCVOID, DWORD);
-	static TDwmSetWindowAttribute pDwmSetWindowAttribute = NULL;
-	static bool bResolved = false;
-	if (!bResolved) {
-		bResolved = true;
-		HMODULE hDwmApi = ::LoadLibrary(_T("dwmapi.dll"));
-		if (hDwmApi != NULL) {
-			pDwmSetWindowAttribute = (TDwmSetWindowAttribute)::GetProcAddress(hDwmApi, "DwmSetWindowAttribute");
-		}
-	}
-	if (pDwmSetWindowAttribute == NULL) {
-		return; // no desktop window manager, nothing draws a frame behind the window
-	}
-	// values of DWMWINDOWATTRIBUTE and DWMNCRENDERINGPOLICY from dwmapi.h, spelled out here
-	// because that header is not available for the Windows XP target the project builds against
-	const DWORD NCRENDERING_POLICY = 2;
-	const DWORD USE_WINDOW_STYLE = 0;
-	const DWORD DISABLED = 1;
-	DWORD nPolicy = bEnabled ? USE_WINDOW_STYLE : DISABLED;
-	pDwmSetWindowAttribute(hWnd, NCRENDERING_POLICY, &nPolicy, sizeof(nPolicy));
-}
-
 // Setting window styles have gotten out of hand with the addition of no title bar
 // instead of each call trying to figure out the logic, consolidate it to one function
 LONG CMainDlg::SetCurrentWindowStyle() {
 	LONG nStyle = this->GetWindowLongW(GWL_STYLE);
 	if (!m_bWindowBorderless) {
-		SetDWMFrameRendering(m_hWnd, true);
 		return this->SetWindowLongW(GWL_STYLE, nStyle | WS_OVERLAPPEDWINDOW | WS_VISIBLE);
 	} else if (m_bTransparentTitleBar) {
 		// The title bar is painted over the image. WS_THICKFRAME is kept so that the window can still be
-		// resized by dragging its borders - OnNCCalcSize removes the frame that would be drawn for it
-		// and SetDWMFrameRendering removes the one the desktop window manager would draw.
-		SetDWMFrameRendering(m_hWnd, false);
+		// resized by dragging its borders - OnNCCalcSize removes the frame that would be drawn for it.
 		return this->SetWindowLongW(GWL_STYLE, (nStyle & ~WS_CAPTION) | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_VISIBLE);
 	} else {
-		SetDWMFrameRendering(m_hWnd, true);
 		return this->SetWindowLongW(GWL_STYLE, this->GetWindowLongW(GWL_STYLE) & ~WS_OVERLAPPEDWINDOW | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_VISIBLE);  // lose resizing
 		// just doing (& ~WS_CAPTION) leads to having a sliver of white bar on top but allows for resizing
 	}
