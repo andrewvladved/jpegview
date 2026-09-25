@@ -161,10 +161,12 @@ void Undo(); void Redo(); void Clear();
 ```
 
 While a tool is active the cursor becomes a crosshair and left-drag draws. Panning stays
-available on the middle button and the arrow keys, and the mouse wheel still zooms. `Esc`
-leaves annotation mode, as does clicking the active tool's own button again — except for the
-rectangle button, whose repeat click toggles fill (below), so that tool is left with `Esc` or by
-choosing another tool.
+available on the middle button and the arrow keys, and the mouse wheel still zooms.
+
+`Esc` is the one way out of annotation mode, besides picking a different tool. Clicking the
+active tool's own button again never deactivates it — which is what leaves the rectangle button
+free to toggle fill on a repeat click (below). `Esc` during text entry discards the text being
+typed and leaves the tool active; a second `Esc` then leaves the mode.
 
 **Rectangle fill.** `CUICtrl` exposes only `OnMouseLButton` and `OnMouseMove`; the panel
 framework has no right-button routing at all. Rather than thread `WM_RBUTTONDOWN` through
