@@ -4,7 +4,9 @@
 // compiled into the unit test project as well as into JPEGView, so they must not
 // depend on the application's StdAfx.h (which pulls in WTL).
 #include <windows.h>
+#include <atlbase.h>
 #include <atlstr.h>
+#include <atltypes.h>
 #include <vector>
 
 // A point in image coordinates. The codebase has CRectF in ZoomNavigator.h but no float
