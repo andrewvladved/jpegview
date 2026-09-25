@@ -186,6 +186,9 @@ public:
 	CAnnotationStylePanelCtl* GetAnnotationStylePanelCtl() { return m_pAnnotationStylePanelCtl; }
 	CCropCtl* GetCropCtl() { return m_pCropCtl; }
 	CAnnotationCtl* GetAnnotationCtl() { return m_pAnnotationCtl; }
+	// Called by the style strip when the user clicks the Opacity or Line width number,
+	// to put an edit box over that field.
+	void StartAnnotationValueEdit(int nWhich, const CRect& rcField, int nCurrentValue, int nMin, int nMax);
 	bool IsAnnotating() { return m_pAnnotationCtl != NULL && m_pAnnotationCtl->IsAnnotating(); }
 
 	// IAnnotationHost - lets CAnnotationCtl place annotations without knowing this class.
@@ -343,8 +346,6 @@ private:
 	void StartAnnotationTextEdit();
 	void OnAnnotationTextCommitted();
 	void OnAnnotationTextCancelled();
-	// Typing a number straight into the Opacity / Line width field of the style strip.
-	void StartAnnotationValueEdit(int nWhich, const CRect& rcField, int nCurrentValue, int nMin, int nMax);
 	void CommitAnnotationValueEdit();
 	void CancelAnnotationValueEdit();
 	bool IsAnnotationValueEditActive() { return m_bAnnotationValueEditActive; }
