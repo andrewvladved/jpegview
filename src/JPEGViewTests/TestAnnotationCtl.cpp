@@ -9,12 +9,13 @@ public:
 	virtual CPoint GetImageOrigin() { return m_ptOrigin; }
 	virtual float GetRealizedZoom() { return m_fZoom; }
 	virtual CSize GetImageSize() { return m_sizeImage; }
-	virtual void InvalidateScreenRect(const CRect& rect) { m_nInvalidateCount++; }
+	virtual void InvalidateScreenRect(const CRect& rect) { m_nInvalidateCount++; m_lastInvalidated = rect; }
 
 	CPoint m_ptOrigin;
 	float m_fZoom;
 	CSize m_sizeImage;
 	int m_nInvalidateCount;
+	CRect m_lastInvalidated;
 };
 
 TEST(NoToolMeansMouseIsNotConsumed) {
@@ -347,4 +348,46 @@ TEST(ShiftClickIsIgnoredOutsideTheFreehandTool) {
 	// A rectangle still needs a drag, so a shift-click alone must add nothing.
 	ctl.OnLButtonDownShift(200, 200);
 	CHECK(ctl.Model().Count() == nBefore);
+}
+
+// Reported as flicker: the whole line blinked while the cursor moved. The controller was
+// invalidating the bounding box of the entire stroke on every mouse move, so the longer
+// the stroke the larger the area erased and repainted each time. Only the area the new
+// segment touches needs repainting.
+TEST(FreehandInvalidatesOnlyTheNewSegment) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.SetStyle(RGB(255, 0, 0), 255, 4, 24);
+	ctl.SetTool(ATOOL_Freehand);
+	ctl.OnLButtonDown(100, 100);
+	// draw a long stroke across the image
+	for (int x = 120; x <= 700; x += 20) {
+		ctl.OnMouseMove(x, 100);
+	}
+	// the last move stepped 20 px; with a 4 px pen the touched area cannot be wide
+	CHECK(host.m_lastInvalidated.Width() < 120);
+	CHECK(host.m_lastInvalidated.Height() < 120);
+}
+
+TEST(FreehandInvalidationCoversTheNewSegment) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.SetStyle(RGB(255, 0, 0), 255, 4, 24);
+	ctl.SetTool(ATOOL_Freehand);
+	ctl.OnLButtonDown(200, 200);
+	ctl.OnMouseMove(260, 240);
+	// both ends of the segment just added must lie inside the invalidated rectangle
+	CHECK(host.m_lastInvalidated.left <= 200 && host.m_lastInvalidated.right >= 260);
+	CHECK(host.m_lastInvalidated.top <= 200 && host.m_lastInvalidated.bottom >= 240);
+}
+
+TEST(RectangleStillInvalidatesItsWholeShape) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.SetTool(ATOOL_Rectangle);
+	ctl.OnLButtonDown(100, 100);
+	ctl.OnMouseMove(500, 400);
+	// a rectangle is redrawn entirely on every move, so its whole area must be invalidated
+	CHECK(host.m_lastInvalidated.Width() >= 380);
+	CHECK(host.m_lastInvalidated.Height() >= 280);
 }

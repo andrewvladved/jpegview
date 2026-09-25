@@ -73,6 +73,7 @@ private:
 	CPointF ToImage(int nX, int nY);
 	void StartStyle(CAnnotation& annotation, EAnnotationType eType);
 	void InvalidatePending();
+	void InvalidateLastSegment();
 
 	IAnnotationHost* m_pHost;
 	CAnnotationModel m_model;

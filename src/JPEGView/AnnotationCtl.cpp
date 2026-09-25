@@ -66,6 +66,24 @@ void CAnnotationCtl::StartStyle(CAnnotation& annotation, EAnnotationType eType) 
 	annotation.bFilled = m_bRectangleFilled;
 }
 
+// A freehand stroke only ever grows, and the part already on screen is unchanged, so
+// repainting its whole bounding box on every mouse move erases and redraws the entire
+// line each time - which is what made it flicker. Only the newest segment is dirty.
+void CAnnotationCtl::InvalidateLastSegment() {
+	size_t nCount = m_pending.points.size();
+	if (!m_bDrawing || nCount < 2) {
+		InvalidatePending();
+		return;
+	}
+	CAnnotation segment;
+	segment.eType = AT_Freehand;
+	segment.fPenWidth = m_pending.fPenWidth;
+	segment.points.push_back(m_pending.points[nCount - 2]);
+	segment.points.push_back(m_pending.points[nCount - 1]);
+	m_pHost->InvalidateScreenRect(AnnotationGeometry::BoundingBoxOnScreen(segment,
+		m_pHost->GetImageOrigin(), m_pHost->GetRealizedZoom()));
+}
+
 void CAnnotationCtl::InvalidatePending() {
 	if (!m_bDrawing) {
 		return;
@@ -119,10 +137,12 @@ bool CAnnotationCtl::OnMouseMove(int nX, int nY) {
 	if (!m_bDrawing) {
 		return false;
 	}
-	InvalidatePending(); // the area the stroke covers now
 	if (m_pending.eType == AT_Freehand) {
 		m_pending.points.push_back(ToImage(nX, nY));
+		InvalidateLastSegment(); // only the piece just added is dirty
+		return true;
 	} else if (m_pending.eType == AT_Rectangle) {
+		InvalidatePending(); // clear where the rectangle was before it is resized
 		// Rebuild from the anchor rather than moving points[1], because normalising may
 		// already have swapped the two corners on an earlier move.
 		m_pending.points[0] = m_ptRectAnchor;
@@ -131,7 +151,7 @@ bool CAnnotationCtl::OnMouseMove(int nX, int nY) {
 		// or left would show no preview at all until the button came up.
 		AnnotationGeometry::NormalizeRectangle(m_pending);
 	}
-	InvalidatePending(); // and the area it covers after the move
+	InvalidatePending(); // a rectangle is redrawn whole, so its whole area is dirty
 	return true;
 }
 
