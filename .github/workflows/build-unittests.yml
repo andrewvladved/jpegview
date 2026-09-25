@@ -24,4 +24,4 @@ jobs:
       run: msbuild src\JPEGView.sln /t:JPEGViewTests /p:Configuration=Debug /p:Platform=x64 /m
 
     - name: Run tests
-      run: src\JPEGView\bin\x64\Debug\JPEGViewTests.exe
+      run: src\JPEGViewTests\bin\x64\Debug\JPEGViewTests.exe
