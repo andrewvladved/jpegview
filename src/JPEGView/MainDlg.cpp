@@ -10,6 +10,8 @@
 #include "MainDlg.h"
 #include "AnnotationRenderer.h"
 #include "AnnotationStylePanelCtl.h"
+#include <commctrl.h>
+#pragma comment(lib, "comctl32.lib")
 #include "HelpDlg.h"
 #include "FileList.h"
 #include "JPEGProvider.h"
@@ -783,6 +785,10 @@ LRESULT CMainDlg::OnLoadFileAsynch(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lPar
 }
 
 LRESULT CMainDlg::OnClose(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL& bHandled) {
+	if (!PromptSaveAnnotations()) {
+		bHandled = TRUE; // the user cancelled, so the window stays open
+		return 0;
+	}
 	GetWindowRect(m_windowRectOnClose);
 	bHandled = FALSE;
 	return 0;
@@ -1456,6 +1462,20 @@ bool CMainDlg::CloseHelpDlg() {
 
 void CMainDlg::ExecuteCommand(int nCommand) {
 	CSettingsProvider& sp = CSettingsProvider::This();
+	// These change the image geometry, so annotations stored in image coordinates would
+	// end up in the wrong place. One rule instead of a special case in each command.
+	switch (nCommand) {
+		case IDM_ROTATE_90: case IDM_ROTATE_270: case IDM_ROTATE_180:
+		case IDM_ROTATE: case IDM_PERSPECTIVE: case IDM_CHANGESIZE:
+		case IDM_CROP_SEL: case IDM_LOSSLESS_CROP_SEL:
+		case IDM_OPEN: case IDM_RELOAD:
+			if (!PromptSaveAnnotations()) {
+				return;
+			}
+			break;
+		default:
+			break;
+	}
 	InvalidateHelpDlg();
 	switch (nCommand) {
 		case IDM_HELP:
@@ -1964,6 +1984,9 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 				m_pAnnotationCtl->Redo();
 				this->Invalidate(FALSE);
 			}
+			break;
+		case IDM_ANNOTATE_APPLY_SAVE:
+			PromptSaveAnnotations();
 			break;
 		case IDM_ANNOTATE_CLEAR:
 			if (m_pAnnotationCtl != NULL) {
@@ -2621,6 +2644,12 @@ void CMainDlg::GotoImage(EImagePosition ePos) {
 }
 
 void CMainDlg::GotoImage(EImagePosition ePos, int nFlags) {
+	// Leaving this image is where annotations would be lost, so ask here. Cancelling
+	// during a slideshow also stops it, or the timer would reopen the prompt forever.
+	if (!PromptSaveAnnotations()) {
+		StopSlideShowTimer();
+		return;
+	}
 	// Timer handling for slideshows
 	if (ePos == POS_Next || ePos == POS_NextSlideShow) {
 		if (m_nCurrentTimeout > 0) {
@@ -2726,6 +2755,12 @@ void CMainDlg::GotoImage(EImagePosition ePos, int nFlags) {
 		m_pJPEGProvider->ClearRequest(m_pCurrentImage, ePos == POS_AwayFromCurrent);
 	}
 	m_pCurrentImage = NULL;
+	if (m_pAnnotationCtl != NULL) {
+		// The prompt has already been answered by now; a different image must not inherit
+		// annotations drawn on the previous one.
+		m_pAnnotationCtl->Clear();
+		m_pAnnotationCtl->SetTool(ATOOL_None);
+	}
 
 	// do not perform a new image request if flagged
 	if (nFlags & NO_REQUEST) {
@@ -3417,6 +3452,76 @@ void CMainDlg::OnAnnotationTextCancelled() {
 		m_pAnnotationCtl->CancelText();
 	}
 	Invalidate(FALSE);
+}
+
+// Returns false when the caller must abandon whatever it was about to do, because the
+// user cancelled or the save failed and the annotations are still unsaved.
+bool CMainDlg::PromptSaveAnnotations() {
+	if (m_pAnnotationCtl == NULL || !m_pAnnotationCtl->HasUnsavedAnnotations() || m_pCurrentImage == NULL) {
+		return true;
+	}
+	if (m_bAnnotationEditActive) {
+		OnAnnotationTextCommitted();
+	}
+
+	const int ID_OVERWRITE = 1001, ID_SAVEAS = 1002, ID_DISCARD = 1003;
+	CString sOverwrite = CNLS::GetString(_T("Overwrite"));
+	CString sSaveAs = CNLS::GetString(_T("Save as..."));
+	CString sDiscard = CNLS::GetString(_T("Do not save"));
+	TASKDIALOG_BUTTON buttons[3];
+	buttons[0].nButtonID = ID_OVERWRITE; buttons[0].pszButtonText = sOverwrite;
+	buttons[1].nButtonID = ID_SAVEAS;    buttons[1].pszButtonText = sSaveAs;
+	buttons[2].nButtonID = ID_DISCARD;   buttons[2].pszButtonText = sDiscard;
+
+	CString sTitle = CNLS::GetString(_T("JPEGView"));
+	CString sMain = CNLS::GetString(_T("This image has annotations that have not been saved"));
+	CString sContent = CurrentFileName(false);
+
+	TASKDIALOGCONFIG config;
+	memset(&config, 0, sizeof(config));
+	config.cbSize = sizeof(config);
+	config.hwndParent = m_hWnd;
+	config.dwFlags = TDF_ALLOW_DIALOG_CANCELLATION | TDF_USE_COMMAND_LINKS;
+	config.dwCommonButtons = TDCBF_CANCEL_BUTTON;
+	config.pszWindowTitle = sTitle;
+	config.pszMainIcon = TD_WARNING_ICON;
+	config.pszMainInstruction = sMain;
+	config.pszContent = sContent;
+	config.cButtons = 3;
+	config.pButtons = buttons;
+	config.nDefaultButton = ID_SAVEAS; // the choice that cannot destroy an original
+
+	int nButton = 0;
+	if (FAILED(::TaskDialogIndirect(&config, &nButton, NULL, NULL))) {
+		return false; // could not ask, so do not risk losing the annotations
+	}
+
+	if (nButton == IDCANCEL) {
+		return false;
+	}
+	if (nButton == ID_DISCARD) {
+		m_pAnnotationCtl->Clear();
+		Invalidate(FALSE);
+		return true;
+	}
+
+	if (!m_pCurrentImage->ApplyAnnotationsToOriginalPixels(m_pAnnotationCtl->Model().Annotations())) {
+		::MessageBox(m_hWnd, CNLS::GetString(_T("Could not apply the annotations to the image")),
+			CNLS::GetString(_T("Error")), MB_ICONSTOP | MB_OK);
+		return false;
+	}
+	bool bSaved = (nButton == ID_OVERWRITE)
+		? SaveImageNoPrompt(CurrentFileName(false), true)
+		: SaveImage(true);
+	if (!bSaved) {
+		// The pixels already carry the annotations, so the model must not be cleared;
+		// staying on this image is what keeps the work recoverable.
+		return false;
+	}
+	m_pAnnotationCtl->MarkSaved();
+	m_pAnnotationCtl->Clear();
+	Invalidate(FALSE);
+	return true;
 }
 
 CSize CMainDlg::GetImageSize() {

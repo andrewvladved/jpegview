@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ProcessParams.h"
+#include "AnnotationTypes.h"
 
 class CHistogram;
 class CLocalDensityCorr;
@@ -127,6 +128,10 @@ public:
 	// In all cases the size of the image in pixels is changed by the rotation.
 	// Returns false if not enough memory is available to perform the operation.
 	bool RotateOriginalPixels(double dRotation, bool bAutoCrop, bool bKeepAspectRatio);
+
+	// Renders the annotations into the original pixels, permanently. The image is 32 bpp
+	// afterwards. Returns false if nothing could be done.
+	bool ApplyAnnotationsToOriginalPixels(const std::vector<CAnnotation>& annotations);
 
 	// Transform original pixels into horizontal trapezoid. The original pixels are replaced by this operation.
 	// See RotateOriginalPixels() for auto crop parameter and keep aspect ratio parameter.

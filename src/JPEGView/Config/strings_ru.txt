@@ -536,3 +536,8 @@ Font size	Размер шрифта
 Opacity	Прозрачность
 Other colour...	Другой цвет...
 Text	Текст
+Overwrite	Перезаписать
+Save as...	Сохранить как...
+Do not save	Не сохранять
+This image has annotations that have not been saved	На этом изображении есть несохранённая разметка
+Could not apply the annotations to the image	Не удалось наложить разметку на изображение
