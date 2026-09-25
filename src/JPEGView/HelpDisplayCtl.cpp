@@ -2,6 +2,7 @@
 #include "resource.h"
 #include "MainDlg.h"
 #include "HelpDisplayCtl.h"
+#include "AnnotationCtl.h"
 #include "HelpDisplay.h"
 #include "NLS.h"
 #include "JPEGImage.h"
@@ -99,6 +100,18 @@ void CHelpDisplayCtl::GenerateHelpDisplay() {
 	m_pHelpDisplay->AddLineInfo(_KeyDesc(IDM_HIDE_TITLE_BAR), m_pMainDlg->IsWindowBorderless(), CNLS::GetString(_T("Toggle window title bar hidden mode")));
 	m_pHelpDisplay->AddLineInfo(_KeyDesc(IDM_TRANSPARENT_TITLE_BAR), m_pMainDlg->IsTransparentTitleBar(), CNLS::GetString(_T("Toggle transparent window title bar mode")));
 	m_pHelpDisplay->AddLineInfo(_KeyDesc(IDM_ALWAYS_ON_TOP), m_pMainDlg->IsAlwaysOnTop(), CNLS::GetString(_T("Toggle window always on top mode")));
+	m_pHelpDisplay->AddLineInfo(_KeyDesc(IDM_ANNOTATE_FREEHAND),
+		m_pMainDlg->GetAnnotationCtl() != NULL && m_pMainDlg->GetAnnotationCtl()->GetTool() == ATOOL_Freehand,
+		CNLS::GetString(_T("Draw freehand on the image")));
+	m_pHelpDisplay->AddLineInfo(_KeyDesc(IDM_ANNOTATE_TEXT),
+		m_pMainDlg->GetAnnotationCtl() != NULL && m_pMainDlg->GetAnnotationCtl()->GetTool() == ATOOL_Text,
+		CNLS::GetString(_T("Add a text label to the image")));
+	m_pHelpDisplay->AddLineInfo(_KeyDesc(IDM_ANNOTATE_RECT),
+		m_pMainDlg->GetAnnotationCtl() != NULL && m_pMainDlg->GetAnnotationCtl()->GetTool() == ATOOL_Rectangle,
+		CNLS::GetString(_T("Draw a rectangle, press again to switch between outline and fill")));
+	m_pHelpDisplay->AddLine(_KeyDesc(IDM_ANNOTATE_UNDO), CNLS::GetString(_T("Undo the last annotation")));
+	m_pHelpDisplay->AddLine(_KeyDesc(IDM_ANNOTATE_CLEAR), CNLS::GetString(_T("Remove all annotations")));
+	m_pHelpDisplay->AddLine(_KeyDesc(IDM_ANNOTATE_APPLY_SAVE), CNLS::GetString(_T("Save the image with the annotations applied")));
 	m_pHelpDisplay->AddLine(_KeyDesc(IDM_TOGGLE_FIT_TO_SCREEN_100_PERCENTS), CNLS::GetString(_T("Zoom 1:1 (100 %)")));
 	TCHAR buff5[16]; buff5[0] = 0; if (m_pMainDlg->GetZoom() > 0) _stprintf_s(buff5, 16, _T("%.0f %%"), m_pMainDlg->GetZoom() * 100);
 	_stprintf_s(buffMI, 256, CNLS::GetString(_T("Zoom in (%s)/Zoom out (%s)")), _KeyDesc(IDM_ZOOM_INC), _KeyDesc(IDM_ZOOM_DEC));
