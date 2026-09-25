@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "PanelController.h"
 
@@ -15,13 +15,14 @@ public:
 	// Current blending factor with background, 1 -> fully visible, 0 -> invisible
 	float CurrentBlendingFactor() { return m_fCurrentBlendingFactorNavPanel; }
 
-	// While the annotation style strip is open the panel stays fully opaque: the strip
-	// sits on top of it, and having the panel underneath fade while the user works the
-	// sliders is distracting.
-	virtual bool BlendPanel() { return !m_bMouseInNavPanel && !IsAnnotationStyleOpen(); }
+	// While the annotation style strip is open, or a drawing tool is active, the panel
+	// stays fully opaque instead of blending into the image: those are exactly the
+	// moments when its buttons have to be readable and clickable.
+	virtual bool BlendPanel() { return !m_bMouseInNavPanel && !IsAnnotationStyleOpen() && !IsAnnotating(); }
 	virtual float DimFactor() { return 0.0f; }
 
 	bool IsAnnotationStyleOpen();
+	bool IsAnnotating();
 	void AdjustMaximalWidth(int nMaxWidth);
 
 	virtual bool IsVisible();

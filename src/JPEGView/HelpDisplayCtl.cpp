@@ -1,4 +1,4 @@
-#include "StdAfx.h"
+﻿#include "StdAfx.h"
 #include "resource.h"
 #include "MainDlg.h"
 #include "HelpDisplayCtl.h"
@@ -102,13 +102,16 @@ void CHelpDisplayCtl::GenerateHelpDisplay() {
 	m_pHelpDisplay->AddLineInfo(_KeyDesc(IDM_ALWAYS_ON_TOP), m_pMainDlg->IsAlwaysOnTop(), CNLS::GetString(_T("Toggle window always on top mode")));
 	m_pHelpDisplay->AddLineInfo(_KeyDesc(IDM_ANNOTATE_FREEHAND),
 		m_pMainDlg->GetAnnotationCtl() != NULL && m_pMainDlg->GetAnnotationCtl()->GetTool() == ATOOL_Freehand,
-		CNLS::GetString(_T("Draw freehand on the image")));
+		CNLS::GetString(_T("Draw freehand, press again to add an arrow head to the line")));
 	m_pHelpDisplay->AddLineInfo(_KeyDesc(IDM_ANNOTATE_TEXT),
 		m_pMainDlg->GetAnnotationCtl() != NULL && m_pMainDlg->GetAnnotationCtl()->GetTool() == ATOOL_Text,
 		CNLS::GetString(_T("Add a text label to the image")));
 	m_pHelpDisplay->AddLineInfo(_KeyDesc(IDM_ANNOTATE_RECT),
-		m_pMainDlg->GetAnnotationCtl() != NULL && m_pMainDlg->GetAnnotationCtl()->GetTool() == ATOOL_Rectangle,
-		CNLS::GetString(_T("Draw a rectangle, press again to switch between outline and fill")));
+		m_pMainDlg->GetAnnotationCtl() != NULL && m_pMainDlg->GetAnnotationCtl()->GetTool() == ATOOL_Shape,
+		CNLS::GetString(_T("Draw a shape, press again for rectangle, ellipse or triangle")));
+	m_pHelpDisplay->AddLineInfo(_KeyDesc(IDM_ANNOTATE_FILL),
+		m_pMainDlg->GetAnnotationCtl() != NULL && m_pMainDlg->GetAnnotationCtl()->IsFillEnabled(),
+		CNLS::GetString(_T("Fill the shapes instead of drawing their outline")));
 	m_pHelpDisplay->AddLine(_KeyDesc(IDM_ANNOTATE_UNDO), CNLS::GetString(_T("Undo the last annotation")));
 	m_pHelpDisplay->AddLine(_KeyDesc(IDM_ANNOTATE_CLEAR), CNLS::GetString(_T("Remove all annotations")));
 	m_pHelpDisplay->AddLine(_KeyDesc(IDM_ANNOTATE_APPLY_SAVE), CNLS::GetString(_T("Save the image with the annotations applied")));

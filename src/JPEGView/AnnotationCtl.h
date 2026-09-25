@@ -19,7 +19,14 @@ enum EAnnotationTool {
 	ATOOL_None,
 	ATOOL_Freehand,
 	ATOOL_Text,
-	ATOOL_Rectangle
+	ATOOL_Shape
+};
+
+// The shape tool cycles through these in order.
+enum EAnnotationShape {
+	SHAPE_Rectangle,
+	SHAPE_Ellipse,
+	SHAPE_Triangle
 };
 
 // Turns mouse input into annotations. Owns the model.
@@ -27,11 +34,18 @@ class CAnnotationCtl {
 public:
 	CAnnotationCtl(IAnnotationHost* pHost);
 
-	// Selecting the tool that is already selected toggles rectangle fill; for the other
-	// tools it does nothing. Leaving annotation mode is done with SetTool(ATOOL_None).
+	// Selecting the tool that is already selected cycles it: the shape tool steps
+	// rectangle -> ellipse -> triangle -> rectangle, the freehand tool turns its arrow
+	// head on and off. Leaving annotation mode is done with SetTool(ATOOL_None).
 	void SetTool(EAnnotationTool eTool);
 	EAnnotationTool GetTool() const { return m_eTool; }
-	bool IsRectangleFilled() const { return m_bRectangleFilled; }
+	EAnnotationShape GetShape() const { return m_eShape; }
+	bool IsFreehandArrow() const { return m_bFreehandArrow; }
+
+	// Fill has a button of its own, so unlike the shape it is a style setting: it keeps
+	// its value while the user switches tools, the way the colour does.
+	void ToggleFill() { m_bFill = !m_bFill; }
+	bool IsFillEnabled() const { return m_bFill; }
 	bool IsAnnotating() const { return m_eTool != ATOOL_None; }
 	bool HasUnsavedAnnotations() const { return m_model.IsDirty(); }
 
@@ -71,6 +85,7 @@ public:
 
 private:
 	CPointF ToImage(int nX, int nY);
+	EAnnotationType CurrentShapeType() const;
 	void StartStyle(CAnnotation& annotation, EAnnotationType eType);
 	void InvalidatePending();
 	void InvalidateLastSegment();
@@ -78,12 +93,14 @@ private:
 	IAnnotationHost* m_pHost;
 	CAnnotationModel m_model;
 	EAnnotationTool m_eTool;
-	bool m_bRectangleFilled;
+	EAnnotationShape m_eShape;
+	bool m_bFill;
+	bool m_bFreehandArrow;
 	bool m_bDrawing;
 	CAnnotation m_pending;
-	// The corner the rectangle drag started from. Kept apart from m_pending.points,
+	// The corner the shape drag started from. Kept apart from m_pending.points,
 	// which gets reordered on every move so the live preview has a positive size.
-	CPointF m_ptRectAnchor;
+	CPointF m_ptShapeAnchor;
 	CPointF m_ptLastStrokeEnd;   // anchor for the next Shift+click line
 	bool m_bHasLastStrokeEnd;
 	bool m_bPendingText;

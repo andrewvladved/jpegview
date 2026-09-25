@@ -98,10 +98,10 @@ TEST(StrokeIsClampedToTheImage) {
 	CHECK(ann.points[1].x <= 199.0f && ann.points[1].y <= 199.0f);
 }
 
-TEST(RectangleDragAddsANormalizedRectangle) {
+TEST(ShapeDragAddsANormalizedRectangle) {
 	CFakeHost host;
 	CAnnotationCtl ctl(&host);
-	ctl.SetTool(ATOOL_Rectangle);
+	ctl.SetTool(ATOOL_Shape);
 	ctl.OnLButtonDown(300, 250);
 	ctl.OnMouseMove(100, 50);
 	ctl.OnLButtonUp(100, 50);
@@ -112,38 +112,177 @@ TEST(RectangleDragAddsANormalizedRectangle) {
 	CHECK(ann.points[0].y < ann.points[1].y);
 }
 
-TEST(RepeatSelectionOfRectangleTogglesFill) {
+TEST(RepeatSelectionOfShapeToolCyclesThroughTheThreeShapes) {
 	CFakeHost host;
 	CAnnotationCtl ctl(&host);
-	ctl.SetTool(ATOOL_Rectangle);
-	CHECK(!ctl.IsRectangleFilled());
-	ctl.SetTool(ATOOL_Rectangle);
-	CHECK(ctl.IsRectangleFilled());
-	ctl.SetTool(ATOOL_Rectangle);
-	CHECK(!ctl.IsRectangleFilled());
+	ctl.SetTool(ATOOL_Shape);
+	CHECK(ctl.GetShape() == SHAPE_Rectangle);
+	ctl.SetTool(ATOOL_Shape);
+	CHECK(ctl.GetShape() == SHAPE_Ellipse);
+	ctl.SetTool(ATOOL_Shape);
+	CHECK(ctl.GetShape() == SHAPE_Triangle);
+	ctl.SetTool(ATOOL_Shape);
+	CHECK(ctl.GetShape() == SHAPE_Rectangle);
 }
 
-TEST(SwitchingAwayAndBackResetsFillToOutline) {
+TEST(TheSelectedShapeDecidesWhatIsDrawn) {
 	CFakeHost host;
 	CAnnotationCtl ctl(&host);
-	ctl.SetTool(ATOOL_Rectangle);
-	ctl.SetTool(ATOOL_Rectangle);
-	CHECK(ctl.IsRectangleFilled());
-	ctl.SetTool(ATOOL_Freehand);
-	ctl.SetTool(ATOOL_Rectangle);
-	CHECK(!ctl.IsRectangleFilled());
+	ctl.SetTool(ATOOL_Shape);
+	ctl.SetTool(ATOOL_Shape); // ellipse
+	ctl.OnLButtonDown(10, 10);
+	ctl.OnMouseMove(60, 60);
+	ctl.OnLButtonUp(60, 60);
+	ctl.SetTool(ATOOL_Shape); // triangle
+	ctl.OnLButtonDown(70, 10);
+	ctl.OnMouseMove(120, 60);
+	ctl.OnLButtonUp(120, 60);
+	REQUIRE(ctl.Model().Count() == 2);
+	CHECK(ctl.Model().Annotations()[0].eType == AT_Ellipse);
+	CHECK(ctl.Model().Annotations()[1].eType == AT_Triangle);
 }
 
-TEST(FilledRectangleCarriesTheFillFlag) {
+TEST(EveryShapeIsNormalisedWhenDraggedBackwards) {
 	CFakeHost host;
 	CAnnotationCtl ctl(&host);
-	ctl.SetTool(ATOOL_Rectangle);
-	ctl.SetTool(ATOOL_Rectangle); // second press switches to filled
+	ctl.SetTool(ATOOL_Shape);
+	for (int i = 0; i < 3; i++) {
+		ctl.OnLButtonDown(300, 250);
+		ctl.OnMouseMove(100, 50);
+		ctl.OnLButtonUp(100, 50);
+		ctl.SetTool(ATOOL_Shape); // next shape
+	}
+	REQUIRE(ctl.Model().Count() == 3);
+	for (size_t i = 0; i < 3; i++) {
+		const CAnnotation& ann = ctl.Model().Annotations()[i];
+		CHECK(ann.points[0].x < ann.points[1].x);
+		CHECK(ann.points[0].y < ann.points[1].y);
+	}
+}
+
+// Fill used to ride on the shape button. It has its own button now, so cycling the
+// shape must not change it and toggling it must not change the shape.
+TEST(CyclingTheShapeLeavesFillAlone) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.SetTool(ATOOL_Shape);
+	ctl.ToggleFill();
+	CHECK(ctl.IsFillEnabled());
+	ctl.SetTool(ATOOL_Shape);
+	ctl.SetTool(ATOOL_Shape);
+	CHECK(ctl.IsFillEnabled());
+	CHECK(ctl.GetShape() == SHAPE_Triangle);
+}
+
+TEST(ToggleFillLeavesTheShapeAlone) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.SetTool(ATOOL_Shape);
+	ctl.SetTool(ATOOL_Shape); // ellipse
+	ctl.ToggleFill();
+	ctl.ToggleFill();
+	CHECK(!ctl.IsFillEnabled());
+	CHECK(ctl.GetShape() == SHAPE_Ellipse);
+}
+
+TEST(FillAppliesToWhicheverShapeIsDrawn) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.SetTool(ATOOL_Shape);
+	ctl.ToggleFill();
+	ctl.SetTool(ATOOL_Shape); // ellipse
 	ctl.OnLButtonDown(10, 10);
 	ctl.OnMouseMove(60, 60);
 	ctl.OnLButtonUp(60, 60);
 	REQUIRE(ctl.Model().Count() == 1);
+	CHECK(ctl.Model().Annotations()[0].eType == AT_Ellipse);
 	CHECK(ctl.Model().Annotations()[0].bFilled);
+}
+
+// Fill is a style, like the colour: it belongs to the user's choice, not to one visit
+// to the shape tool.
+TEST(FillSurvivesSwitchingToAnotherToolAndBack) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.SetTool(ATOOL_Shape);
+	ctl.ToggleFill();
+	ctl.SetTool(ATOOL_Freehand);
+	ctl.SetTool(ATOOL_Shape);
+	CHECK(ctl.IsFillEnabled());
+	CHECK(ctl.GetShape() == SHAPE_Rectangle);
+}
+
+TEST(AFilledFlagNeverReachesAFreehandStroke) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.SetTool(ATOOL_Shape);
+	ctl.ToggleFill();
+	ctl.SetTool(ATOOL_Freehand);
+	ctl.OnLButtonDown(10, 10);
+	ctl.OnMouseMove(60, 60);
+	ctl.OnLButtonUp(60, 60);
+	REQUIRE(ctl.Model().Count() == 1);
+	CHECK(!ctl.Model().Annotations()[0].bFilled);
+}
+
+TEST(RepeatSelectionOfFreehandTogglesTheArrowHead) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.SetTool(ATOOL_Freehand);
+	CHECK(!ctl.IsFreehandArrow());
+	ctl.SetTool(ATOOL_Freehand);
+	CHECK(ctl.IsFreehandArrow());
+	ctl.SetTool(ATOOL_Freehand);
+	CHECK(!ctl.IsFreehandArrow());
+}
+
+TEST(ArrowModeIsCarriedByTheStrokeItDraws) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.SetTool(ATOOL_Freehand);
+	ctl.SetTool(ATOOL_Freehand); // arrow on
+	ctl.OnLButtonDown(10, 10);
+	ctl.OnMouseMove(60, 60);
+	ctl.OnLButtonUp(60, 60);
+	REQUIRE(ctl.Model().Count() == 1);
+	CHECK(ctl.Model().Annotations()[0].eType == AT_Freehand);
+	CHECK(ctl.Model().Annotations()[0].bArrowHead);
+}
+
+TEST(ArrowModeSurvivesSwitchingToAnotherToolAndBack) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.SetTool(ATOOL_Freehand);
+	ctl.SetTool(ATOOL_Freehand); // arrow on
+	ctl.SetTool(ATOOL_Shape);
+	ctl.SetTool(ATOOL_Freehand);
+	CHECK(ctl.IsFreehandArrow());
+}
+
+TEST(AShiftLineGetsTheArrowHeadToo) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.SetTool(ATOOL_Freehand);
+	ctl.SetTool(ATOOL_Freehand); // arrow on
+	ctl.OnLButtonDown(10, 10);
+	ctl.OnMouseMove(60, 60);
+	ctl.OnLButtonUp(60, 60);
+	ctl.OnLButtonDownShift(120, 60);
+	REQUIRE(ctl.Model().Count() == 2);
+	CHECK(ctl.Model().Annotations()[1].bArrowHead);
+}
+
+TEST(AShapeNeverCarriesAnArrowHead) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.SetTool(ATOOL_Freehand);
+	ctl.SetTool(ATOOL_Freehand); // arrow on
+	ctl.SetTool(ATOOL_Shape);
+	ctl.OnLButtonDown(10, 10);
+	ctl.OnMouseMove(60, 60);
+	ctl.OnLButtonUp(60, 60);
+	REQUIRE(ctl.Model().Count() == 1);
+	CHECK(!ctl.Model().Annotations()[0].bArrowHead);
 }
 
 TEST(TextClickRecordsAPendingPositionAndConsumesTheClick) {
@@ -216,7 +355,7 @@ TEST(LeavingAnnotationModeKeepsTheAnnotations) {
 TEST(MarkSavedClearsTheUnsavedFlagButKeepsAnnotations) {
 	CFakeHost host;
 	CAnnotationCtl ctl(&host);
-	ctl.SetTool(ATOOL_Rectangle);
+	ctl.SetTool(ATOOL_Shape);
 	ctl.OnLButtonDown(10, 10);
 	ctl.OnMouseMove(50, 50);
 	ctl.OnLButtonUp(50, 50);
@@ -254,7 +393,7 @@ TEST(PendingAnnotationIsVisibleOnlyDuringTheDrag) {
 TEST(PendingRectangleIsNormalisedWhileDragging) {
 	CFakeHost host;
 	CAnnotationCtl ctl(&host);
-	ctl.SetTool(ATOOL_Rectangle);
+	ctl.SetTool(ATOOL_Shape);
 	ctl.OnLButtonDown(300, 250);
 	ctl.OnMouseMove(100, 50);
 	const CAnnotation* pPending = ctl.PendingAnnotation();
@@ -340,7 +479,7 @@ TEST(ShiftClickChainsFromTheEndOfThePreviousShiftLine) {
 TEST(ShiftClickIsIgnoredOutsideTheFreehandTool) {
 	CFakeHost host;
 	CAnnotationCtl ctl(&host);
-	ctl.SetTool(ATOOL_Rectangle);
+	ctl.SetTool(ATOOL_Shape);
 	ctl.OnLButtonDown(10, 10);
 	ctl.OnMouseMove(50, 50);
 	ctl.OnLButtonUp(50, 50);
@@ -384,7 +523,7 @@ TEST(FreehandInvalidationCoversTheNewSegment) {
 TEST(RectangleStillInvalidatesItsWholeShape) {
 	CFakeHost host;
 	CAnnotationCtl ctl(&host);
-	ctl.SetTool(ATOOL_Rectangle);
+	ctl.SetTool(ATOOL_Shape);
 	ctl.OnLButtonDown(100, 100);
 	ctl.OnMouseMove(500, 400);
 	// a rectangle is redrawn entirely on every move, so its whole area must be invalidated

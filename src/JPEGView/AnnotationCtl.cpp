@@ -4,11 +4,13 @@
 CAnnotationCtl::CAnnotationCtl(IAnnotationHost* pHost) {
 	m_pHost = pHost;
 	m_eTool = ATOOL_None;
-	m_bRectangleFilled = false;
+	m_eShape = SHAPE_Rectangle;
+	m_bFill = false;
+	m_bFreehandArrow = false;
 	m_bDrawing = false;
 	m_bPendingText = false;
 	m_ptPendingText = CPoint(0, 0);
-	m_ptRectAnchor.x = m_ptRectAnchor.y = 0.0f;
+	m_ptShapeAnchor.x = m_ptShapeAnchor.y = 0.0f;
 	m_ptLastStrokeEnd.x = m_ptLastStrokeEnd.y = 0.0f;
 	m_bHasLastStrokeEnd = false;
 	m_color = RGB(255, 0, 0);
@@ -18,14 +20,17 @@ CAnnotationCtl::CAnnotationCtl(IAnnotationHost* pHost) {
 }
 
 void CAnnotationCtl::SetTool(EAnnotationTool eTool) {
-	if (eTool == ATOOL_Rectangle && m_eTool == ATOOL_Rectangle) {
-		// Pressing the rectangle tool again switches between outline and fill. The panel
-		// framework routes left clicks only, so there is no right click to spend on this.
-		m_bRectangleFilled = !m_bRectangleFilled;
+	if (eTool == ATOOL_Shape && m_eTool == ATOOL_Shape) {
+		// Pressing the shape tool again steps to the next shape. The panel framework
+		// routes left clicks only, so there is no right click to spend on this.
+		m_eShape = (m_eShape == SHAPE_Rectangle) ? SHAPE_Ellipse :
+			(m_eShape == SHAPE_Ellipse) ? SHAPE_Triangle : SHAPE_Rectangle;
 		return;
 	}
-	if (eTool != ATOOL_Rectangle) {
-		m_bRectangleFilled = false;
+	if (eTool == ATOOL_Freehand && m_eTool == ATOOL_Freehand) {
+		// Likewise, pressing freehand again puts an arrow head on the end of the line.
+		m_bFreehandArrow = !m_bFreehandArrow;
+		return;
 	}
 	if (eTool != ATOOL_Text) {
 		m_bPendingText = false;
@@ -35,6 +40,14 @@ void CAnnotationCtl::SetTool(EAnnotationTool eTool) {
 	}
 	m_eTool = eTool;
 	m_bDrawing = false;
+}
+
+EAnnotationType CAnnotationCtl::CurrentShapeType() const {
+	switch (m_eShape) {
+		case SHAPE_Ellipse: return AT_Ellipse;
+		case SHAPE_Triangle: return AT_Triangle;
+		default: return AT_Rectangle;
+	}
 }
 
 void CAnnotationCtl::SetStyle(COLORREF color, int nAlpha, int nPenWidthScreen, int nFontSizeScreen) {
@@ -63,7 +76,10 @@ void CAnnotationCtl::StartStyle(CAnnotation& annotation, EAnnotationType eType) 
 	// keeps its apparent thickness while drawing and scales with the image when saved.
 	annotation.fPenWidth = m_nPenWidthScreen / fZoom;
 	annotation.fFontHeight = m_nFontSizeScreen / fZoom;
-	annotation.bFilled = m_bRectangleFilled;
+	// Fill belongs to the shapes and the arrow head to the freehand line; neither must
+	// leak onto the other kind of element.
+	annotation.bFilled = m_bFill && IsTwoCornerShape(eType);
+	annotation.bArrowHead = m_bFreehandArrow && eType == AT_Freehand;
 }
 
 // A freehand stroke only ever grows, and the part already on screen is unchanged, so
@@ -78,6 +94,9 @@ void CAnnotationCtl::InvalidateLastSegment() {
 	CAnnotation segment;
 	segment.eType = AT_Freehand;
 	segment.fPenWidth = m_pending.fPenWidth;
+	// The arrow head sits at the end of the segment and moves with it, so its area has
+	// to be part of what is repainted, both where it is now and where it just was.
+	segment.bArrowHead = m_pending.bArrowHead;
 	segment.points.push_back(m_pending.points[nCount - 2]);
 	segment.points.push_back(m_pending.points[nCount - 1]);
 	m_pHost->InvalidateScreenRect(AnnotationGeometry::BoundingBoxOnScreen(segment,
@@ -105,11 +124,11 @@ bool CAnnotationCtl::OnLButtonDown(int nX, int nY) {
 			m_pending.points.push_back(ToImage(nX, nY));
 			m_bDrawing = true;
 			return true;
-		case ATOOL_Rectangle:
-			StartStyle(m_pending, AT_Rectangle);
-			m_ptRectAnchor = ToImage(nX, nY);
-			m_pending.points.push_back(m_ptRectAnchor);
-			m_pending.points.push_back(m_ptRectAnchor);
+		case ATOOL_Shape:
+			StartStyle(m_pending, CurrentShapeType());
+			m_ptShapeAnchor = ToImage(nX, nY);
+			m_pending.points.push_back(m_ptShapeAnchor);
+			m_pending.points.push_back(m_ptShapeAnchor);
 			m_bDrawing = true;
 			return true;
 	}
@@ -141,17 +160,17 @@ bool CAnnotationCtl::OnMouseMove(int nX, int nY) {
 		m_pending.points.push_back(ToImage(nX, nY));
 		InvalidateLastSegment(); // only the piece just added is dirty
 		return true;
-	} else if (m_pending.eType == AT_Rectangle) {
-		InvalidatePending(); // clear where the rectangle was before it is resized
+	} else if (IsTwoCornerShape(m_pending.eType)) {
+		InvalidatePending(); // clear where the shape was before it is resized
 		// Rebuild from the anchor rather than moving points[1], because normalising may
 		// already have swapped the two corners on an earlier move.
-		m_pending.points[0] = m_ptRectAnchor;
+		m_pending.points[0] = m_ptShapeAnchor;
 		m_pending.points[1] = ToImage(nX, nY);
 		// GDI+ draws nothing for a negative width or height, so without this a drag up
 		// or left would show no preview at all until the button came up.
-		AnnotationGeometry::NormalizeRectangle(m_pending);
+		AnnotationGeometry::NormalizeShape(m_pending);
 	}
-	InvalidatePending(); // a rectangle is redrawn whole, so its whole area is dirty
+	InvalidatePending(); // a shape is redrawn whole, so its whole area is dirty
 	return true;
 }
 
@@ -159,10 +178,10 @@ bool CAnnotationCtl::OnLButtonUp(int nX, int nY) {
 	if (!m_bDrawing) {
 		return false;
 	}
-	if (m_pending.eType == AT_Rectangle) {
-		m_pending.points[0] = m_ptRectAnchor;
+	if (IsTwoCornerShape(m_pending.eType)) {
+		m_pending.points[0] = m_ptShapeAnchor;
 		m_pending.points[1] = ToImage(nX, nY);
-		AnnotationGeometry::NormalizeRectangle(m_pending);
+		AnnotationGeometry::NormalizeShape(m_pending);
 	}
 	InvalidatePending();
 	m_bDrawing = false;
@@ -170,7 +189,7 @@ bool CAnnotationCtl::OnLButtonUp(int nX, int nY) {
 		m_ptLastStrokeEnd = m_pending.points.back();
 		m_bHasLastStrokeEnd = true;
 	}
-	// A click without a drag leaves a one-point stroke or a zero-size rectangle;
+	// A click without a drag leaves a one-point stroke or a zero-size shape;
 	// CAnnotationModel::Add drops both, so neither marks the image dirty.
 	m_model.Add(m_pending);
 	return true;

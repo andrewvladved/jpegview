@@ -20,8 +20,8 @@ CPointF ClampToImage(CPointF pt, CSize sizeImage) {
 	return ptClamped;
 }
 
-void NormalizeRectangle(CAnnotation& annotation) {
-	if (annotation.eType != AT_Rectangle || annotation.points.size() < 2) {
+void NormalizeShape(CAnnotation& annotation) {
+	if (!IsTwoCornerShape(annotation.eType) || annotation.points.size() < 2) {
 		return;
 	}
 	float fLeft = min(annotation.points[0].x, annotation.points[1].x);
@@ -52,7 +52,10 @@ CRect BoundingBoxOnScreen(const CAnnotation& annotation, CPoint ptImageOrigin, f
 		fRight += annotation.fFontHeight * 40.0f;
 		fBottom += annotation.fFontHeight * 1.5f;
 	}
-	float fMargin = max(annotation.fPenWidth, 1.0f);
+	// The arrow head reaches several pen widths past the end of the line, so the area
+	// that has to be repainted while it is drawn is correspondingly larger.
+	float fMargin = annotation.fPenWidth * (annotation.bArrowHead ? ARROW_LENGTH_IN_PEN_WIDTHS : 1.0f);
+	fMargin = max(fMargin, 1.0f);
 	CPointF ptTopLeftImage = { fLeft - fMargin, fTop - fMargin };
 	CPointF ptBottomRightImage = { fRight + fMargin, fBottom + fMargin };
 	CPointF ptTopLeft = ImageToScreen(ptTopLeftImage, ptImageOrigin, fZoom);

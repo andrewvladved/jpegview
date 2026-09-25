@@ -91,6 +91,7 @@ Shift+F12               IDM_ALWAYS_ON_TOP
 Ctrl+Shift+D            IDM_ANNOTATE_FREEHAND
 Ctrl+Shift+T            IDM_ANNOTATE_TEXT
 Ctrl+Shift+R            IDM_ANNOTATE_RECT
+Ctrl+Shift+F            IDM_ANNOTATE_FILL
 Ctrl+Z                  IDM_ANNOTATE_UNDO
 Ctrl+Y                  IDM_ANNOTATE_REDO
 Ctrl+Shift+Del          IDM_ANNOTATE_CLEAR

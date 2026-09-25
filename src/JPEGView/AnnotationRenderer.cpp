@@ -38,21 +38,40 @@ void CAnnotationRenderer::RenderOne(Gdiplus::Graphics& g, const CAnnotation& ann
 			if (annotation.points.size() < 2) {
 				return;
 			}
-			Gdiplus::Pen pen(color, max(1.0f, annotation.fPenWidth * fScale));
+			float fWidth = max(1.0f, annotation.fPenWidth * fScale);
+			Gdiplus::Pen pen(color, fWidth);
 			pen.SetStartCap(Gdiplus::LineCapRound);
 			pen.SetEndCap(Gdiplus::LineCapRound);
 			pen.SetLineJoin(Gdiplus::LineJoinRound);
 			std::vector<Gdiplus::PointF> pts;
 			pts.reserve(annotation.points.size());
 			for (size_t i = 0; i < annotation.points.size(); i++) {
-				pts.push_back(Transform(annotation.points[i], fScale, ptOrigin));
+				Gdiplus::PointF pt = Transform(annotation.points[i], fScale, ptOrigin);
+				// Consecutive identical points carry no direction for the arrow head and
+				// add nothing to the line, so they are dropped.
+				if (pts.empty() || pts.back().X != pt.X || pts.back().Y != pt.Y) {
+					pts.push_back(pt);
+				}
+			}
+			if (pts.size() < 2) {
+				return; // the whole stroke collapsed onto one point
+			}
+			// The arrow replaces the round end cap and GDI+ orients it along the last
+			// segment by itself, which is why the duplicates above had to go.
+			if (annotation.bArrowHead) {
+				// SetCustomEndCap copies the cap, so this local one may go out of scope.
+				Gdiplus::AdjustableArrowCap arrowCap(ARROW_LENGTH_IN_PEN_WIDTHS * 0.6f,
+					ARROW_LENGTH_IN_PEN_WIDTHS, true);
+				pen.SetCustomEndCap(&arrowCap);
 			}
 			// One DrawLines call, so that where a translucent stroke overlaps itself the
 			// colour is composited once instead of darkening at every segment joint.
 			g.DrawLines(&pen, &pts[0], (INT)pts.size());
 			break;
 		}
-		case AT_Rectangle: {
+		case AT_Rectangle:
+		case AT_Ellipse:
+		case AT_Triangle: {
 			if (annotation.points.size() < 2) {
 				return;
 			}
@@ -60,12 +79,32 @@ void CAnnotationRenderer::RenderOne(Gdiplus::Graphics& g, const CAnnotation& ann
 			Gdiplus::PointF ptBottomRight = Transform(annotation.points[1], fScale, ptOrigin);
 			Gdiplus::RectF rect(ptTopLeft.X, ptTopLeft.Y,
 				ptBottomRight.X - ptTopLeft.X, ptBottomRight.Y - ptTopLeft.Y);
-			if (annotation.bFilled) {
-				Gdiplus::SolidBrush brush(color);
-				g.FillRectangle(&brush, rect);
+			Gdiplus::SolidBrush brush(color);
+			Gdiplus::Pen pen(color, max(1.0f, annotation.fPenWidth * fScale));
+			pen.SetLineJoin(Gdiplus::LineJoinMiter);
+			if (annotation.eType == AT_Ellipse) {
+				if (annotation.bFilled) {
+					g.FillEllipse(&brush, rect);
+				} else {
+					g.DrawEllipse(&pen, rect);
+				}
+			} else if (annotation.eType == AT_Triangle) {
+				// Apex at the top centre of the dragged box, base along its bottom edge.
+				Gdiplus::PointF corners[3];
+				corners[0] = Gdiplus::PointF(rect.X + rect.Width / 2, rect.Y);
+				corners[1] = Gdiplus::PointF(rect.X + rect.Width, rect.Y + rect.Height);
+				corners[2] = Gdiplus::PointF(rect.X, rect.Y + rect.Height);
+				if (annotation.bFilled) {
+					g.FillPolygon(&brush, corners, 3);
+				} else {
+					g.DrawPolygon(&pen, corners, 3);
+				}
 			} else {
-				Gdiplus::Pen pen(color, max(1.0f, annotation.fPenWidth * fScale));
-				g.DrawRectangle(&pen, rect);
+				if (annotation.bFilled) {
+					g.FillRectangle(&brush, rect);
+				} else {
+					g.DrawRectangle(&pen, rect);
+				}
 			}
 			break;
 		}

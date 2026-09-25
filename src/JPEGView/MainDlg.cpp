@@ -2047,9 +2047,17 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			break;
 		case IDM_ANNOTATE_RECT:
 			if (m_pAnnotationCtl != NULL) {
-				m_pAnnotationCtl->SetTool(ATOOL_Rectangle);
+				m_pAnnotationCtl->SetTool(ATOOL_Shape);
 				if (m_pNavPanelCtl != NULL) m_pNavPanelCtl->UpdateAnnotationButtons();
 				SetCursorForMoveSection();
+				this->Invalidate(FALSE);
+			}
+			break;
+		case IDM_ANNOTATE_FILL:
+			// A style toggle, not a tool: it does not enter or leave annotation mode.
+			if (m_pAnnotationCtl != NULL) {
+				m_pAnnotationCtl->ToggleFill();
+				if (m_pNavPanelCtl != NULL) m_pNavPanelCtl->UpdateAnnotationButtons();
 				this->Invalidate(FALSE);
 			}
 			break;
@@ -3507,16 +3515,28 @@ LPCTSTR CMainDlg::CurrentFileName(bool bFileTitle) {
 // IAnnotationHost. OnPaint calls CJPEGImage::VerifyRotation before anything else,
 // so OrigSize() already reports the dimensions of the image as it is displayed,
 // including any 90 degree rotation the user applied.
+// Ends an in-place edit by destroying its window rather than hiding it; see
+// StartAnnotationTextEdit for why. Focus returns to the dialog, which then has no child
+// control left to hand it on to.
+void CMainDlg::DestroyAnnotationEdit(CEdit& edit, bool& bActive) {
+	bActive = false;
+	if (edit.IsWindow()) {
+		edit.DestroyWindow();
+	}
+	this->SetFocus();
+}
+
 void CMainDlg::StartAnnotationTextEdit() {
 	CPoint pt = m_pAnnotationCtl->GetPendingTextPosition();
 	int nHeight = m_pAnnotationCtl->GetFontSizeScreen();
 	CRect rect(pt, CSize(max(120, nHeight * 20), (int)(nHeight * 1.5)));
-	if (!m_annotationEdit.IsWindow()) {
-		m_annotationEdit.Create(m_hWnd, rect, NULL, WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, 0, IDC_ANNOTATION_EDIT);
-	} else {
-		m_annotationEdit.MoveWindow(&rect);
-		m_annotationEdit.ShowWindow(SW_SHOW);
-	}
+	// Created fresh each time and destroyed when finished. Hiding it instead left it as
+	// the control the dialog manager remembers as focused, and it handed focus straight
+	// back to that hidden edit whenever the window was focused again - where it swallowed
+	// Ctrl+Z as its own undo-typing, so annotation undo stopped working once a piece of
+	// text had been placed.
+	DestroyAnnotationEdit(m_annotationEdit, m_bAnnotationEditActive);
+	m_annotationEdit.Create(m_hWnd, rect, NULL, WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, 0, IDC_ANNOTATION_EDIT);
 	if (!m_annotationEditFont.IsNull()) {
 		m_annotationEditFont.DeleteObject();
 	}
@@ -3535,13 +3555,9 @@ void CMainDlg::StartAnnotationValueEdit(int nWhich, const CRect& rcField, int nC
 	m_nAnnotationValueEditMax = nMax;
 	int nHeight = max(14, rcField.Height());
 	CRect rect(rcField.left, rcField.top, rcField.right, rcField.top + nHeight);
-	if (!m_annotationValueEdit.IsWindow()) {
-		m_annotationValueEdit.Create(m_hWnd, rect, NULL,
-			WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | ES_RIGHT | ES_NUMBER, 0, IDC_ANNOTATION_VALUE_EDIT);
-	} else {
-		m_annotationValueEdit.MoveWindow(&rect);
-		m_annotationValueEdit.ShowWindow(SW_SHOW);
-	}
+	DestroyAnnotationEdit(m_annotationValueEdit, m_bAnnotationValueEditActive);
+	m_annotationValueEdit.Create(m_hWnd, rect, NULL,
+		WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | ES_RIGHT | ES_NUMBER, 0, IDC_ANNOTATION_VALUE_EDIT);
 	if (!m_annotationValueEditFont.IsNull()) {
 		m_annotationValueEditFont.DeleteObject();
 	}
@@ -3562,9 +3578,7 @@ void CMainDlg::CommitAnnotationValueEdit() {
 	}
 	CString sText;
 	m_annotationValueEdit.GetWindowText(sText);
-	m_bAnnotationValueEditActive = false;
-	m_annotationValueEdit.ShowWindow(SW_HIDE);
-	this->SetFocus();
+	DestroyAnnotationEdit(m_annotationValueEdit, m_bAnnotationValueEditActive);
 	if (!sText.IsEmpty() && m_pAnnotationStylePanelCtl != NULL) {
 		int nValue = _ttoi(sText);
 		nValue = max(m_nAnnotationValueEditMin, min(m_nAnnotationValueEditMax, nValue));
@@ -3577,9 +3591,7 @@ void CMainDlg::CancelAnnotationValueEdit() {
 	if (!m_bAnnotationValueEditActive) {
 		return;
 	}
-	m_bAnnotationValueEditActive = false;
-	m_annotationValueEdit.ShowWindow(SW_HIDE);
-	this->SetFocus();
+	DestroyAnnotationEdit(m_annotationValueEdit, m_bAnnotationValueEditActive);
 	Invalidate(FALSE);
 }
 
@@ -3589,9 +3601,7 @@ void CMainDlg::OnAnnotationTextCommitted() {
 	}
 	CString sText;
 	m_annotationEdit.GetWindowText(sText);
-	m_bAnnotationEditActive = false;
-	m_annotationEdit.ShowWindow(SW_HIDE);
-	this->SetFocus();
+	DestroyAnnotationEdit(m_annotationEdit, m_bAnnotationEditActive);
 	if (m_pAnnotationCtl != NULL) {
 		m_pAnnotationCtl->CommitText(sText); // empty text is dropped by the model
 	}
@@ -3602,9 +3612,7 @@ void CMainDlg::OnAnnotationTextCancelled() {
 	if (!m_bAnnotationEditActive) {
 		return;
 	}
-	m_bAnnotationEditActive = false;
-	m_annotationEdit.ShowWindow(SW_HIDE);
-	this->SetFocus();
+	DestroyAnnotationEdit(m_annotationEdit, m_bAnnotationEditActive);
 	if (m_pAnnotationCtl != NULL) {
 		m_pAnnotationCtl->CancelText();
 	}

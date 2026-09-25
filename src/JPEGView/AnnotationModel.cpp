@@ -11,6 +11,8 @@ bool CAnnotationModel::IsDegenerate(const CAnnotation& annotation) {
 			// still mark the image dirty and trigger the save prompt.
 			return annotation.points.size() < 2;
 		case AT_Rectangle:
+		case AT_Ellipse:
+		case AT_Triangle:
 			// Two coincident corners mean a click without a drag, same as above.
 			return annotation.points.size() < 2 ||
 				(annotation.points[0].x == annotation.points[1].x &&

@@ -141,3 +141,111 @@ TEST(TextRendersSomethingAtItsAnchor) {
 	}
 	CHECK(nDark > 20);
 }
+
+static CAnnotation MakeShape(EAnnotationType eType, bool bFilled) {
+	CAnnotation a;
+	a.eType = eType;
+	a.bFilled = bFilled;
+	a.color = RGB(255, 0, 0);
+	a.nAlpha = 255;
+	a.fPenWidth = 2.0f;
+	CPointF p0 = { 50.0f, 50.0f };
+	CPointF p1 = { 150.0f, 150.0f };
+	a.points.push_back(p0);
+	a.points.push_back(p1);
+	return a;
+}
+
+TEST(FilledEllipsePaintsItsCentre) {
+	Gdiplus::Color color = RenderAndSample(MakeShape(AT_Ellipse, true), 1.0f, 100, 100);
+	CHECK(color.GetR() == 255);
+	CHECK(color.GetG() == 0);
+	CHECK(color.GetB() == 0);
+}
+
+// The point just inside the top left of the bounding box is outside the ellipse itself.
+// This is what tells an ellipse apart from a rectangle with the same corners.
+TEST(FilledEllipseLeavesTheCornerOfItsBoundingBoxUntouched) {
+	Gdiplus::Color color = RenderAndSample(MakeShape(AT_Ellipse, true), 1.0f, 56, 56);
+	CHECK(color.GetG() > 200);
+	CHECK(color.GetB() > 200);
+}
+
+TEST(OutlineEllipseLeavesItsInteriorUntouched) {
+	Gdiplus::Color color = RenderAndSample(MakeShape(AT_Ellipse, false), 1.0f, 100, 100);
+	CHECK(color.GetG() > 200);
+	CHECK(color.GetB() > 200);
+}
+
+TEST(OutlineEllipsePaintsItsLeftmostPoint) {
+	// Halfway down the bounding box the outline crosses its left edge.
+	Gdiplus::Color color = RenderAndSample(MakeShape(AT_Ellipse, false), 1.0f, 50, 100);
+	CHECK(color.GetG() < 200);
+}
+
+// Apex at the top centre, base along the bottom edge: the bottom centre is inside and
+// the top left corner of the bounding box is outside.
+TEST(FilledTrianglePaintsItsBottomCentre) {
+	Gdiplus::Color color = RenderAndSample(MakeShape(AT_Triangle, true), 1.0f, 100, 140);
+	CHECK(color.GetR() == 255);
+	CHECK(color.GetG() == 0);
+	CHECK(color.GetB() == 0);
+}
+
+TEST(FilledTriangleLeavesTheTopLeftOfItsBoundingBoxUntouched) {
+	Gdiplus::Color color = RenderAndSample(MakeShape(AT_Triangle, true), 1.0f, 56, 56);
+	CHECK(color.GetG() > 200);
+	CHECK(color.GetB() > 200);
+}
+
+TEST(OutlineTriangleLeavesItsInteriorUntouched) {
+	Gdiplus::Color color = RenderAndSample(MakeShape(AT_Triangle, false), 1.0f, 100, 120);
+	CHECK(color.GetG() > 200);
+	CHECK(color.GetB() > 200);
+}
+
+TEST(OutlineTrianglePaintsItsBaseline) {
+	Gdiplus::Color color = RenderAndSample(MakeShape(AT_Triangle, false), 1.0f, 100, 150);
+	CHECK(color.GetG() < 200);
+}
+
+static CAnnotation MakeHorizontalStroke(bool bArrow) {
+	CAnnotation a;
+	a.eType = AT_Freehand;
+	a.bArrowHead = bArrow;
+	a.color = RGB(255, 0, 0);
+	a.nAlpha = 255;
+	a.fPenWidth = 6.0f;
+	CPointF p0 = { 40.0f, 100.0f };
+	CPointF p1 = { 120.0f, 100.0f };
+	a.points.push_back(p0);
+	a.points.push_back(p1);
+	return a;
+}
+
+// The arrow head is wider than the line, so a point well off the line near its end is
+// painted only when the head is there.
+TEST(ArrowHeadPaintsBesideTheEndOfTheStroke) {
+	Gdiplus::Color plain = RenderAndSample(MakeHorizontalStroke(false), 1.0f, 108, 112);
+	CHECK(plain.GetG() > 200);
+	Gdiplus::Color arrow = RenderAndSample(MakeHorizontalStroke(true), 1.0f, 108, 112);
+	CHECK(arrow.GetG() < 200);
+}
+
+TEST(AStrokeWithoutTheArrowFlagIsUnchanged) {
+	Gdiplus::Color color = RenderAndSample(MakeHorizontalStroke(false), 1.0f, 80, 100);
+	CHECK(color.GetR() == 255);
+	CHECK(color.GetG() == 0);
+	CHECK(color.GetB() == 0);
+}
+
+// A stroke whose last points coincide has no direction for the head; it must still draw
+// the line rather than disappear.
+TEST(ArrowStrokeWithRepeatedEndPointStillDrawsTheLine) {
+	CAnnotation a = MakeHorizontalStroke(true);
+	a.points.push_back(a.points.back());
+	a.points.push_back(a.points.back());
+	Gdiplus::Color color = RenderAndSample(a, 1.0f, 80, 100);
+	CHECK(color.GetR() == 255);
+	CHECK(color.GetG() == 0);
+}

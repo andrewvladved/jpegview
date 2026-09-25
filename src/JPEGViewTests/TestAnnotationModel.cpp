@@ -119,3 +119,51 @@ TEST(ZeroSizeRectangleIsRejected) {
 	model.Add(a);
 	CHECK(model.IsEmpty());
 }
+
+// The ellipse and the triangle are described by the same two opposite corners as the
+// rectangle, so a click without a drag has to be dropped for them as well.
+TEST(ZeroSizeEllipseIsRejected) {
+	CAnnotation a;
+	a.eType = AT_Ellipse;
+	CPointF p = { 10.0f, 10.0f };
+	a.points.push_back(p);
+	a.points.push_back(p);
+	CAnnotationModel model;
+	model.Add(a);
+	CHECK(model.IsEmpty());
+}
+
+TEST(ZeroSizeTriangleIsRejected) {
+	CAnnotation a;
+	a.eType = AT_Triangle;
+	CPointF p = { 10.0f, 10.0f };
+	a.points.push_back(p);
+	a.points.push_back(p);
+	CAnnotationModel model;
+	model.Add(a);
+	CHECK(model.IsEmpty());
+}
+
+TEST(AnEllipseWithTwoDistinctCornersIsKept) {
+	CAnnotation a;
+	a.eType = AT_Ellipse;
+	CPointF p0 = { 10.0f, 10.0f };
+	CPointF p1 = { 40.0f, 30.0f };
+	a.points.push_back(p0);
+	a.points.push_back(p1);
+	CAnnotationModel model;
+	model.Add(a);
+	CHECK(model.Count() == 1);
+}
+
+TEST(ATriangleWithTwoDistinctCornersIsKept) {
+	CAnnotation a;
+	a.eType = AT_Triangle;
+	CPointF p0 = { 10.0f, 10.0f };
+	CPointF p1 = { 40.0f, 30.0f };
+	a.points.push_back(p0);
+	a.points.push_back(p1);
+	CAnnotationModel model;
+	model.Add(a);
+	CHECK(model.Count() == 1);
+}

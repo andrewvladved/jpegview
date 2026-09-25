@@ -1,4 +1,4 @@
-#include "StdAfx.h"
+﻿#include "StdAfx.h"
 #include "NavigationPanel.h"
 #include "AnnotationCtl.h"
 #include "ImageProcessingPanel.h"
@@ -55,9 +55,10 @@ CNavigationPanel::CNavigationPanel(HWND hWnd, INotifiyMouseCapture* pNotifyMouse
 	AddUserPaintButton(ID_btnShowInfo, GetTooltip(keyMap, _T("Display image (EXIF) information"), IDM_SHOW_FILEINFO), &PaintInfoBtn);
 
 	AddGap(ID_gap7, 16);
-	AddUserPaintButton(ID_btnAnnotateFreehand, GetTooltip(keyMap, _T("Draw freehand"), IDM_ANNOTATE_FREEHAND), &PaintAnnotateFreehandBtn);
+	AddUserPaintButton(ID_btnAnnotateFreehand, &FreehandTooltip, &PaintAnnotateFreehandBtn, NULL, this);
 	AddUserPaintButton(ID_btnAnnotateText, GetTooltip(keyMap, _T("Add text"), IDM_ANNOTATE_TEXT), &PaintAnnotateTextBtn);
-	AddUserPaintButton(ID_btnAnnotateRect, &RectangleTooltip, &PaintAnnotateRectBtn, NULL, this);
+	AddUserPaintButton(ID_btnAnnotateRect, &ShapeTooltip, &PaintAnnotateRectBtn, NULL, this);
+	AddUserPaintButton(ID_btnAnnotateFill, &FillTooltip, &PaintAnnotateFillBtn, NULL, this);
 	AddUserPaintButton(ID_btnAnnotateClear, GetTooltip(keyMap, _T("Clear annotations"), IDM_ANNOTATE_CLEAR), &PaintAnnotateClearBtn);
 	AddUserPaintButton(ID_btnAnnotateStyle, GetTooltip(keyMap, _T("Annotation colour, opacity and width"), 0), &PaintAnnotateStyleBtn, NULL, this);
 
@@ -403,12 +404,19 @@ void CNavigationPanel::PaintInfoBtn(void* pContext, const CRect& rect, CDC& dc) 
 static CString staticTooltip;
 
 void CNavigationPanel::PaintAnnotateFreehandBtn(void* pContext, const CRect& rect, CDC& dc) {
-	// a short wavy line
+	// a short wavy line, with an arrow head on its end while arrow mode is on
+	CNavigationPanel* pPanel = (CNavigationPanel*)pContext;
 	CRect r = Helpers::InflateRect(rect, 0.22f);
 	dc.MoveTo(r.left, r.bottom);
 	dc.LineTo(r.left + r.Width() / 3, r.top + r.Height() / 4);
 	dc.LineTo(r.left + 2 * r.Width() / 3, r.bottom - r.Height() / 4);
 	dc.LineTo(r.right, r.top);
+	if (pPanel != NULL && pPanel->m_pAnnotationCtl != NULL && pPanel->m_pAnnotationCtl->IsFreehandArrow()) {
+		int nBarb = max(2, r.Width() / 4);
+		dc.MoveTo(r.right - nBarb, r.top);
+		dc.LineTo(r.right, r.top);
+		dc.LineTo(r.right, r.top + nBarb);
+	}
 }
 
 void CNavigationPanel::PaintAnnotateTextBtn(void* pContext, const CRect& rect, CDC& dc) {
@@ -420,16 +428,48 @@ void CNavigationPanel::PaintAnnotateTextBtn(void* pContext, const CRect& rect, C
 	dc.LineTo((r.left + r.right) / 2, r.bottom);
 }
 
-void CNavigationPanel::PaintAnnotateRectBtn(void* pContext, const CRect& rect, CDC& dc) {
-	CRect r = Helpers::InflateRect(rect, 0.25f);
-	dc.MoveTo(r.left, r.top); dc.LineTo(r.right, r.top);
-	dc.LineTo(r.right, r.bottom); dc.LineTo(r.left, r.bottom); dc.LineTo(r.left, r.top);
-	// hatched while the tool is in fill mode, so the two modes are told apart at a glance
-	CNavigationPanel* pPanel = (CNavigationPanel*)pContext;
-	if (pPanel != NULL && pPanel->m_pAnnotationCtl != NULL && pPanel->m_pAnnotationCtl->IsRectangleFilled()) {
-		dc.MoveTo(r.left, r.bottom); dc.LineTo(r.right, r.top);
-		dc.MoveTo(r.left, r.top); dc.LineTo(r.right, r.bottom);
+// Both the shape button and the fill button show the shape that is currently selected,
+// so that cycling rectangle - ellipse - triangle is visible without opening anything.
+void CNavigationPanel::DrawShapeGlyph(const CRect& r, CDC& dc, bool bFilled, CAnnotationCtl* pCtl) {
+	EAnnotationShape eShape = (pCtl == NULL) ? SHAPE_Rectangle : pCtl->GetShape();
+	HBRUSH hOldBrush = NULL;
+	CBrush brush;
+	if (bFilled) {
+		// CButtonCtrl sets the text colour to the same colour as the pen it draws the
+		// glyphs with, including on the black pass that lays down the shadow, so this
+		// keeps the fill matching the outline in both passes.
+		brush.CreateSolidBrush(dc.GetTextColor());
+		hOldBrush = dc.SelectBrush(brush);
+	} else {
+		hOldBrush = dc.SelectBrush((HBRUSH)::GetStockObject(NULL_BRUSH));
 	}
+	if (eShape == SHAPE_Ellipse) {
+		dc.Ellipse(r.left, r.top, r.right, r.bottom);
+	} else if (eShape == SHAPE_Triangle) {
+		POINT corners[3];
+		corners[0].x = (r.left + r.right) / 2; corners[0].y = r.top;
+		corners[1].x = r.right;                corners[1].y = r.bottom;
+		corners[2].x = r.left;                 corners[2].y = r.bottom;
+		dc.Polygon(corners, 3);
+	} else {
+		dc.Rectangle(r.left, r.top, r.right, r.bottom);
+	}
+	dc.SelectBrush(hOldBrush);
+}
+
+void CNavigationPanel::PaintAnnotateRectBtn(void* pContext, const CRect& rect, CDC& dc) {
+	CNavigationPanel* pPanel = (CNavigationPanel*)pContext;
+	CRect r = Helpers::InflateRect(rect, 0.25f);
+	DrawShapeGlyph(r, dc, false, (pPanel == NULL) ? NULL : pPanel->m_pAnnotationCtl);
+}
+
+void CNavigationPanel::PaintAnnotateFillBtn(void* pContext, const CRect& rect, CDC& dc) {
+	// The same shape, solid when fill is on and hollow when it is off, so the button
+	// shows what pressing it will do to the shape next to it.
+	CNavigationPanel* pPanel = (CNavigationPanel*)pContext;
+	CAnnotationCtl* pCtl = (pPanel == NULL) ? NULL : pPanel->m_pAnnotationCtl;
+	CRect r = Helpers::InflateRect(rect, 0.25f);
+	DrawShapeGlyph(r, dc, pCtl != NULL && pCtl->IsFillEnabled(), pCtl);
 }
 
 void CNavigationPanel::PaintAnnotateClearBtn(void* pContext, const CRect& rect, CDC& dc) {
@@ -461,12 +501,35 @@ void CNavigationPanel::PaintAnnotateStyleBtn(void* pContext, const CRect& rect, 
 	dc.SelectBrush(hOldBrush);
 }
 
-LPCTSTR CNavigationPanel::RectangleTooltip(void* pContext) {
+LPCTSTR CNavigationPanel::ShapeTooltip(void* pContext) {
+	CNavigationPanel* pNavPanel = (CNavigationPanel*)pContext;
+	CAnnotationCtl* pCtl = (pNavPanel == NULL) ? NULL : pNavPanel->m_pAnnotationCtl;
+	EAnnotationShape eShape = (pCtl == NULL) ? SHAPE_Rectangle : pCtl->GetShape();
+	LPCTSTR sText = (eShape == SHAPE_Ellipse) ? _T("Draw ellipse, press again for triangle") :
+		(eShape == SHAPE_Triangle) ? _T("Draw triangle, press again for rectangle") :
+		_T("Draw rectangle, press again for ellipse");
+	staticTooltip = pNavPanel->GetTooltip(pNavPanel->m_keyMap, sText, IDM_ANNOTATE_RECT);
+	return staticTooltip;
+}
+
+LPCTSTR CNavigationPanel::FillTooltip(void* pContext) {
 	CNavigationPanel* pNavPanel = (CNavigationPanel*)pContext;
 	bool bFilled = pNavPanel != NULL && pNavPanel->m_pAnnotationCtl != NULL &&
-		pNavPanel->m_pAnnotationCtl->IsRectangleFilled();
+		pNavPanel->m_pAnnotationCtl->IsFillEnabled();
 	staticTooltip = pNavPanel->GetTooltip(pNavPanel->m_keyMap,
-		bFilled ? _T("Draw rectangle (filled)") : _T("Draw rectangle (outline)"), IDM_ANNOTATE_RECT);
+		bFilled ? _T("Shapes are filled, press for outline") : _T("Shapes are outlined, press for fill"),
+		IDM_ANNOTATE_FILL);
+	return staticTooltip;
+}
+
+LPCTSTR CNavigationPanel::FreehandTooltip(void* pContext) {
+	CNavigationPanel* pNavPanel = (CNavigationPanel*)pContext;
+	bool bArrow = pNavPanel != NULL && pNavPanel->m_pAnnotationCtl != NULL &&
+		pNavPanel->m_pAnnotationCtl->IsFreehandArrow();
+	staticTooltip = pNavPanel->GetTooltip(pNavPanel->m_keyMap,
+		bArrow ? _T("Draw freehand with an arrow head, press again for a plain line")
+		       : _T("Draw freehand, press again for an arrow head"),
+		IDM_ANNOTATE_FREEHAND);
 	return staticTooltip;
 }
 

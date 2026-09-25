@@ -1,8 +1,9 @@
-#include "StdAfx.h"
+﻿#include "StdAfx.h"
 #include "resource.h"
 #include "MainDlg.h"
 #include "JPEGImage.h"
 #include "NavigationPanelCtl.h"
+#include "AnnotationCtl.h"
 #include "AnnotationStylePanelCtl.h"
 #include "NavigationPanel.h"
 #include "SettingsProvider.h"
@@ -58,6 +59,7 @@ CNavigationPanelCtl::CNavigationPanelCtl(CMainDlg* pMainDlg, CPanel* pImageProcP
 	m_pNavPanel->GetBtnAnnotateFreehand()->SetButtonPressedHandler(&CMainDlg::OnExecuteCommand, pMainDlg, IDM_ANNOTATE_FREEHAND);
 	m_pNavPanel->GetBtnAnnotateText()->SetButtonPressedHandler(&CMainDlg::OnExecuteCommand, pMainDlg, IDM_ANNOTATE_TEXT);
 	m_pNavPanel->GetBtnAnnotateRect()->SetButtonPressedHandler(&CMainDlg::OnExecuteCommand, pMainDlg, IDM_ANNOTATE_RECT);
+	m_pNavPanel->GetBtnAnnotateFill()->SetButtonPressedHandler(&CMainDlg::OnExecuteCommand, pMainDlg, IDM_ANNOTATE_FILL);
 	m_pNavPanel->GetBtnAnnotateClear()->SetButtonPressedHandler(&CMainDlg::OnExecuteCommand, pMainDlg, IDM_ANNOTATE_CLEAR);
 	m_pNavPanel->GetBtnAnnotateStyle()->SetButtonPressedHandler(&OnToggleAnnotationStyle, this);
 }
@@ -85,10 +87,17 @@ bool CNavigationPanelCtl::IsAnnotationStyleOpen() {
 	return pStyle != NULL && pStyle->IsVisible();
 }
 
+bool CNavigationPanelCtl::IsAnnotating() {
+	CAnnotationCtl* pCtl = m_pMainDlg->GetAnnotationCtl();
+	return pCtl != NULL && pCtl->IsAnnotating();
+}
+
 bool CNavigationPanelCtl::IsVisible() {
 	// The style strip is anchored to this panel and its buttons belong to it, so while
-	// the strip is open the panel must stay up regardless of where the mouse is.
-	if (IsAnnotationStyleOpen()) {
+	// the strip is open the panel must stay up regardless of where the mouse is. The
+	// same holds while a drawing tool is active: that is when its buttons are needed,
+	// and a panel fading in and out over the picture being drawn on is a distraction.
+	if (IsAnnotationStyleOpen() || IsAnnotating()) {
 		return m_bEnabled && !m_pMainDlg->IsInMovieMode() && !m_pMainDlg->IsDoCropping();
 	}
 	bool bMouseInNavPanel = m_bMouseInNavPanel && !m_pMainDlg->GetImageProcPanelCtl()->IsVisible();
@@ -385,9 +394,13 @@ void CNavigationPanelCtl::UpdateAnnotationButtons() {
 	CButtonCtrl* pFreehand = m_pNavPanel->GetBtnAnnotateFreehand();
 	CButtonCtrl* pText = m_pNavPanel->GetBtnAnnotateText();
 	CButtonCtrl* pRect = m_pNavPanel->GetBtnAnnotateRect();
+	CButtonCtrl* pFill = m_pNavPanel->GetBtnAnnotateFill();
 	if (pFreehand != NULL) pFreehand->SetActive(eTool == ATOOL_Freehand);
 	if (pText != NULL) pText->SetActive(eTool == ATOOL_Text);
-	if (pRect != NULL) pRect->SetActive(eTool == ATOOL_Rectangle);
+	if (pRect != NULL) pRect->SetActive(eTool == ATOOL_Shape);
+	// Fill is a style, not a tool, so its button shows whether fill is on rather than
+	// whether it is the tool in use.
+	if (pFill != NULL) pFill->SetActive(pCtl->IsFillEnabled());
 }
 
 void CNavigationPanelCtl::OnToggleAnnotationStyle(void* pContext, int nParameter, CButtonCtrl& sender) {

@@ -13,8 +13,9 @@ namespace AnnotationGeometry {
 	// cannot produce coordinates outside the pixel buffer.
 	CPointF ClampToImage(CPointF pt, CSize sizeImage);
 
-	// Orders the two corners of a rectangle annotation so that points[0] is top left.
-	void NormalizeRectangle(CAnnotation& annotation);
+	// Orders the two corners of a rectangle, ellipse or triangle annotation so that
+	// points[0] is the top left one. Anything else is left alone.
+	void NormalizeShape(CAnnotation& annotation);
 
 	// Screen rectangle the annotation paints into, inflated by the pen width, for Invalidate.
 	CRect BoundingBoxOnScreen(const CAnnotation& annotation, CPoint ptImageOrigin, float fZoom);

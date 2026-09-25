@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Panel.h"
 
@@ -35,6 +35,7 @@ public:
 		ID_btnAnnotateFreehand,
 		ID_btnAnnotateText,
 		ID_btnAnnotateRect,
+		ID_btnAnnotateFill,
 		ID_btnAnnotateClear,
 		ID_btnAnnotateStyle
 	};
@@ -61,6 +62,7 @@ public:
 	CButtonCtrl* GetBtnAnnotateFreehand() { return GetControl<CButtonCtrl*>(ID_btnAnnotateFreehand); }
 	CButtonCtrl* GetBtnAnnotateText() { return GetControl<CButtonCtrl*>(ID_btnAnnotateText); }
 	CButtonCtrl* GetBtnAnnotateRect() { return GetControl<CButtonCtrl*>(ID_btnAnnotateRect); }
+	CButtonCtrl* GetBtnAnnotateFill() { return GetControl<CButtonCtrl*>(ID_btnAnnotateFill); }
 	CButtonCtrl* GetBtnAnnotateClear() { return GetControl<CButtonCtrl*>(ID_btnAnnotateClear); }
 	CButtonCtrl* GetBtnAnnotateStyle() { return GetControl<CButtonCtrl*>(ID_btnAnnotateStyle); }
 
@@ -94,9 +96,14 @@ private:
 	static void PaintAnnotateFreehandBtn(void* pContext, const CRect& rect, CDC& dc);
 	static void PaintAnnotateTextBtn(void* pContext, const CRect& rect, CDC& dc);
 	static void PaintAnnotateRectBtn(void* pContext, const CRect& rect, CDC& dc);
+	static void PaintAnnotateFillBtn(void* pContext, const CRect& rect, CDC& dc);
 	static void PaintAnnotateClearBtn(void* pContext, const CRect& rect, CDC& dc);
 	static void PaintAnnotateStyleBtn(void* pContext, const CRect& rect, CDC& dc);
-	static LPCTSTR RectangleTooltip(void* pContext);
+	static LPCTSTR ShapeTooltip(void* pContext);
+	static LPCTSTR FillTooltip(void* pContext);
+	static LPCTSTR FreehandTooltip(void* pContext);
+	// Draws the currently selected shape into the given rectangle, outlined or solid.
+	static void DrawShapeGlyph(const CRect& r, CDC& dc, bool bFilled, CAnnotationCtl* pCtl);
 
 	static LPCTSTR WindowModeTooltip(void* pContext);
 	static LPCTSTR ZoomFitToggleTooltip(void* pContext);

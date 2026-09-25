@@ -406,7 +406,8 @@ BEGIN
         BEGIN
             MENUITEM "Freehand",                    IDM_ANNOTATE_FREEHAND
             MENUITEM "Text",                        IDM_ANNOTATE_TEXT
-            MENUITEM "Rectangle",                   IDM_ANNOTATE_RECT
+            MENUITEM "Shape (rectangle, ellipse, triangle)", IDM_ANNOTATE_RECT
+            MENUITEM "Fill shapes",                 IDM_ANNOTATE_FILL
             MENUITEM SEPARATOR
             MENUITEM "Undo annotation",             IDM_ANNOTATE_UNDO
             MENUITEM "Redo annotation",             IDM_ANNOTATE_REDO
