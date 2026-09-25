@@ -1,4 +1,4 @@
-#include "AnnotationRenderer.h"
+﻿#include "AnnotationRenderer.h"
 
 Gdiplus::PointF CAnnotationRenderer::Transform(const CPointF& pt, float fScale, const Gdiplus::PointF& ptOrigin) {
 	return Gdiplus::PointF(pt.x * fScale + ptOrigin.X, pt.y * fScale + ptOrigin.Y);
@@ -59,9 +59,11 @@ void CAnnotationRenderer::RenderOne(Gdiplus::Graphics& g, const CAnnotation& ann
 			// The arrow replaces the round end cap and GDI+ orients it along the last
 			// segment by itself, which is why the duplicates above had to go.
 			if (annotation.bArrowHead) {
+				// AdjustableArrowCap takes the height (from base to tip) first and the
+				// width across the base second, both in units of the pen width.
 				// SetCustomEndCap copies the cap, so this local one may go out of scope.
-				Gdiplus::AdjustableArrowCap arrowCap(ARROW_LENGTH_IN_PEN_WIDTHS * 0.6f,
-					ARROW_LENGTH_IN_PEN_WIDTHS, true);
+				Gdiplus::AdjustableArrowCap arrowCap(ARROW_LENGTH_IN_PEN_WIDTHS,
+					ARROW_LENGTH_IN_PEN_WIDTHS * 0.6f, TRUE);
 				pen.SetCustomEndCap(&arrowCap);
 			}
 			// One DrawLines call, so that where a translucent stroke overlaps itself the
