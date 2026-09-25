@@ -363,6 +363,9 @@
     <ClCompile Include="AnnotationRenderer.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="AnnotationCtl.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="AnnotationModel.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
@@ -462,6 +465,7 @@
     <ClInclude Include="AnnotationTypes.h" />
     <ClInclude Include="AnnotationGeometry.h" />
     <ClInclude Include="AnnotationRenderer.h" />
+    <ClInclude Include="AnnotationCtl.h" />
     <ClInclude Include="AnnotationModel.h" />
     <ClInclude Include="TitleBarPanel.h" />
     <ClInclude Include="TitleBarPanelCtl.h" />

@@ -106,3 +106,16 @@ TEST(EmptyPointListIsRejected) {
 	model.Add(MakeStroke(0));
 	CHECK(model.IsEmpty());
 }
+
+// A rectangle whose two corners coincide is a click without a drag: invisible,
+// but it would still mark the image dirty and trigger the save prompt.
+TEST(ZeroSizeRectangleIsRejected) {
+	CAnnotation a;
+	a.eType = AT_Rectangle;
+	CPointF p = { 10.0f, 10.0f };
+	a.points.push_back(p);
+	a.points.push_back(p);
+	CAnnotationModel model;
+	model.Add(a);
+	CHECK(model.IsEmpty());
+}
