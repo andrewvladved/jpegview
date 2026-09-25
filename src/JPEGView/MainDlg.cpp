@@ -1417,11 +1417,21 @@ LRESULT CMainDlg::OnEraseBackground(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lPara
 }
 
 LRESULT CMainDlg::OnOK(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
-	// NOP
+	// The main window is a dialog, so the dialog manager turns Enter into IDOK before
+	// any child edit control sees the key. That is how the annotation text is confirmed.
+	if (m_bAnnotationEditActive) {
+		OnAnnotationTextCommitted();
+	}
 	return 0;
 }
 
 LRESULT CMainDlg::OnCancel(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
+	// Likewise Esc arrives as IDCANCEL. Without this, pressing Esc while typing an
+	// annotation would fall through to CleanupAndTerminate and close JPEGView.
+	if (m_bAnnotationEditActive) {
+		OnAnnotationTextCancelled();
+		return 0;
+	}
 	CleanupAndTerminate();
 	return 0;
 }
@@ -3408,7 +3418,6 @@ void CMainDlg::StartAnnotationTextEdit() {
 	CRect rect(pt, CSize(max(120, nHeight * 20), (int)(nHeight * 1.5)));
 	if (!m_annotationEdit.IsWindow()) {
 		m_annotationEdit.Create(m_hWnd, rect, NULL, WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, 0, IDC_ANNOTATION_EDIT);
-		m_annotationEdit.SetListener(this);
 	} else {
 		m_annotationEdit.MoveWindow(&rect);
 		m_annotationEdit.ShowWindow(SW_SHOW);
