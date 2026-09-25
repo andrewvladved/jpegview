@@ -290,6 +290,10 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_pAnnotationCtl = new CAnnotationCtl(this);
 	m_pAnnotationStylePanelCtl = NULL;
 	m_bAnnotationEditActive = false;
+	m_bAnnotationValueEditActive = false;
+	m_nAnnotationValueEditWhich = 0;
+	m_nAnnotationValueEditMin = 0;
+	m_nAnnotationValueEditMax = 100;
 	m_bAnnotationsBurnedIn = false;
 	m_bInSaveAnnotationsPrompt = false;
 	m_ptImageOrigin = CPoint(0, 0);
@@ -802,6 +806,9 @@ LRESULT CMainDlg::OnClose(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL&
 }
 
 LRESULT CMainDlg::OnLButtonDown(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL& /*bHandled*/) {
+	if (m_bAnnotationValueEditActive) {
+		CommitAnnotationValueEdit(); // clicking elsewhere confirms the number
+	}
 	if (m_bAnnotationEditActive) {
 		OnAnnotationTextCommitted(); // clicking elsewhere confirms the text
 	}
@@ -815,6 +822,14 @@ LRESULT CMainDlg::OnLButtonDown(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 		bool bShift = (::GetKeyState(VK_SHIFT) & 0x8000) != 0;
 
 		// A selected annotation tool owns the drag: no panning, cropping or select-to-zoom.
+		// Shift with the freehand tool draws a straight segment from the previous point,
+		// so it must be offered the click before the Shift+drag zoom gesture below.
+		if (m_pAnnotationCtl != NULL && bShift && m_pAnnotationCtl->GetTool() == ATOOL_Freehand) {
+			if (m_pAnnotationCtl->OnLButtonDownShift(pointClicked.x, pointClicked.y)) {
+				Invalidate(FALSE);
+				return 0;
+			}
+		}
 		if (m_pAnnotationCtl != NULL && m_pAnnotationCtl->OnLButtonDown(pointClicked.x, pointClicked.y)) {
 			if (m_pAnnotationCtl->HasPendingText()) {
 				StartAnnotationTextEdit();
@@ -1089,6 +1104,17 @@ LRESULT CMainDlg::OnKeyDown(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOO
 	} else if (wParam == VK_ESCAPE && m_pCropCtl->IsCropping()) {
 		bHandled = true;
 		m_pCropCtl->AbortCropping();
+	} else if (bCtrl && !bShift && !bAlt && (wParam == 'Z' || wParam == 'Y') &&
+		m_pAnnotationCtl != NULL && !m_pAnnotationCtl->Model().IsEmpty()) {
+		// Undo and redo of annotations are handled here as well as through the keymap,
+		// so they work even when the user's own KeyMap.txt predates this feature.
+		bHandled = true;
+		if (wParam == 'Z') {
+			m_pAnnotationCtl->Undo();
+		} else {
+			m_pAnnotationCtl->Redo();
+		}
+		Invalidate(FALSE);
 	} else if (wParam == VK_ESCAPE && m_pAnnotationCtl != NULL && m_pAnnotationCtl->IsAnnotating()) {
 		// After the crop case, so cropping keeps priority over leaving annotation mode.
 		bHandled = true;
@@ -1411,6 +1437,11 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 // Make the text edit control for renaming image colored black/white
 LRESULT CMainDlg::OnCtlColorEdit(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL& /*bHandled*/) {
 	HDC hDC = (HDC) wParam;
+	if (m_bAnnotationValueEditActive && (HWND)lParam == m_annotationValueEdit.m_hWnd) {
+		::SetTextColor(hDC, CSettingsProvider::This().ColorHighlight());
+		::SetBkColor(hDC, RGB(0, 0, 0));
+		return (LRESULT)::GetStockObject(BLACK_BRUSH);
+	}
 	if (m_bAnnotationEditActive && (HWND)lParam == m_annotationEdit.m_hWnd && m_pAnnotationCtl != NULL) {
 		// A CEdit cannot paint a transparent background, so the text sits on a dark
 		// backing while it is typed; the renderer draws it over the image once committed.
@@ -1432,7 +1463,9 @@ LRESULT CMainDlg::OnEraseBackground(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lPara
 LRESULT CMainDlg::OnOK(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	// The main window is a dialog, so the dialog manager turns Enter into IDOK before
 	// any child edit control sees the key. That is how the annotation text is confirmed.
-	if (m_bAnnotationEditActive) {
+	if (m_bAnnotationValueEditActive) {
+		CommitAnnotationValueEdit();
+	} else if (m_bAnnotationEditActive) {
 		OnAnnotationTextCommitted();
 	}
 	return 0;
@@ -1441,6 +1474,10 @@ LRESULT CMainDlg::OnOK(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& /
 LRESULT CMainDlg::OnCancel(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	// Likewise Esc arrives as IDCANCEL. Without this, pressing Esc while typing an
 	// annotation would fall through to CleanupAndTerminate and close JPEGView.
+	if (m_bAnnotationValueEditActive) {
+		CancelAnnotationValueEdit();
+		return 0;
+	}
 	if (m_bAnnotationEditActive) {
 		OnAnnotationTextCancelled();
 		return 0;
@@ -3466,6 +3503,60 @@ void CMainDlg::StartAnnotationTextEdit() {
 	m_annotationEdit.SetWindowText(_T(""));
 	m_annotationEdit.SetFocus();
 	m_bAnnotationEditActive = true;
+}
+
+void CMainDlg::StartAnnotationValueEdit(int nWhich, const CRect& rcField, int nCurrentValue, int nMin, int nMax) {
+	m_nAnnotationValueEditWhich = nWhich;
+	m_nAnnotationValueEditMin = nMin;
+	m_nAnnotationValueEditMax = nMax;
+	int nHeight = max(14, rcField.Height());
+	CRect rect(rcField.left, rcField.top, rcField.right, rcField.top + nHeight);
+	if (!m_annotationValueEdit.IsWindow()) {
+		m_annotationValueEdit.Create(m_hWnd, rect, NULL,
+			WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | ES_RIGHT | ES_NUMBER, 0, IDC_ANNOTATION_VALUE_EDIT);
+	} else {
+		m_annotationValueEdit.MoveWindow(&rect);
+		m_annotationValueEdit.ShowWindow(SW_SHOW);
+	}
+	if (!m_annotationValueEditFont.IsNull()) {
+		m_annotationValueEditFont.DeleteObject();
+	}
+	m_annotationValueEditFont.CreateFont(-(nHeight - 4), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+		DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY,
+		DEFAULT_PITCH, _T("Segoe UI"));
+	m_annotationValueEdit.SetFont(m_annotationValueEditFont);
+	CString sValue; sValue.Format(_T("%d"), nCurrentValue);
+	m_annotationValueEdit.SetWindowText(sValue);
+	m_annotationValueEdit.SetSel(0, -1); // typing replaces the old value
+	m_annotationValueEdit.SetFocus();
+	m_bAnnotationValueEditActive = true;
+}
+
+void CMainDlg::CommitAnnotationValueEdit() {
+	if (!m_bAnnotationValueEditActive) {
+		return;
+	}
+	CString sText;
+	m_annotationValueEdit.GetWindowText(sText);
+	m_bAnnotationValueEditActive = false;
+	m_annotationValueEdit.ShowWindow(SW_HIDE);
+	this->SetFocus();
+	if (!sText.IsEmpty() && m_pAnnotationStylePanelCtl != NULL) {
+		int nValue = _ttoi(sText);
+		nValue = max(m_nAnnotationValueEditMin, min(m_nAnnotationValueEditMax, nValue));
+		m_pAnnotationStylePanelCtl->SetValueFromEntry(m_nAnnotationValueEditWhich, nValue);
+	}
+	Invalidate(FALSE);
+}
+
+void CMainDlg::CancelAnnotationValueEdit() {
+	if (!m_bAnnotationValueEditActive) {
+		return;
+	}
+	m_bAnnotationValueEditActive = false;
+	m_annotationValueEdit.ShowWindow(SW_HIDE);
+	this->SetFocus();
+	Invalidate(FALSE);
 }
 
 void CMainDlg::OnAnnotationTextCommitted() {

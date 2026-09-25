@@ -284,3 +284,67 @@ TEST(NegativeHostOriginMapsToPositiveImageCoordinates) {
 	CHECK_NEAR(ann.points[1].x, 1100.0, 0.01);
 	CHECK_NEAR(ann.points[1].y, 700.0, 0.01);
 }
+
+// Shift+click with the freehand tool draws a straight segment from where the last stroke
+// ended to the click, the way Photoshop's brush does.
+TEST(ShiftClickDrawsAStraightLineFromTheLastPoint) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.SetTool(ATOOL_Freehand);
+	ctl.OnLButtonDown(100, 100);
+	ctl.OnMouseMove(150, 100);
+	ctl.OnLButtonUp(150, 100);
+	REQUIRE(ctl.Model().Count() == 1);
+
+	CHECK(ctl.OnLButtonDownShift(300, 260));
+	REQUIRE(ctl.Model().Count() == 2);
+	const CAnnotation& line = ctl.Model().Annotations()[1];
+	CHECK(line.eType == AT_Freehand);
+	REQUIRE(line.points.size() == 2);
+	CHECK_NEAR(line.points[0].x, 150.0, 0.01); // where the previous stroke ended
+	CHECK_NEAR(line.points[0].y, 100.0, 0.01);
+	CHECK_NEAR(line.points[1].x, 300.0, 0.01);
+	CHECK_NEAR(line.points[1].y, 260.0, 0.01);
+}
+
+TEST(ShiftClickWithNoPreviousPointStartsAnOrdinaryStroke) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.SetTool(ATOOL_Freehand);
+	// Nothing drawn yet, so there is no anchor to draw a line from.
+	CHECK(ctl.OnLButtonDownShift(200, 200));
+	CHECK(ctl.Model().IsEmpty());
+	ctl.OnMouseMove(260, 240);
+	ctl.OnLButtonUp(260, 240);
+	CHECK(ctl.Model().Count() == 1);
+}
+
+TEST(ShiftClickChainsFromTheEndOfThePreviousShiftLine) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.SetTool(ATOOL_Freehand);
+	ctl.OnLButtonDown(10, 10);
+	ctl.OnMouseMove(20, 20);
+	ctl.OnLButtonUp(20, 20);
+	ctl.OnLButtonDownShift(100, 20);
+	ctl.OnLButtonDownShift(100, 90);
+	REQUIRE(ctl.Model().Count() == 3);
+	const CAnnotation& second = ctl.Model().Annotations()[2];
+	REQUIRE(second.points.size() == 2);
+	CHECK_NEAR(second.points[0].x, 100.0, 0.01); // end of the first shift line
+	CHECK_NEAR(second.points[0].y, 20.0, 0.01);
+	CHECK_NEAR(second.points[1].y, 90.0, 0.01);
+}
+
+TEST(ShiftClickIsIgnoredOutsideTheFreehandTool) {
+	CFakeHost host;
+	CAnnotationCtl ctl(&host);
+	ctl.SetTool(ATOOL_Rectangle);
+	ctl.OnLButtonDown(10, 10);
+	ctl.OnMouseMove(50, 50);
+	ctl.OnLButtonUp(50, 50);
+	size_t nBefore = ctl.Model().Count();
+	// A rectangle still needs a drag, so a shift-click alone must add nothing.
+	ctl.OnLButtonDownShift(200, 200);
+	CHECK(ctl.Model().Count() == nBefore);
+}

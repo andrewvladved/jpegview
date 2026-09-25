@@ -27,6 +27,10 @@ public:
 
 	void Toggle() { SetVisible(!m_bVisible); }
 
+	// Called back by CMainDlg when the user typed a number into one of the two fields.
+	enum { ENTRY_OPACITY = 1, ENTRY_WIDTH = 2 };
+	void SetValueFromEntry(int nWhich, int nValue);
+
 	virtual bool OnMouseLButton(EMouseEvent eMouseEvent, int nX, int nY);
 	virtual bool OnMouseMove(int nX, int nY);
 
@@ -37,6 +41,7 @@ private:
 	void ApplyStyle(bool bPersist);
 	void LoadFromControl();
 	void RelabelWidthSlider();
+	void CheckForValueEntry();
 
 	CAnnotationStylePanel* m_pStylePanel;
 	bool m_bVisible;

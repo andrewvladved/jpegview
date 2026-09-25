@@ -26,6 +26,16 @@ CAnnotationStylePanelCtl::CAnnotationStylePanelCtl(CMainDlg* pMainDlg, CPanel* p
 			pBtn->SetButtonPressedHandler(&OnSwatchPressed, this, i);
 		}
 	}
+	CSliderDouble* pOpacity = m_pStylePanel->GetSliderOpacity();
+	if (pOpacity != NULL) {
+		pOpacity->SetIntegerValue(true);
+		pOpacity->SetDirectValueEntry(true);
+	}
+	CSliderDouble* pWidth = m_pStylePanel->GetSliderWidth();
+	if (pWidth != NULL) {
+		pWidth->SetIntegerValue(true);
+		pWidth->SetDirectValueEntry(true);
+	}
 	CButtonCtrl* pOther = m_pStylePanel->GetBtnOtherColor();
 	if (pOther != NULL) {
 		pOther->SetButtonPressedHandler(&OnOtherColorPressed, this);
@@ -124,6 +134,7 @@ bool CAnnotationStylePanelCtl::OnMouseLButton(EMouseEvent eMouseEvent, int nX, i
 	bool bConsumed = CPanelController::OnMouseLButton(eMouseEvent, nX, nY);
 	if (bConsumed && eMouseEvent == MouseEvent_BtnUp) {
 		ApplyStyle(true); // a slider was released, or a swatch clicked
+		CheckForValueEntry();
 	}
 	return bConsumed;
 }
@@ -134,4 +145,30 @@ bool CAnnotationStylePanelCtl::OnMouseMove(int nX, int nY) {
 		ApplyStyle(false); // live feedback while dragging, without touching disk
 	}
 	return bConsumed;
+}
+
+// A click on the number of either slider asks for an edit box over that number.
+void CAnnotationStylePanelCtl::CheckForValueEntry() {
+	CSliderDouble* pOpacity = m_pStylePanel->GetSliderOpacity();
+	CSliderDouble* pWidth = m_pStylePanel->GetSliderWidth();
+	if (pOpacity != NULL && pOpacity->TakeValueEntryRequest()) {
+		m_pMainDlg->StartAnnotationValueEdit(ENTRY_OPACITY, pOpacity->GetNumberRect(),
+			(int)(m_dOpacity + 0.5), (int)pOpacity->GetMin(), (int)pOpacity->GetMax());
+		return;
+	}
+	if (pWidth != NULL && pWidth->TakeValueEntryRequest()) {
+		m_pMainDlg->StartAnnotationValueEdit(ENTRY_WIDTH, pWidth->GetNumberRect(),
+			(int)(m_dWidth + 0.5), (int)pWidth->GetMin(), (int)pWidth->GetMax());
+	}
+}
+
+void CAnnotationStylePanelCtl::SetValueFromEntry(int nWhich, int nValue) {
+	if (nWhich == ENTRY_OPACITY) {
+		m_dOpacity = nValue;
+	} else if (nWhich == ENTRY_WIDTH) {
+		m_dWidth = nValue;
+	} else {
+		return;
+	}
+	ApplyStyle(true);
 }

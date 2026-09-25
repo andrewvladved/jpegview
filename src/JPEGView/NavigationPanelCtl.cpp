@@ -80,7 +80,17 @@ void CNavigationPanelCtl::AdjustMaximalWidth(int nMaxWidth) {
 	}
 }
 
+bool CNavigationPanelCtl::IsAnnotationStyleOpen() {
+	CAnnotationStylePanelCtl* pStyle = m_pMainDlg->GetAnnotationStylePanelCtl();
+	return pStyle != NULL && pStyle->IsVisible();
+}
+
 bool CNavigationPanelCtl::IsVisible() {
+	// The style strip is anchored to this panel and its buttons belong to it, so while
+	// the strip is open the panel must stay up regardless of where the mouse is.
+	if (IsAnnotationStyleOpen()) {
+		return m_bEnabled && !m_pMainDlg->IsInMovieMode() && !m_pMainDlg->IsDoCropping();
+	}
 	bool bMouseInNavPanel = m_bMouseInNavPanel && !m_pMainDlg->GetImageProcPanelCtl()->IsVisible();
 	return m_bEnabled && !(m_fCurrentBlendingFactorNavPanel <= 0.0f && !bMouseInNavPanel) &&
 		!m_pMainDlg->IsInMovieMode() && !m_pMainDlg->IsDoCropping() && (m_pMainDlg->IsMouseOn() || bMouseInNavPanel);

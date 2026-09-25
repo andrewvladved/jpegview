@@ -309,6 +309,20 @@ public:
 	// Relabels a slider whose meaning depends on the current mode. Recomputes the
 	// cached label metrics, which the panel layout depends on.
 	void SetName(LPCTSTR sName);
+
+	// Shows the value without a decimal part and snaps it to whole numbers. Off by
+	// default, so the sliders that carry fractions are unaffected.
+	void SetIntegerValue(bool bInteger) { m_bIntegerValue = bInteger; }
+	bool IsIntegerValue() const { return m_bIntegerValue; }
+
+	// With direct entry on, clicking the number asks the owner to open an edit box over
+	// it instead of running the press-to-preview-the-default gesture.
+	void SetDirectValueEntry(bool bDirect) { m_bDirectValueEntry = bDirect; }
+	bool TakeValueEntryRequest() { bool b = m_bValueEntryRequested; m_bValueEntryRequested = false; return b; }
+	CRect GetNumberRect() const { return m_numberRect; }
+	void SetValuePublic(double dValue) { SetValue(dValue); }
+	double GetMin() const { return m_dMin; }
+	double GetMax() const { return m_dMax; }
 	virtual bool OnMouseLButton(EMouseEvent eMouseEvent, int nX, int nY);
 	virtual bool OnMouseMove(int nX, int nY);
 	virtual void OnPaint(CDC & dc, const CPoint& offset);
@@ -335,6 +349,10 @@ private:
 	int m_nSign;
 	bool m_bDragging;
 	bool m_bNumberClicked;
+	bool m_bIntegerValue;
+	bool m_bDirectValueEntry;
+	bool m_bValueEntryRequested;
+	CRect m_numberRect; // where the value is drawn, in window coordinates
 	bool m_bHighlight;
 	bool m_bHighlightCheck;
 	bool m_bHighlightNumber;

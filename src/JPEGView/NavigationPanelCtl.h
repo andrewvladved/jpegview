@@ -15,9 +15,13 @@ public:
 	// Current blending factor with background, 1 -> fully visible, 0 -> invisible
 	float CurrentBlendingFactor() { return m_fCurrentBlendingFactorNavPanel; }
 
-	virtual bool BlendPanel() { return !m_bMouseInNavPanel; }
+	// While the annotation style strip is open the panel stays fully opaque: the strip
+	// sits on top of it, and having the panel underneath fade while the user works the
+	// sliders is distracting.
+	virtual bool BlendPanel() { return !m_bMouseInNavPanel && !IsAnnotationStyleOpen(); }
 	virtual float DimFactor() { return 0.0f; }
 
+	bool IsAnnotationStyleOpen();
 	void AdjustMaximalWidth(int nMaxWidth);
 
 	virtual bool IsVisible();

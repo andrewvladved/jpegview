@@ -9,6 +9,8 @@ CAnnotationCtl::CAnnotationCtl(IAnnotationHost* pHost) {
 	m_bPendingText = false;
 	m_ptPendingText = CPoint(0, 0);
 	m_ptRectAnchor.x = m_ptRectAnchor.y = 0.0f;
+	m_ptLastStrokeEnd.x = m_ptLastStrokeEnd.y = 0.0f;
+	m_bHasLastStrokeEnd = false;
 	m_color = RGB(255, 0, 0);
 	m_nAlpha = 180;
 	m_nPenWidthScreen = 4;
@@ -27,6 +29,9 @@ void CAnnotationCtl::SetTool(EAnnotationTool eTool) {
 	}
 	if (eTool != ATOOL_Text) {
 		m_bPendingText = false;
+	}
+	if (eTool != ATOOL_Freehand) {
+		m_bHasLastStrokeEnd = false;
 	}
 	m_eTool = eTool;
 	m_bDrawing = false;
@@ -93,6 +98,23 @@ bool CAnnotationCtl::OnLButtonDown(int nX, int nY) {
 	return false;
 }
 
+bool CAnnotationCtl::OnLButtonDownShift(int nX, int nY) {
+	if (m_eTool != ATOOL_Freehand || !m_bHasLastStrokeEnd) {
+		// Nothing to anchor to, so behave like a plain click.
+		return OnLButtonDown(nX, nY);
+	}
+	CAnnotation line;
+	StartStyle(line, AT_Freehand);
+	line.points.push_back(m_ptLastStrokeEnd);
+	CPointF ptEnd = ToImage(nX, nY);
+	line.points.push_back(ptEnd);
+	m_model.Add(line); // a zero length line is dropped by the model
+	m_ptLastStrokeEnd = ptEnd;
+	m_pHost->InvalidateScreenRect(AnnotationGeometry::BoundingBoxOnScreen(line,
+		m_pHost->GetImageOrigin(), m_pHost->GetRealizedZoom()));
+	return true;
+}
+
 bool CAnnotationCtl::OnMouseMove(int nX, int nY) {
 	if (!m_bDrawing) {
 		return false;
@@ -124,6 +146,10 @@ bool CAnnotationCtl::OnLButtonUp(int nX, int nY) {
 	}
 	InvalidatePending();
 	m_bDrawing = false;
+	if (m_pending.eType == AT_Freehand && m_pending.points.size() >= 2) {
+		m_ptLastStrokeEnd = m_pending.points.back();
+		m_bHasLastStrokeEnd = true;
+	}
 	// A click without a drag leaves a one-point stroke or a zero-size rectangle;
 	// CAnnotationModel::Add drops both, so neither marks the image dirty.
 	m_model.Add(m_pending);
@@ -152,4 +178,5 @@ void CAnnotationCtl::Redo() {
 
 void CAnnotationCtl::Clear() {
 	m_model.Clear();
+	m_bHasLastStrokeEnd = false;
 }

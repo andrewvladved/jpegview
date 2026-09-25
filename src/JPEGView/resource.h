@@ -136,6 +136,7 @@
 #define IDC_PD_ED_BOTTOM                2036
 #define IDC_PD_CM3                      2037
 #define IDC_ANNOTATION_EDIT             2040
+#define IDC_ANNOTATION_VALUE_EDIT       2046
 #define IDC_ANNOT_TITLE                 2041
 #define IDC_ANNOT_FILENAME              2042
 #define IDC_ANNOT_OVERWRITE             2043

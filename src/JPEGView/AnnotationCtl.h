@@ -37,6 +37,11 @@ public:
 
 	// Return true when the event was consumed and must not reach panning, cropping or zoom.
 	bool OnLButtonDown(int nX, int nY);
+	// Freehand with Shift held: draws a straight segment from where the last stroke
+	// ended to this point, the way a paint program's brush does, and leaves the new
+	// end point as the anchor for the next one. With no anchor yet it starts an
+	// ordinary stroke instead.
+	bool OnLButtonDownShift(int nX, int nY);
 	bool OnMouseMove(int nX, int nY);
 	bool OnLButtonUp(int nX, int nY);
 
@@ -78,6 +83,8 @@ private:
 	// The corner the rectangle drag started from. Kept apart from m_pending.points,
 	// which gets reordered on every move so the live preview has a positive size.
 	CPointF m_ptRectAnchor;
+	CPointF m_ptLastStrokeEnd;   // anchor for the next Shift+click line
+	bool m_bHasLastStrokeEnd;
 	bool m_bPendingText;
 	CPoint m_ptPendingText;
 

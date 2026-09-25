@@ -333,11 +333,21 @@ private:
 	CEdit m_annotationEdit;
 	CFont m_annotationEditFont;
 	bool m_bAnnotationEditActive;
+	CEdit m_annotationValueEdit;
+	CFont m_annotationValueEditFont;
+	bool m_bAnnotationValueEditActive;
+	int m_nAnnotationValueEditWhich;
+	int m_nAnnotationValueEditMin, m_nAnnotationValueEditMax;
 	bool m_bAnnotationsBurnedIn;   // the pixels already carry them; do not burn twice
 	bool m_bInSaveAnnotationsPrompt; // the prompt runs a message loop, so it can re-enter
 	void StartAnnotationTextEdit();
 	void OnAnnotationTextCommitted();
 	void OnAnnotationTextCancelled();
+	// Typing a number straight into the Opacity / Line width field of the style strip.
+	void StartAnnotationValueEdit(int nWhich, const CRect& rcField, int nCurrentValue, int nMin, int nMax);
+	void CommitAnnotationValueEdit();
+	void CancelAnnotationValueEdit();
+	bool IsAnnotationValueEditActive() { return m_bAnnotationValueEditActive; }
 	CZoomNavigatorCtl* m_pZoomNavigatorCtl;
 	CImageProcPanelCtl* m_pImageProcPanelCtl;
 	CNavigationPanelCtl* m_pNavPanelCtl;
