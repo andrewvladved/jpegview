@@ -26,6 +26,9 @@ public:
 	virtual void SetVisible(bool bVisible) {} // not possible
 	virtual void SetActive(bool bActive);
 
+	// Redraws the annotation buttons so the active tool is shown pressed.
+	void UpdateAnnotationButtons();
+
 	virtual bool OnMouseLButton(EMouseEvent eMouseEvent, int nX, int nY);
 	virtual bool OnMouseMove(int nX, int nY);
 	virtual bool OnTimer(int nTimerId);

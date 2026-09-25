@@ -3,6 +3,7 @@
 #include "Panel.h"
 
 class CKeyMap;
+class CAnnotationCtl;
 
 // Navigation panel containing buttons for quick access to most important commands (e.g. next, previous).
 class CNavigationPanel : public CPanel {
@@ -29,12 +30,18 @@ public:
 		ID_btnKeepParams,
 		ID_btnLandscapeMode,
 		ID_gap6,
-		ID_btnShowInfo
+		ID_btnShowInfo,
+		ID_gap7,
+		ID_btnAnnotateFreehand,
+		ID_btnAnnotateText,
+		ID_btnAnnotateRect,
+		ID_btnAnnotateClear,
+		ID_btnAnnotateStyle
 	};
 public:
 	// The panel is on the given window above the image processing panel
 	CNavigationPanel(HWND hWnd, INotifiyMouseCapture* pNotifyMouseCapture, CPanel* pImageProcPanel, CKeyMap* keyMap, bool* pFullScreenMode,
-		DecisionMethod* isCurrentImageFitToScreen, void* pDecisionMethodParam);
+		DecisionMethod* isCurrentImageFitToScreen, void* pDecisionMethodParam, CAnnotationCtl* pAnnotationCtl);
 
 	CButtonCtrl* GetBtnHome() { return GetControl<CButtonCtrl*>(ID_btnHome); }
 	CButtonCtrl* GetBtnPrev() { return GetControl<CButtonCtrl*>(ID_btnPrev); }
@@ -51,6 +58,11 @@ public:
 	CButtonCtrl* GetBtnKeepParams() { return GetControl<CButtonCtrl*>(ID_btnKeepParams); }
 	CButtonCtrl* GetBtnLandscapeMode() { return GetControl<CButtonCtrl*>(ID_btnLandscapeMode); }
 	CButtonCtrl* GetBtnShowInfo() { return GetControl<CButtonCtrl*>(ID_btnShowInfo); }
+	CButtonCtrl* GetBtnAnnotateFreehand() { return GetControl<CButtonCtrl*>(ID_btnAnnotateFreehand); }
+	CButtonCtrl* GetBtnAnnotateText() { return GetControl<CButtonCtrl*>(ID_btnAnnotateText); }
+	CButtonCtrl* GetBtnAnnotateRect() { return GetControl<CButtonCtrl*>(ID_btnAnnotateRect); }
+	CButtonCtrl* GetBtnAnnotateClear() { return GetControl<CButtonCtrl*>(ID_btnAnnotateClear); }
+	CButtonCtrl* GetBtnAnnotateStyle() { return GetControl<CButtonCtrl*>(ID_btnAnnotateStyle); }
 
 	virtual CRect PanelRect();
 	virtual void RequestRepositioning();
@@ -79,6 +91,12 @@ private:
 	static void PaintInfoBtn(void* pContext, const CRect& rect, CDC& dc);
 	static void PaintKeepParamsBtn(void* pContext, const CRect& rect, CDC& dc);
 	static void PaintLandscapeModeBtn(void* pContext, const CRect& rect, CDC& dc);
+	static void PaintAnnotateFreehandBtn(void* pContext, const CRect& rect, CDC& dc);
+	static void PaintAnnotateTextBtn(void* pContext, const CRect& rect, CDC& dc);
+	static void PaintAnnotateRectBtn(void* pContext, const CRect& rect, CDC& dc);
+	static void PaintAnnotateClearBtn(void* pContext, const CRect& rect, CDC& dc);
+	static void PaintAnnotateStyleBtn(void* pContext, const CRect& rect, CDC& dc);
+	static LPCTSTR RectangleTooltip(void* pContext);
 
 	static LPCTSTR WindowModeTooltip(void* pContext);
 	static LPCTSTR ZoomFitToggleTooltip(void* pContext);
@@ -88,6 +106,7 @@ private:
 	void SetScaledWidth(float fScale);
 
 	CKeyMap* m_keyMap;
+	CAnnotationCtl* m_pAnnotationCtl;
 	bool* m_pFullScreenMode;
 	DecisionMethod* m_isCurrentImageFitToScreen;
 	void* m_pDecisionMethodParam;

@@ -36,7 +36,7 @@ CNavigationPanelCtl::CNavigationPanelCtl(CMainDlg* pMainDlg, CPanel* pImageProcP
 	m_nBlendInNavPanelCountdown = 0;
 	m_pMemDCAnimation = NULL;
 	m_hOffScreenBitmapAnimation = NULL;
-	m_pPanel = m_pNavPanel = new CNavigationPanel(pMainDlg->m_hWnd, this, pImageProcPanel, pMainDlg->GetKeyMap(), pFullScreenMode, &(CMainDlg::IsCurrentImageFitToScreen), pMainDlg);
+	m_pPanel = m_pNavPanel = new CNavigationPanel(pMainDlg->m_hWnd, this, pImageProcPanel, pMainDlg->GetKeyMap(), pFullScreenMode, &(CMainDlg::IsCurrentImageFitToScreen), pMainDlg, pMainDlg->GetAnnotationCtl());
 	m_pNavPanel->GetBtnHome()->SetButtonPressedHandler(&OnGotoImage, this, CMainDlg::POS_First);
 	m_pNavPanel->GetBtnPrev()->SetButtonPressedHandler(&OnGotoImage, this, CMainDlg::POS_Previous);
 	m_pNavPanel->GetBtnNext()->SetButtonPressedHandler(&OnGotoImage, this, CMainDlg::POS_Next);
@@ -54,6 +54,10 @@ CNavigationPanelCtl::CNavigationPanelCtl(CMainDlg* pMainDlg, CPanel* pImageProcP
 	m_pNavPanel->GetBtnKeepParams()->SetButtonPressedHandler(&CMainDlg::OnExecuteCommand, pMainDlg, IDM_KEEP_PARAMETERS, pMainDlg->IsKeepParams());
 	m_pNavPanel->GetBtnLandscapeMode()->SetButtonPressedHandler(&CMainDlg::OnExecuteCommand, pMainDlg, IDM_LANDSCAPE_MODE, pMainDlg->IsLandscapeMode());
 	m_pNavPanel->GetBtnShowInfo()->SetButtonPressedHandler(&CMainDlg::OnExecuteCommand, pMainDlg, IDM_SHOW_FILEINFO, pMainDlg->GetEXIFDisplayCtl()->IsActive());
+	m_pNavPanel->GetBtnAnnotateFreehand()->SetButtonPressedHandler(&CMainDlg::OnExecuteCommand, pMainDlg, IDM_ANNOTATE_FREEHAND);
+	m_pNavPanel->GetBtnAnnotateText()->SetButtonPressedHandler(&CMainDlg::OnExecuteCommand, pMainDlg, IDM_ANNOTATE_TEXT);
+	m_pNavPanel->GetBtnAnnotateRect()->SetButtonPressedHandler(&CMainDlg::OnExecuteCommand, pMainDlg, IDM_ANNOTATE_RECT);
+	m_pNavPanel->GetBtnAnnotateClear()->SetButtonPressedHandler(&CMainDlg::OnExecuteCommand, pMainDlg, IDM_ANNOTATE_CLEAR);
 }
 
 CNavigationPanelCtl::~CNavigationPanelCtl() {
@@ -358,4 +362,18 @@ void CNavigationPanelCtl::OnToggleWindowMode(void* pContext, int nParameter, CBu
 	CRect oldRect = pThis->GetPanel()->PanelRect();
 	pThis->m_pMainDlg->ExecuteCommand(IDM_FULL_SCREEN_MODE);
 	pThis->MoveMouseCursorToButton(sender, oldRect);
+}
+
+void CNavigationPanelCtl::UpdateAnnotationButtons() {
+	CAnnotationCtl* pCtl = m_pMainDlg->GetAnnotationCtl();
+	if (pCtl == NULL || m_pNavPanel == NULL) {
+		return;
+	}
+	EAnnotationTool eTool = pCtl->GetTool();
+	CButtonCtrl* pFreehand = m_pNavPanel->GetBtnAnnotateFreehand();
+	CButtonCtrl* pText = m_pNavPanel->GetBtnAnnotateText();
+	CButtonCtrl* pRect = m_pNavPanel->GetBtnAnnotateRect();
+	if (pFreehand != NULL) pFreehand->SetActive(eTool == ATOOL_Freehand);
+	if (pText != NULL) pText->SetActive(eTool == ATOOL_Text);
+	if (pRect != NULL) pRect->SetActive(eTool == ATOOL_Rectangle);
 }

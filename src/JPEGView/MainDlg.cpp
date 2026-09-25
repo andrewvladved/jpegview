@@ -1063,6 +1063,7 @@ LRESULT CMainDlg::OnKeyDown(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOO
 		// After the crop case, so cropping keeps priority over leaving annotation mode.
 		bHandled = true;
 		m_pAnnotationCtl->SetTool(ATOOL_None);
+		if (m_pNavPanelCtl != NULL) m_pNavPanelCtl->UpdateAnnotationButtons();
 		SetCursorForMoveSection();
 		Invalidate(FALSE);
 	} else if (!bCtrl && wParam != VK_ESCAPE && m_nLastLoadError == HelpersGUI::FileLoad_NoFilesInDirectory && !m_sStartupFile.IsEmpty()) {
@@ -1903,6 +1904,7 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 		case IDM_ANNOTATE_FREEHAND:
 			if (m_pAnnotationCtl != NULL) {
 				m_pAnnotationCtl->SetTool(ATOOL_Freehand);
+				if (m_pNavPanelCtl != NULL) m_pNavPanelCtl->UpdateAnnotationButtons();
 				SetCursorForMoveSection();
 				this->Invalidate(FALSE);
 			}
@@ -1910,6 +1912,7 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 		case IDM_ANNOTATE_TEXT:
 			if (m_pAnnotationCtl != NULL) {
 				m_pAnnotationCtl->SetTool(ATOOL_Text);
+				if (m_pNavPanelCtl != NULL) m_pNavPanelCtl->UpdateAnnotationButtons();
 				SetCursorForMoveSection();
 				this->Invalidate(FALSE);
 			}
@@ -1917,6 +1920,7 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 		case IDM_ANNOTATE_RECT:
 			if (m_pAnnotationCtl != NULL) {
 				m_pAnnotationCtl->SetTool(ATOOL_Rectangle);
+				if (m_pNavPanelCtl != NULL) m_pNavPanelCtl->UpdateAnnotationButtons();
 				SetCursorForMoveSection();
 				this->Invalidate(FALSE);
 			}
@@ -1924,6 +1928,7 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 		case IDM_ANNOTATE_OFF:
 			if (m_pAnnotationCtl != NULL) {
 				m_pAnnotationCtl->SetTool(ATOOL_None);
+				if (m_pNavPanelCtl != NULL) m_pNavPanelCtl->UpdateAnnotationButtons();
 				SetCursorForMoveSection();
 				this->Invalidate(FALSE);
 			}

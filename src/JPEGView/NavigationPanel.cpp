@@ -1,5 +1,6 @@
 #include "StdAfx.h"
 #include "NavigationPanel.h"
+#include "AnnotationCtl.h"
 #include "ImageProcessingPanel.h"
 #include "Helpers.h"
 #include "HelpersGUI.h"
@@ -17,7 +18,8 @@
 /////////////////////////////////////////////////////////////////////////////////////////////
 
 CNavigationPanel::CNavigationPanel(HWND hWnd, INotifiyMouseCapture* pNotifyMouseCapture, CPanel* pImageProcPanel, CKeyMap* keyMap, bool* pFullScreenMode,
-		DecisionMethod* isCurrentImageFitToScreen, void* pDecisionMethodParam) : CPanel(hWnd, pNotifyMouseCapture) {
+		DecisionMethod* isCurrentImageFitToScreen, void* pDecisionMethodParam, CAnnotationCtl* pAnnotationCtl) : CPanel(hWnd, pNotifyMouseCapture) {
+	m_pAnnotationCtl = pAnnotationCtl;
 	m_pImageProcPanel = pImageProcPanel;
 	m_clientRect = CRect(0, 0, 0, 0);
 	m_fDPIScale *= CSettingsProvider::This().ScaleFactorNavPanel();
@@ -51,6 +53,13 @@ CNavigationPanel::CNavigationPanel(HWND hWnd, INotifiyMouseCapture* pNotifyMouse
 	AddUserPaintButton(ID_btnLandscapeMode, GetTooltip(keyMap, _T("Landscape picture enhancement mode"), IDM_LANDSCAPE_MODE), &PaintLandscapeModeBtn);
 	AddGap(ID_gap6, 16);
 	AddUserPaintButton(ID_btnShowInfo, GetTooltip(keyMap, _T("Display image (EXIF) information"), IDM_SHOW_FILEINFO), &PaintInfoBtn);
+
+	AddGap(ID_gap7, 16);
+	AddUserPaintButton(ID_btnAnnotateFreehand, GetTooltip(keyMap, _T("Draw freehand"), IDM_ANNOTATE_FREEHAND), &PaintAnnotateFreehandBtn);
+	AddUserPaintButton(ID_btnAnnotateText, GetTooltip(keyMap, _T("Add text"), IDM_ANNOTATE_TEXT), &PaintAnnotateTextBtn);
+	AddUserPaintButton(ID_btnAnnotateRect, &RectangleTooltip, &PaintAnnotateRectBtn, NULL, this);
+	AddUserPaintButton(ID_btnAnnotateClear, GetTooltip(keyMap, _T("Clear annotations"), IDM_ANNOTATE_CLEAR), &PaintAnnotateClearBtn);
+	AddUserPaintButton(ID_btnAnnotateStyle, GetTooltip(keyMap, _T("Annotation colour, opacity and width"), 0), &PaintAnnotateStyleBtn, NULL, this);
 
 	m_nOptimalWidth = PanelRect().Width();
 }
@@ -392,6 +401,74 @@ void CNavigationPanel::PaintInfoBtn(void* pContext, const CRect& rect, CDC& dc) 
 }
 
 static CString staticTooltip;
+
+void CNavigationPanel::PaintAnnotateFreehandBtn(void* pContext, const CRect& rect, CDC& dc) {
+	// a short wavy line
+	CRect r = Helpers::InflateRect(rect, 0.22f);
+	dc.MoveTo(r.left, r.bottom);
+	dc.LineTo(r.left + r.Width() / 3, r.top + r.Height() / 4);
+	dc.LineTo(r.left + 2 * r.Width() / 3, r.bottom - r.Height() / 4);
+	dc.LineTo(r.right, r.top);
+}
+
+void CNavigationPanel::PaintAnnotateTextBtn(void* pContext, const CRect& rect, CDC& dc) {
+	// a capital T
+	CRect r = Helpers::InflateRect(rect, 0.25f);
+	dc.MoveTo(r.left, r.top);
+	dc.LineTo(r.right, r.top);
+	dc.MoveTo((r.left + r.right) / 2, r.top);
+	dc.LineTo((r.left + r.right) / 2, r.bottom);
+}
+
+void CNavigationPanel::PaintAnnotateRectBtn(void* pContext, const CRect& rect, CDC& dc) {
+	CRect r = Helpers::InflateRect(rect, 0.25f);
+	dc.MoveTo(r.left, r.top); dc.LineTo(r.right, r.top);
+	dc.LineTo(r.right, r.bottom); dc.LineTo(r.left, r.bottom); dc.LineTo(r.left, r.top);
+	// hatched while the tool is in fill mode, so the two modes are told apart at a glance
+	CNavigationPanel* pPanel = (CNavigationPanel*)pContext;
+	if (pPanel != NULL && pPanel->m_pAnnotationCtl != NULL && pPanel->m_pAnnotationCtl->IsRectangleFilled()) {
+		dc.MoveTo(r.left, r.bottom); dc.LineTo(r.right, r.top);
+		dc.MoveTo(r.left, r.top); dc.LineTo(r.right, r.bottom);
+	}
+}
+
+void CNavigationPanel::PaintAnnotateClearBtn(void* pContext, const CRect& rect, CDC& dc) {
+	// an X
+	CRect r = Helpers::InflateRect(rect, 0.28f);
+	dc.MoveTo(r.left, r.top); dc.LineTo(r.right, r.bottom);
+	dc.MoveTo(r.left, r.bottom); dc.LineTo(r.right, r.top);
+}
+
+void CNavigationPanel::PaintAnnotateStyleBtn(void* pContext, const CRect& rect, CDC& dc) {
+	// A disc in the current annotation colour, sized by the current line width, so both
+	// settings are readable without opening anything. Unlike the other glyphs this one is
+	// filled: showing the colour is its entire purpose.
+	CNavigationPanel* pPanel = (CNavigationPanel*)pContext;
+	CRect r = Helpers::InflateRect(rect, 0.22f);
+	int nMaxRadius = max(2, r.Width() / 2);
+	int nRadius = nMaxRadius;
+	COLORREF color = RGB(255, 0, 0);
+	if (pPanel != NULL && pPanel->m_pAnnotationCtl != NULL) {
+		color = pPanel->m_pAnnotationCtl->GetColor();
+		int nWidth = min(20, max(1, pPanel->m_pAnnotationCtl->GetPenWidthScreen()));
+		nRadius = max(2, 2 + (nMaxRadius - 2) * nWidth / 20);
+	}
+	CPoint ptCenter((r.left + r.right) / 2, (r.top + r.bottom) / 2);
+	CBrush brush;
+	brush.CreateSolidBrush(color);
+	HBRUSH hOldBrush = dc.SelectBrush(brush);
+	dc.Ellipse(ptCenter.x - nRadius, ptCenter.y - nRadius, ptCenter.x + nRadius, ptCenter.y + nRadius);
+	dc.SelectBrush(hOldBrush);
+}
+
+LPCTSTR CNavigationPanel::RectangleTooltip(void* pContext) {
+	CNavigationPanel* pNavPanel = (CNavigationPanel*)pContext;
+	bool bFilled = pNavPanel != NULL && pNavPanel->m_pAnnotationCtl != NULL &&
+		pNavPanel->m_pAnnotationCtl->IsRectangleFilled();
+	staticTooltip = pNavPanel->GetTooltip(pNavPanel->m_keyMap,
+		bFilled ? _T("Draw rectangle (filled)") : _T("Draw rectangle (outline)"), IDM_ANNOTATE_RECT);
+	return staticTooltip;
+}
 
 LPCTSTR CNavigationPanel::WindowModeTooltip(void* pContext) {
 	CNavigationPanel* pNavPanel = (CNavigationPanel*)pContext;
