@@ -2,6 +2,7 @@
 
 #include <windows.h>
 #include <crtdbg.h>
+#include <gdiplus.h>
 
 int g_nFailures = 0;
 
@@ -27,6 +28,12 @@ static void SilenceCrashDialogs() {
 int main() {
 	SilenceCrashDialogs();
 
+	// The renderer tests draw into in-memory bitmaps, which needs GDI+ started
+	// exactly as JPEGView.cpp starts it for the application.
+	Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+	ULONG_PTR gdiplusToken;
+	Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
+
 	std::vector<CTestCase>& tests = AllTests();
 	for (size_t i = 0; i < tests.size(); i++) {
 		printf("[ RUN ] %s\n", tests[i].sName);
@@ -35,5 +42,7 @@ int main() {
 	}
 	printf("\n%d test(s) run, %d failure(s)\n", (int)tests.size(), g_nFailures);
 	fflush(stdout);
+
+	Gdiplus::GdiplusShutdown(gdiplusToken);
 	return g_nFailures == 0 ? 0 : 1;
 }
