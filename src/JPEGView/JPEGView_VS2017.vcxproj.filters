@@ -210,6 +210,9 @@
     <ClCompile Include="TiltCorrectionPanelCtl.cpp">
       <Filter>Source Files\Panels</Filter>
     </ClCompile>
+    <ClCompile Include="AnnotationModel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="TitleBarPanel.cpp">
       <Filter>Source Files\Panels</Filter>
     </ClCompile>
@@ -457,6 +460,12 @@
     </ClInclude>
     <ClInclude Include="TiltCorrectionPanelCtl.h">
       <Filter>Header Files\Panels</Filter>
+    </ClInclude>
+    <ClInclude Include="AnnotationTypes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AnnotationModel.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="TitleBarPanel.h">
       <Filter>Header Files\Panels</Filter>
