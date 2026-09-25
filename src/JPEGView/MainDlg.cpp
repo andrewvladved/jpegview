@@ -288,6 +288,7 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_pCropCtl = new CCropCtl(this);
 	m_pAnnotationCtl = new CAnnotationCtl(this);
 	m_pAnnotationStylePanelCtl = NULL;
+	m_bAnnotationEditActive = false;
 	m_ptImageOrigin = CPoint(0, 0);
 	{
 		// Opacity is a percentage in the INI but an alpha byte in an annotation.
@@ -788,6 +789,9 @@ LRESULT CMainDlg::OnClose(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL&
 }
 
 LRESULT CMainDlg::OnLButtonDown(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL& /*bHandled*/) {
+	if (m_bAnnotationEditActive) {
+		OnAnnotationTextCommitted(); // clicking elsewhere confirms the text
+	}
 	this->SetCapture();
 	bool isCropping = m_pCropCtl->IsCropping();
 	CPoint pointClicked(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
@@ -799,6 +803,9 @@ LRESULT CMainDlg::OnLButtonDown(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 
 		// A selected annotation tool owns the drag: no panning, cropping or select-to-zoom.
 		if (m_pAnnotationCtl != NULL && m_pAnnotationCtl->OnLButtonDown(pointClicked.x, pointClicked.y)) {
+			if (m_pAnnotationCtl->HasPendingText()) {
+				StartAnnotationTextEdit();
+			}
 			return 0;
 		}
 
@@ -1384,8 +1391,15 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 }
 
 // Make the text edit control for renaming image colored black/white
-LRESULT CMainDlg::OnCtlColorEdit(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOOL& /*bHandled*/) {
+LRESULT CMainDlg::OnCtlColorEdit(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL& /*bHandled*/) {
 	HDC hDC = (HDC) wParam;
+	if (m_bAnnotationEditActive && (HWND)lParam == m_annotationEdit.m_hWnd && m_pAnnotationCtl != NULL) {
+		// A CEdit cannot paint a transparent background, so the text sits on a dark
+		// backing while it is typed; the renderer draws it over the image once committed.
+		::SetTextColor(hDC, m_pAnnotationCtl->GetColor());
+		::SetBkColor(hDC, RGB(0, 0, 0));
+		return (LRESULT)::GetStockObject(BLACK_BRUSH);
+	}
 	::SetTextColor(hDC, RGB(255, 255, 255));
 	::SetBkColor(hDC, RGB(0, 0, 0));
 	return (LRESULT)::GetStockObject(BLACK_BRUSH);
@@ -3354,6 +3368,57 @@ LPCTSTR CMainDlg::CurrentFileName(bool bFileTitle) {
 // IAnnotationHost. OnPaint calls CJPEGImage::VerifyRotation before anything else,
 // so OrigSize() already reports the dimensions of the image as it is displayed,
 // including any 90 degree rotation the user applied.
+void CMainDlg::StartAnnotationTextEdit() {
+	CPoint pt = m_pAnnotationCtl->GetPendingTextPosition();
+	int nHeight = m_pAnnotationCtl->GetFontSizeScreen();
+	CRect rect(pt, CSize(max(120, nHeight * 20), (int)(nHeight * 1.5)));
+	if (!m_annotationEdit.IsWindow()) {
+		m_annotationEdit.Create(m_hWnd, rect, NULL, WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, 0, IDC_ANNOTATION_EDIT);
+		m_annotationEdit.SetListener(this);
+	} else {
+		m_annotationEdit.MoveWindow(&rect);
+		m_annotationEdit.ShowWindow(SW_SHOW);
+	}
+	if (!m_annotationEditFont.IsNull()) {
+		m_annotationEditFont.DeleteObject();
+	}
+	m_annotationEditFont.CreateFont(-nHeight, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+		DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY,
+		DEFAULT_PITCH, _T("Segoe UI"));
+	m_annotationEdit.SetFont(m_annotationEditFont);
+	m_annotationEdit.SetWindowText(_T(""));
+	m_annotationEdit.SetFocus();
+	m_bAnnotationEditActive = true;
+}
+
+void CMainDlg::OnAnnotationTextCommitted() {
+	if (!m_bAnnotationEditActive) {
+		return;
+	}
+	CString sText;
+	m_annotationEdit.GetWindowText(sText);
+	m_bAnnotationEditActive = false;
+	m_annotationEdit.ShowWindow(SW_HIDE);
+	this->SetFocus();
+	if (m_pAnnotationCtl != NULL) {
+		m_pAnnotationCtl->CommitText(sText); // empty text is dropped by the model
+	}
+	Invalidate(FALSE);
+}
+
+void CMainDlg::OnAnnotationTextCancelled() {
+	if (!m_bAnnotationEditActive) {
+		return;
+	}
+	m_bAnnotationEditActive = false;
+	m_annotationEdit.ShowWindow(SW_HIDE);
+	this->SetFocus();
+	if (m_pAnnotationCtl != NULL) {
+		m_pAnnotationCtl->CancelText();
+	}
+	Invalidate(FALSE);
+}
+
 CSize CMainDlg::GetImageSize() {
 	return (m_pCurrentImage == NULL) ? CSize(0, 0) : m_pCurrentImage->OrigSize();
 }

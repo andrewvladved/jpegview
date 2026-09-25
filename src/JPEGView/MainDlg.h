@@ -8,6 +8,7 @@
 #include "Helpers.h"
 #include "CropCtl.h"
 #include "AnnotationCtl.h"
+#include "AnnotationTextEdit.h"
 
 class CFileList;
 class CJPEGProvider;
@@ -38,7 +39,7 @@ enum EMouseEvent;
 
 // The main dialog is a full screen modal dialog with no border and no window title.
 // This dialog is the main window of the JPEGView application.
-class CMainDlg : public CDialogImpl<CMainDlg>, public IAnnotationHost
+class CMainDlg : public CDialogImpl<CMainDlg>, public IAnnotationHost, public IAnnotationTextListener
 {
 public:
 	enum { IDD = IDD_MAINDLG };
@@ -193,6 +194,10 @@ public:
 	virtual float GetRealizedZoom() { return (m_dRealizedZoom > 0.0) ? (float)m_dRealizedZoom : 1.0f; }
 	virtual CSize GetImageSize();
 	virtual void InvalidateScreenRect(const CRect& rect) { this->InvalidateRect(&rect, FALSE); }
+
+	// IAnnotationTextListener
+	virtual void OnAnnotationTextCommitted();
+	virtual void OnAnnotationTextCancelled();
 	const CRect& ClientRect() { return m_clientRect; }
 	const CRect& WindowRectOnClose() { return m_windowRectOnClose; } // only valid after having closed the window
 	const CRect& MonitorRect() { return m_monitorRect; }
@@ -330,6 +335,10 @@ private:
 	CCropCtl* m_pCropCtl;
 	CAnnotationCtl* m_pAnnotationCtl;
 	CPoint m_ptImageOrigin; // screen position of the image's top left corner, set in OnPaint
+	CAnnotationTextEdit m_annotationEdit;
+	CFont m_annotationEditFont;
+	bool m_bAnnotationEditActive;
+	void StartAnnotationTextEdit();
 	CZoomNavigatorCtl* m_pZoomNavigatorCtl;
 	CImageProcPanelCtl* m_pImageProcPanelCtl;
 	CNavigationPanelCtl* m_pNavPanelCtl;

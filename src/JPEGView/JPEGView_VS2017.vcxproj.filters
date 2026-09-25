@@ -225,6 +225,9 @@
     <ClCompile Include="AnnotationStylePanelCtl.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="AnnotationTextEdit.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="AnnotationModel.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -492,6 +495,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="AnnotationStylePanelCtl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AnnotationTextEdit.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="AnnotationModel.h">

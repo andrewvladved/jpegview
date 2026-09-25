@@ -134,6 +134,7 @@
 #define IDC_PD_BOTTOM_TITLE             2035
 #define IDC_PD_ED_BOTTOM                2036
 #define IDC_PD_CM3                      2037
+#define IDC_ANNOTATION_EDIT             2040
 
 // this is not used anywhere in code, but defined in KeyMap as an "invalid command", so make sure the defined number doesn't match anything!
 #define IDM_DONOTHING		1			// :KeyMap: do nothing (can be used to disable a standard command for a mouse button)
