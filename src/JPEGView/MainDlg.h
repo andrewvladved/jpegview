@@ -202,6 +202,9 @@ public:
 	virtual CSize GetImageSize();
 	virtual void InvalidateScreenRect(const CRect& rect) { this->InvalidateRect(&rect, FALSE); }
 	const CRect& ClientRect() { return m_clientRect; }
+	// The preview pane beside the image while a folder is playing. It has nothing to do
+	// with the zoom navigator JPEGView shows on its own, which stands down while it is up.
+	bool IsPreviewPaneActive();
 	const CRect& WindowRectOnClose() { return m_windowRectOnClose; } // only valid after having closed the window
 	const CRect& MonitorRect() { return m_monitorRect; }
 	const CSize& VirtualImageSize() { return m_virtualImageSize; }
@@ -424,9 +427,6 @@ private:
 	// are painted into memory DCs and blended into each other.
 	void GotoImageWithTransition(EImagePosition ePos, int nFlags);
 	bool UseCrossFade();
-	// The preview pane beside the image while a folder is playing. It has nothing to do
-	// with the zoom navigator JPEGView shows on its own.
-	bool IsPreviewPaneActive();
 	CRect GetPreviewPaneRect();
 	void PaintPreviewPane(CDC& dc);
 	// Reads the client rectangle and takes the preview pane out of it when the pane is

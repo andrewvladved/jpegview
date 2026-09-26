@@ -567,9 +567,8 @@ LRESULT CMainDlg::OnPaint(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 				CreateProcessingFlags(m_bHQResampling && !m_bTemporaryLowQ && !m_bZoomMode, m_bAutoContrast, m_bAutoContrastSection, m_bLDC, false, m_bLandscapeMode));
 		}
 
-		// Zoom navigator - check if visible and create exclusion rectangle. While the preview
-		// pane is up it takes the navigator's place, so the two are never on screen together.
-		if (m_pZoomNavigatorCtl->IsVisible() && !IsPreviewPaneActive()) {
+		// Zoom navigator - check if visible and create exclusion rectangle
+		if (m_pZoomNavigatorCtl->IsVisible()) {
 			visRectZoomNavigator = m_pZoomNavigatorCtl->GetVisibleRect(newSize, clippedSize, offsetsInImage);
 			excludedClippingRects.push_back(m_pZoomNavigatorCtl->PanelRect());
 		}
@@ -600,12 +599,10 @@ LRESULT CMainDlg::OnPaint(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 
 	// paint zoom navigator
 	CTrapezoid trapezoid = m_pTiltCorrectionPanelCtl->IsVisible() ? m_pTiltCorrectionPanelCtl->GetCurrentTrapezoid(CZoomNavigator::GetNavigatorRect(m_pCurrentImage, m_pImageProcPanelCtl->PanelRect(), m_pNavPanelCtl->PanelRect()).Size()) : CTrapezoid();
-	if (!IsPreviewPaneActive()) {
-		m_pZoomNavigatorCtl->OnPaint(dc, visRectZoomNavigator, m_pImageProcParams,
-			CreateProcessingFlags(!m_pRotationPanelCtl->IsVisible() && !m_pTiltCorrectionPanelCtl->IsVisible(), m_bAutoContrast, false, m_bLDC, false, m_bLandscapeMode), 
-			m_pRotationPanelCtl->IsVisible() ? m_pRotationPanelCtl->GetLQRotationAngle() : 0.0, 
-			m_pTiltCorrectionPanelCtl->IsVisible() ? &trapezoid : NULL);
-	}
+	m_pZoomNavigatorCtl->OnPaint(dc, visRectZoomNavigator, m_pImageProcParams,
+		CreateProcessingFlags(!m_pRotationPanelCtl->IsVisible() && !m_pTiltCorrectionPanelCtl->IsVisible(), m_bAutoContrast, false, m_bLDC, false, m_bLandscapeMode), 
+		m_pRotationPanelCtl->IsVisible() ? m_pRotationPanelCtl->GetLQRotationAngle() : 0.0, 
+		m_pTiltCorrectionPanelCtl->IsVisible() ? &trapezoid : NULL);
 
 	// Display file name if enabled
 	DisplayFileName(imageProcessingArea, dc, m_dRealizedZoom);
@@ -663,8 +660,13 @@ void CMainDlg::PaintToDC(CDC& dc) {
 		pCurrentImage->VerifyRotation(CRotationParams(pCurrentImage->GetRotationParams(), GetRotation()));
 
 		// find out the new virtual image size and the size of the bitmap to request
+		// The same choice OnPaint makes, so a frame painted for a crossfade shows the image
+		// the way the window does - fitted by hand with Fit to screen, not only as the auto
+		// zoom mode would have it.
 		double dZoom = m_dZoom;
-		CSize newSize = Helpers::GetVirtualImageSize(pCurrentImage->OrigSize(), m_clientRect.Size(), GetAutoZoomMode(), dZoom);
+		Helpers::EAutoZoomMode eAutoZoomMode = IsAdjustWindowToImage() ? Helpers::ZM_FitToScreenNoZoom :
+			(m_isUserFitToScreen ? m_autoZoomFitToScreen : GetAutoZoomMode());
+		CSize newSize = Helpers::GetVirtualImageSize(pCurrentImage->OrigSize(), m_clientRect.Size(), eAutoZoomMode, dZoom);
 		CPoint offsets = Helpers::LimitOffsets(GetOffsets(), m_clientRect.Size(), newSize);
 		m_dRealizedZoom = (double)newSize.cx / m_pCurrentImage->OrigSize().cx;
 
@@ -1411,10 +1413,10 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	if (!m_bFullScreenMode) {
 		// Transition effect and speed only available in full screen mode. They are the
 		// Transition effect and speed only available in full screen mode. They are the
-		// eighth and ninth entries of the submenu: the four scroll entries, a separator,
-		// Slideshow, Set Waiting Time, and then these two.
-		::DeleteMenu(hMenuMovie, 7, MF_BYPOSITION);
-		::DeleteMenu(hMenuMovie, 7, MF_BYPOSITION);
+		// tenth and eleventh entries of the submenu: the Settings submenu, a separator, the
+		// four scroll entries, a separator, Slideshow, Set Waiting Time, and then these two.
+		::DeleteMenu(hMenuMovie, 9, MF_BYPOSITION);
+		::DeleteMenu(hMenuMovie, 9, MF_BYPOSITION);
 	} else {
 		::CheckMenuItem(hMenuMovie, m_eTransitionEffect + IDM_EFFECT_NONE, MF_CHECKED);
 		int nIndex = (m_nTransitionTime < 180) ? 0 : (m_nTransitionTime < 375) ? 1 : (m_nTransitionTime < 750) ? 2 : (m_nTransitionTime < 1500) ? 3 : 4;
@@ -1729,9 +1731,21 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			m_pNavPanelCtl->SetActive(!m_pNavPanelCtl->IsActive());
 			break;
 		case IDM_NEXT:
+			if (m_bScrollMode) {
+				// While scrolling these two steer the glide instead of changing the image: down
+				// for next, up for previous, and without waiting out the hold.
+				ScrollMath::StartMovingDown(m_scrollState);
+				m_nScrollLastTick = ::GetTickCount();
+				break;
+			}
 			GotoImage(POS_Next);
 			break;
 		case IDM_PREV:
+			if (m_bScrollMode) {
+				ScrollMath::StartMovingUp(m_scrollState);
+				m_nScrollLastTick = ::GetTickCount();
+				break;
+			}
 			GotoImage(POS_Previous);
 			break;
 		case IDM_FIRST:
@@ -2079,10 +2093,14 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			break;
 		case IDM_TOGGLE_FIT_TO_SCREEN_100_PERCENTS:
 		case IDM_TOGGLE_FILL_WITH_CROP_100_PERCENTS:
+			// This one toggles between the fitted image and the image at its own pixel size, so
+			// it goes to 1.0 rather than to whatever 100% currently means. In relative zoom mode
+			// 100% is the fitted image, and calling the same thing for both ends of a toggle left
+			// it with nothing to switch to.
 			if (fabs(m_dZoom - 1) < 0.01) {
 				ResetZoomToFitScreen(nCommand == IDM_TOGGLE_FILL_WITH_CROP_100_PERCENTS, true, true);
-			} else {
-				ResetZoomTo100Percents(m_bMouseOn);
+			} else if (m_pCurrentImage != NULL) {
+				PerformZoom(1.0, false, m_bMouseOn || !m_bFullScreenMode, true);
 			}
 			break;
 		case IDM_SPAN_SCREENS:
@@ -3590,7 +3608,11 @@ void CMainDlg::GotoImageWithTransition(EImagePosition ePos, int nFlags) {
 	// paint the one that takes over - and fade between the two finished frames. Blending
 	// two snapshots means every frame is computed from scratch, so the fade is even; the
 	// slideshow transition blends onto whatever is already on screen, which compounds.
-	int nW = m_clientRect.Width(), nH = m_clientRect.Height();
+	// The frames cover the whole window, not only the part the image gets: with the preview
+	// pane beside it the rest of the window belongs to the fade as well.
+	CRect fullRect;
+	this->GetClientRect(&fullRect);
+	int nW = fullRect.Width(), nH = fullRect.Height();
 	int nDurationMs = UseCrossFade() ? CrossFadeDurationMs() : 0;
 	if (nW <= 0 || nH <= 0 || nDurationMs <= 0) {
 		GotoImage(ePos, nFlags);
@@ -3648,6 +3670,9 @@ void CMainDlg::GotoImageWithTransition(EImagePosition ePos, int nFlags) {
 	// the fade ate the time the hold at the top was supposed to start with
 	m_nScrollLastTick = ::GetTickCount();
 	m_nLastSlideShowImageTickCount = ::GetTickCount();
+	// The window has not been told about any of this, so ask for a proper repaint: the frame
+	// left on screen was painted into a memory DC and nothing would refresh it otherwise.
+	this->Invalidate(FALSE);
 }
 
 void CMainDlg::StopScrollMode() {
