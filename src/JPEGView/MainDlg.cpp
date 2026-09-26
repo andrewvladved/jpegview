@@ -3482,21 +3482,24 @@ CRect CMainDlg::GetPreviewPaneRect() {
 			CRect(fullRect.left, fullRect.top, fullRect.left + nPaneWidth, fullRect.bottom) :
 			CRect(fullRect.right - nPaneWidth, fullRect.top, fullRect.right, fullRect.bottom);
 	}
-	// Over the image it sits in a bottom corner the way the zoom navigator does, and is as
-	// wide as Preview Size asks for rather than the fixed size the navigator uses.
+	// Over the image it sits in a bottom corner the way the zoom navigator does, and it is
+	// always as wide as Preview Size asks for rather than the fixed size the navigator uses.
+	// Its height is whatever the image needs at that width, so nothing is cut off; a picture
+	// too tall to fit that way is limited by the height instead and gets a margin left and
+	// right inside the pane.
 	CRect panelRect = m_pImageProcPanelCtl->PanelRect();
 	int nBottom = panelRect.top - 1;
 	int nMaxHeight = max(1, nBottom - fullRect.top - 1);
-	CSize sizePreview(nPaneWidth, min(nPaneWidth, nMaxHeight));
+	int nPaneHeight = min(nPaneWidth, nMaxHeight);
 	if (m_pCurrentImage != NULL) {
 		double dZoom;
-		sizePreview = Helpers::GetImageRect(m_pCurrentImage->OrigWidth(), m_pCurrentImage->OrigHeight(),
+		CSize sizeImage = Helpers::GetImageRect(m_pCurrentImage->OrigWidth(), m_pCurrentImage->OrigHeight(),
 			nPaneWidth, nMaxHeight, Helpers::ZM_FitToScreen, dZoom);
-		sizePreview = CSize(max(1, sizePreview.cx), max(1, sizePreview.cy));
+		nPaneHeight = max(1, min(nMaxHeight, (int)sizeImage.cy));
 	}
-	int nLeft = m_bPreviewOnLeft ? fullRect.left + 1 : fullRect.right - sizePreview.cx - 1;
-	int nTop = nBottom - sizePreview.cy;
-	return CRect(nLeft, nTop, nLeft + sizePreview.cx, nBottom);
+	int nLeft = m_bPreviewOnLeft ? fullRect.left + 1 : fullRect.right - nPaneWidth - 1;
+	int nTop = nBottom - nPaneHeight;
+	return CRect(nLeft, nTop, nLeft + nPaneWidth, nBottom);
 }
 
 void CMainDlg::UpdateClientRect() {
@@ -3522,16 +3525,15 @@ void CMainDlg::PaintPreviewPane(CDC& dc) {
 		return;
 	}
 	CRect paneRect = GetPreviewPaneRect();
-	if (!m_bPreviewOnTop) {
-		// The column is the pane's own space, so it carries its own background.
-		COLORREF backColor = CSettingsProvider::This().ColorBackground();
-		if (backColor == 0) {
-			backColor = RGB(0, 0, 1); // the same nVidia blending workaround the rest of the painting uses
-		}
-		CBrush backBrush;
-		backBrush.CreateSolidBrush(backColor);
-		dc.FillRect(&paneRect, backBrush);
+	// The pane is its own space in both shapes, so it carries its own background: the image
+	// inside keeps its proportions and any margin left over shows the background.
+	COLORREF backColor = CSettingsProvider::This().ColorBackground();
+	if (backColor == 0) {
+		backColor = RGB(0, 0, 1); // the same nVidia blending workaround the rest of the painting uses
 	}
+	CBrush backBrush;
+	backBrush.CreateSolidBrush(backColor);
+	dc.FillRect(&paneRect, backBrush);
 	if (m_pCurrentImage == NULL) {
 		return;
 	}
@@ -3562,7 +3564,7 @@ void CMainDlg::PaintPreviewPane(CDC& dc) {
 		// draws the same one around itself.
 		dc.SelectStockBrush(HOLLOW_BRUSH);
 		dc.SelectStockPen(WHITE_PEN);
-		HelpersGUI::DrawRectangle(dc, CRect(xDest - 1, yDest - 1, xDest + sizeThumb.cx + 1, yDest + sizeThumb.cy + 1));
+		HelpersGUI::DrawRectangle(dc, CRect(paneRect.left - 1, paneRect.top - 1, paneRect.right + 1, paneRect.bottom + 1));
 	}
 }
 
