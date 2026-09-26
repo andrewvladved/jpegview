@@ -27,6 +27,10 @@ public:
 	// to the given list of exclusion rectangles (to exclude from clipping region)
 	void PrepareMemDCMgr(CPaintMemDCMgr& memDCMgr, std::list<CRect>& listExcludedRects);
 
+	// Takes the areas of all visible panels out of the clipping region of the given DC, so
+	// what is painted afterwards stays behind the panels
+	void ExcludeVisiblePanels(CDC& dc);
+
 	// Called by main dialog -> routed to managed panels
 	void AfterNewImageLoaded();
 	void AfterImageRenamed();

@@ -83,6 +83,9 @@ public:
 	// With it off the image keeps the zoom it has and scroll mode glides through
 	// whatever sticks out at that zoom.
 	bool ScrollFillWithCrop() { return m_bScrollFillWithCrop; }
+	// Scroll mode: whether the glide slows down to 60% of the scroll speed through the centre
+	// of the image and speeds up again towards the edges.
+	bool ScrollAccentOnCenter() { return m_bScrollAccentOnCenter; }
 	// Whether images are cross faded into each other in scroll, slide show and movie
 	// mode. The length of the fade is SlideShowEffectTime.
 	bool CrossFade() { return m_bCrossFade; }
@@ -220,6 +223,7 @@ public:
 	void SaveScrollSpeed(int nPixelsPerSecond);
 	void SaveScrollTime(int nSeconds);
 	void SaveScrollFillWithCrop(bool bFillWithCrop);
+	void SaveScrollAccentOnCenter(bool bAccentOnCenter);
 	void SaveCrossFade(bool bCrossFade);
 	void SavePreview(bool bPreview);
 	void SavePreviewSettings(int nSizePercent, bool bOnLeft);
@@ -316,6 +320,7 @@ private:
 	int m_nScrollSpeed;
 	int m_nScrollTime;
 	bool m_bScrollFillWithCrop;
+	bool m_bScrollAccentOnCenter;
 	bool m_bCrossFade;
 	bool m_bPreview;
 	int m_nPreviewSize;

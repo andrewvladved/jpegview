@@ -384,6 +384,7 @@ BEGIN
             MENUITEM SEPARATOR
             MENUITEM "Scroll",                      IDM_SCROLL_START
             MENUITEM "Fill with crop",              IDM_SCROLL_FILL_WITH_CROP
+            MENUITEM "Accent On Center",            IDM_SCROLL_ACCENT_ON_CENTER
             MENUITEM "Set Scroll Speed...",         IDM_SCROLL_SET_SPEED
             MENUITEM "Set Scroll Time...",          IDM_SCROLL_SET_TIME
             MENUITEM SEPARATOR

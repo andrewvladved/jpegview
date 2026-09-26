@@ -557,6 +557,11 @@ ScrollTime=2
 ; The 'Fill with crop' entry of the Slideshow submenu writes this value.
 ScrollFillWithCrop=true
 
+; Scroll mode: whether the glide eases off on its way to the centre of the image, down to
+; 60% of ScrollSpeed there, and picks up again just as smoothly towards the other edge.
+; The 'Accent On Center' entry of the Slideshow submenu writes this value.
+ScrollAccentOnCenter=false
+
 ; Whether one image is cross faded into the next in scroll, slide show and movie mode.
 ; The length of the fade is SlideShowEffectTime, which the 'Set Transition Time' entry
 ; of the Slideshow submenu writes.

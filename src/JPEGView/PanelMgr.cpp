@@ -44,6 +44,16 @@ void CPanelMgr::PrepareMemDCMgr(CPaintMemDCMgr& memDCMgr, std::list<CRect>& list
 	}
 }
 
+void CPanelMgr::ExcludeVisiblePanels(CDC& dc) {
+	std::list<CPanelController*>::iterator iter;
+	for (iter = m_panelControllers.begin( ); iter != m_panelControllers.end( ); iter++ ) {
+		if ((*iter)->IsVisible()) {
+			CRect rectPanel = (*iter)->PanelRect();
+			dc.ExcludeClipRect(&rectPanel);
+		}
+	}
+}
+
 void CPanelMgr::AddPanelController(CPanelController* pPanelController) {
 	m_panelControllers.push_back(pPanelController);
 }

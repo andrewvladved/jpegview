@@ -322,6 +322,7 @@ private:
 	double m_dZoomFactorBeforeFit; // what Fit to screen was asked from, to come back to
 	bool m_bScrollMode;
 	bool m_bScrollFillWithCrop;
+	bool m_bScrollAccentOnCenter;
 	bool m_bCrossFade;
 	bool m_bPreview;
 	int m_nPreviewSize;
@@ -432,7 +433,8 @@ private:
 	void GotoImageWithTransition(EImagePosition ePos, int nFlags);
 	bool UseCrossFade();
 	CRect GetPreviewPaneRect();
-	void PaintPreviewPane(CDC& dc);
+	// bUnderPanels: the panels are already on screen and stay in front of the pane
+	void PaintPreviewPane(CDC& dc, bool bUnderPanels);
 	// Reads the client rectangle and takes the preview pane out of it when the pane is
 	// not drawn on top, so everything measured against it lands beside the pane.
 	void UpdateClientRect();

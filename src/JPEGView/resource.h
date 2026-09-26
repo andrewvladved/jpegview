@@ -211,6 +211,7 @@
 #define IDM_PREVIEW 7446		// toggles the preview pane shown beside the image while playing, menu only (no key mapping)
 #define IDM_SET_PREVIEW_SETTINGS 7447	// asks for the size and the side of the preview pane
 #define IDM_PREVIEW_ON_TOP 7448		// draws the preview pane over the image instead of beside it, menu only (no key mapping)
+#define IDM_SCROLL_ACCENT_ON_CENTER 7449	// scroll mode glides slower through the centre of the image, menu only (no key mapping)
 #define IDM_EFFECT_NONE     7450
 #define IDM_EFFECT_BLEND    7451
 #define IDM_EFFECT_SLIDE_RL 7452

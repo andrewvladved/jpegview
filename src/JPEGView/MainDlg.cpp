@@ -256,6 +256,7 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_dZoomFactorBeforeFit = 1.0;
 	m_bScrollMode = false;
 	m_bScrollFillWithCrop = sp.ScrollFillWithCrop();
+	m_bScrollAccentOnCenter = sp.ScrollAccentOnCenter();
 	m_bCrossFade = sp.CrossFade();
 	m_bPreview = sp.Preview();
 	m_nPreviewSize = sp.PreviewSize();
@@ -643,7 +644,7 @@ LRESULT CMainDlg::OnPaint(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 	}
 
 	// The preview pane sits over the image and under the panels
-	PaintPreviewPane(dc);
+	PaintPreviewPane(dc, true);
 
 	// let crop controller and panels paint its stuff
 	m_pCropCtl->OnPaint(dc);
@@ -703,7 +704,7 @@ void CMainDlg::PaintToDC(CDC& dc) {
 		DisplayFileName(imageProcessingArea, dc, m_dRealizedZoom);
 		DisplayErrors(pCurrentImage, m_clientRect, dc);
 	}
-	PaintPreviewPane(dc);
+	PaintPreviewPane(dc, false); // no panels are painted into these frames
 }
 
 void CMainDlg::BlendBlackRect(CDC & targetDC, CPanel& panel, float fBlendFactor) {
@@ -1319,7 +1320,8 @@ LRESULT CMainDlg::OnTimer(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOOL&
 			DWORD nNow = ::GetTickCount();
 			int nElapsedMs = (int)(nNow - m_nScrollLastTick);
 			m_nScrollLastTick = nNow;
-			ScrollMath::Advance(m_scrollState, GetScrollMaxOffsetY(), sp.ScrollSpeed(), sp.ScrollTime() * 1000, nElapsedMs);
+			ScrollMath::Advance(m_scrollState, GetScrollMaxOffsetY(), sp.ScrollSpeed(), sp.ScrollTime() * 1000, nElapsedMs,
+				m_bScrollAccentOnCenter);
 			if (m_scrollState.bAdvanceToNextImage) {
 				GotoImageWithTransition(POS_Next, 0);
 			} else {
@@ -1402,6 +1404,7 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	HMENU hMenuMovie = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_MOVIE);
 	if (!m_bMovieMode && !m_bScrollMode) ::EnableMenuItem(hMenuMovie, IDM_STOP_MOVIE, MF_BYCOMMAND | MF_GRAYED);
 	if (m_bScrollFillWithCrop) ::CheckMenuItem(hMenuMovie, IDM_SCROLL_FILL_WITH_CROP, MF_CHECKED);
+	if (m_bScrollAccentOnCenter) ::CheckMenuItem(hMenuMovie, IDM_SCROLL_ACCENT_ON_CENTER, MF_CHECKED);
 	if (m_bCrossFade) ::CheckMenuItem(hMenuMovie, IDM_CROSS_FADE, MF_CHECKED);
 	if (m_bPreview) ::CheckMenuItem(hMenuMovie, IDM_PREVIEW, MF_CHECKED);
 	if (m_bPreviewOnTop) ::CheckMenuItem(hMenuMovie, IDM_PREVIEW_ON_TOP, MF_CHECKED);
@@ -1813,6 +1816,11 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 		case IDM_SCROLL_FILL_WITH_CROP:
 			m_bScrollFillWithCrop = !m_bScrollFillWithCrop;
 			sp.SaveScrollFillWithCrop(m_bScrollFillWithCrop);
+			break;
+		case IDM_SCROLL_ACCENT_ON_CENTER:
+			// Takes effect on the very next timer tick, even in the middle of a glide.
+			m_bScrollAccentOnCenter = !m_bScrollAccentOnCenter;
+			sp.SaveScrollAccentOnCenter(m_bScrollAccentOnCenter);
 			break;
 		case IDM_PREVIEW:
 			m_bPreview = !m_bPreview;
@@ -3537,13 +3545,13 @@ CRect CMainDlg::GetPreviewPaneRect() {
 			CRect(fullRect.left, fullRect.top, fullRect.left + nPaneWidth, fullRect.bottom) :
 			CRect(fullRect.right - nPaneWidth, fullRect.top, fullRect.right, fullRect.bottom);
 	}
-	// Over the image it sits in a bottom corner the way the zoom navigator does, and it is
-	// always as wide as Preview Size asks for rather than the fixed size the navigator uses.
-	// Its height is whatever the image needs at that width, so nothing is cut off; a picture
-	// too tall to fit that way is limited by the height instead and gets a margin left and
-	// right inside the pane.
-	CRect panelRect = m_pImageProcPanelCtl->PanelRect();
-	int nBottom = panelRect.top - 1;
+	// Over the image it starts right in the bottom corner of Preview Side - the right one or
+	// the left one - with only its frame between it and the window edges, and it is always as
+	// wide as Preview Size asks for. Its height is whatever the image needs at that width, so
+	// nothing is cut off; a picture too tall to fit that way is limited by the height instead
+	// and gets a margin left and right inside the pane. The image processing panel is not
+	// stepped around: it shows up over the pane when the mouse calls it, like over the image.
+	int nBottom = fullRect.bottom - 1;
 	int nMaxHeight = max(1, nBottom - fullRect.top - 1);
 	int nPaneHeight = min(nPaneWidth, nMaxHeight);
 	if (m_pCurrentImage != NULL) {
@@ -3575,7 +3583,7 @@ void CMainDlg::UpdateClientRect() {
 	}
 }
 
-void CMainDlg::PaintPreviewPane(CDC& dc) {
+void CMainDlg::PaintPreviewPane(CDC& dc, bool bUnderPanels) {
 	if (!IsPreviewPaneActive()) {
 		return;
 	}
@@ -3647,7 +3655,17 @@ void CMainDlg::PaintPreviewPane(CDC& dc) {
 		memDC.SelectStockPen(WHITE_PEN);
 		HelpersGUI::DrawRectangle(memDC, memRect);
 	}
+	// The panels have already been painted when the window paints the pane, and they stay in
+	// front of it: whatever of them lies over the pane is kept out of the blit.
+	int nSavedDC = 0;
+	if (bUnderPanels && m_bPreviewOnTop) {
+		nSavedDC = dc.SaveDC();
+		m_pPanelMgr->ExcludeVisiblePanels(dc);
+	}
 	dc.BitBlt(outerRect.left, outerRect.top, nW, nH, memDC, 0, 0, SRCCOPY);
+	if (nSavedDC != 0) {
+		dc.RestoreDC(nSavedDC);
+	}
 	memDC.SelectBitmap(hOldBitmap);
 }
 

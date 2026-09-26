@@ -176,6 +176,7 @@ CSettingsProvider::CSettingsProvider(void) {
 	m_nScrollSpeed = GetInt(_T("ScrollSpeed"), 100, MIN_SCROLL_SPEED, MAX_SCROLL_SPEED);
 	m_nScrollTime = GetInt(_T("ScrollTime"), 2, MIN_SCROLL_TIME, MAX_SCROLL_TIME);
 	m_bScrollFillWithCrop = GetBool(_T("ScrollFillWithCrop"), true);
+	m_bScrollAccentOnCenter = GetBool(_T("ScrollAccentOnCenter"), false);
 	m_bCrossFade = GetBool(_T("CrossFade"), true);
 	m_bPreview = GetBool(_T("Preview"), false);
 	m_nPreviewSize = GetInt(_T("PreviewSize"), 25, 10, 100);
@@ -611,6 +612,15 @@ void CSettingsProvider::SaveScrollFillWithCrop(bool bFillWithCrop) {
 
 	m_bScrollFillWithCrop = bFillWithCrop;
 	WriteBool(_T("ScrollFillWithCrop"), bFillWithCrop);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SaveScrollAccentOnCenter(bool bAccentOnCenter) {
+	MakeSureUserINIExists();
+
+	m_bScrollAccentOnCenter = bAccentOnCenter;
+	WriteBool(_T("ScrollAccentOnCenter"), bAccentOnCenter);
 
 	m_bUserINIExists = true;
 }

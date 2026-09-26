@@ -1,4 +1,5 @@
 #include "ScrollMath.h"
+#include <math.h>
 
 namespace ScrollMath {
 
@@ -31,7 +32,34 @@ EAction ActionForStepUp(const SState& state) {
 }
 
 double AccentSpeedFactor(double dOffsetY, int nMaxOffsetY) {
-	return 1.0;
+	if (nMaxOffsetY <= 0) {
+		return 1.0;
+	}
+	// Half a cosine wave from the centre to the edge: flat at both ends, so the speed
+	// neither jumps nor kinks anywhere along the way.
+	const double dPi = 3.14159265358979323846;
+	double dDistance = min(1.0, fabs(dOffsetY) / nMaxOffsetY);
+	double dLift = (1.0 - cos(dPi * dDistance)) / 2.0;
+	return ACCENT_CENTER_SPEED_FACTOR + (1.0 - ACCENT_CENTER_SPEED_FACTOR) * dLift;
+}
+
+// How far the image glides in nElapsedMs from dOffsetY. With the accent the speed depends
+// on where the image is, so the time is cut into short steps that each use the speed of
+// their own spot - otherwise a slow timer would carry the image past the centre at the
+// speed of the edge.
+static double GlideDistance(double dOffsetY, int nMaxOffsetY, double dSpeedPixelsPerSecond, int nElapsedMs,
+	bool bAccentOnCenter, bool bMovingUp) {
+	if (!bAccentOnCenter) {
+		return dSpeedPixelsPerSecond * nElapsedMs / 1000.0;
+	}
+	const int nStepMs = 5;
+	double dDistance = 0.0;
+	for (int nDone = 0; nDone < nElapsedMs; nDone += nStepMs) {
+		int nStep = min(nStepMs, nElapsedMs - nDone);
+		double dHere = bMovingUp ? dOffsetY + dDistance : dOffsetY - dDistance;
+		dDistance += dSpeedPixelsPerSecond * AccentSpeedFactor(dHere, nMaxOffsetY) * nStep / 1000.0;
+	}
+	return dDistance;
 }
 
 void Advance(SState& state, int nMaxOffsetY, double dSpeedPixelsPerSecond, int nHoldMs, int nElapsedMs,
@@ -52,7 +80,7 @@ void Advance(SState& state, int nMaxOffsetY, double dSpeedPixelsPerSecond, int n
 			// Distance is speed times time, so the result does not depend on how often
 			// the timer happens to fire.
 			if (state.bMovingUp) {
-				state.dOffsetY += dSpeedPixelsPerSecond * nElapsedMs / 1000.0;
+				state.dOffsetY += GlideDistance(state.dOffsetY, nMaxOffsetY, dSpeedPixelsPerSecond, nElapsedMs, bAccentOnCenter, true);
 				if (state.dOffsetY >= nMaxOffsetY) {
 					state.dOffsetY = nMaxOffsetY;
 					state.ePhase = PHASE_HoldTop;
@@ -60,7 +88,7 @@ void Advance(SState& state, int nMaxOffsetY, double dSpeedPixelsPerSecond, int n
 					state.nPhaseElapsedMs = 0;
 				}
 			} else {
-				state.dOffsetY -= dSpeedPixelsPerSecond * nElapsedMs / 1000.0;
+				state.dOffsetY -= GlideDistance(state.dOffsetY, nMaxOffsetY, dSpeedPixelsPerSecond, nElapsedMs, bAccentOnCenter, false);
 				if (state.dOffsetY <= -nMaxOffsetY) {
 					state.dOffsetY = -nMaxOffsetY;
 					state.ePhase = PHASE_HoldBottom;

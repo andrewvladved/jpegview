@@ -651,6 +651,11 @@ ScrollTime=2
 ; Это значение записывает пункт «Fill with crop» подменю Slideshow.
 ScrollFillWithCrop=true
 
+; Режим Scroll: плавно замедлять скольжение по мере приближения к центру изображения, до
+; 60% от ScrollSpeed в самом центре, и так же плавно разгоняться к другому краю.
+; Это значение записывает пункт «Accent On Center» подменю Slideshow.
+ScrollAccentOnCenter=false
+
 ; Смешивать ли одно изображение со следующим в режимах Scroll, Slideshow и Movie.
 ; Длительность перехода задаёт SlideShowEffectTime, который записывает пункт
 ; «Set Transition Time» подменю Slideshow.
