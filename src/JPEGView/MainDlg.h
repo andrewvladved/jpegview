@@ -319,6 +319,7 @@ private:
 	bool m_bAutoFitWndToImage;
 	bool m_bRelativeZoom;
 	double m_dRelativeZoomFactor; // current zoom as a multiple of the fitted image
+	double m_dZoomFactorBeforeFit; // what Fit to screen was asked from, to come back to
 	bool m_bScrollMode;
 	bool m_bScrollFillWithCrop;
 	bool m_bCrossFade;
@@ -422,6 +423,9 @@ private:
 	// the bottom edge, hold again, then move on to the next image.
 	void StartScrollMode();
 	void StopScrollMode();
+	// The down and up keys while scroll mode runs: glide that way, or move to another
+	// image when the glide is already standing at that end.
+	void ScrollStep(bool bDown);
 	void SetupScrollForCurrentImage();
 	// Hands over to another image with a crossfade when the mode is on: the two frames
 	// are painted into memory DCs and blended into each other.

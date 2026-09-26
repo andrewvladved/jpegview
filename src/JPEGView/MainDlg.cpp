@@ -253,6 +253,7 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_bAutoFitWndToImage = sp.DefaultWndToImage();
 	m_bRelativeZoom = sp.RelativeZoomMode();
 	m_dRelativeZoomFactor = 1.0;
+	m_dZoomFactorBeforeFit = 1.0;
 	m_bScrollMode = false;
 	m_bScrollFillWithCrop = sp.ScrollFillWithCrop();
 	m_bCrossFade = sp.CrossFade();
@@ -1150,6 +1151,12 @@ LRESULT CMainDlg::OnKeyDown(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOO
 			m_pAnnotationCtl->Redo();
 		}
 		Invalidate(FALSE);
+	} else if (m_bScrollMode && !bCtrl && !bShift && !bAlt &&
+		(wParam == VK_DOWN || wParam == 'S' || wParam == VK_UP || wParam == 'W')) {
+		// Down and up steer the glide while a folder is scrolling past, which is not what
+		// they do at any other time, so they are taken here rather than through the key map.
+		bHandled = true;
+		ScrollStep(wParam == VK_DOWN || wParam == 'S');
 	} else if (wParam == VK_ESCAPE && m_pAnnotationCtl != NULL && m_pAnnotationCtl->IsAnnotating()) {
 		// After the crop case, so cropping keeps priority over leaving annotation mode.
 		bHandled = true;
@@ -1731,21 +1738,9 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			m_pNavPanelCtl->SetActive(!m_pNavPanelCtl->IsActive());
 			break;
 		case IDM_NEXT:
-			if (m_bScrollMode) {
-				// While scrolling these two steer the glide instead of changing the image: down
-				// for next, up for previous, and without waiting out the hold.
-				ScrollMath::StartMovingDown(m_scrollState);
-				m_nScrollLastTick = ::GetTickCount();
-				break;
-			}
 			GotoImage(POS_Next);
 			break;
 		case IDM_PREV:
-			if (m_bScrollMode) {
-				ScrollMath::StartMovingUp(m_scrollState);
-				m_nScrollLastTick = ::GetTickCount();
-				break;
-			}
 			GotoImage(POS_Previous);
 			break;
 		case IDM_FIRST:
@@ -2086,6 +2081,20 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			break;
 		case IDM_FIT_TO_SCREEN:
 		case IDM_FIT_TO_SCREEN_NO_ENLARGE:
+			if (m_bRelativeZoom && nCommand == IDM_FIT_TO_SCREEN && m_pCurrentImage != NULL) {
+				// In relative zoom mode the fitted image is the anchor, so Fit to screen is a
+				// place to come back from: it remembers the zoom it was asked from, and asking
+				// again while still fitted returns to it.
+				double dBase = GetZoomFactorForFitToScreen(false, true);
+				bool bAlreadyFitted = fabs(m_dRelativeZoomFactor - 1.0) < 0.01;
+				if (bAlreadyFitted && fabs(m_dZoomFactorBeforeFit - 1.0) > 0.01 && dBase > 0) {
+					PerformZoom(dBase * m_dZoomFactorBeforeFit, false, m_bMouseOn, true);
+				} else {
+					m_dZoomFactorBeforeFit = m_dRelativeZoomFactor;
+					ResetZoomToFitScreen(false, true, true);
+				}
+				break;
+			}
 			ResetZoomToFitScreen(false, nCommand == IDM_FIT_TO_SCREEN, true);
 			break;
 		case IDM_FILL_WITH_CROP:
@@ -2281,6 +2290,7 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			m_bRelativeZoom = !m_bRelativeZoom;
 			m_bRelativeZoomTemporary = false; // an explicit choice, not the one scroll mode makes
 			m_dRelativeZoomFactor = 1.0; // the mode starts from the fitted image
+			m_dZoomFactorBeforeFit = 1.0;
 			sp.SaveRelativeZoomMode(m_bRelativeZoom);
 			m_dZoomMult = -1.0; // the step depends on the mode, recompute it for this image
 			this->Invalidate(FALSE); // the zoom read-out changes meaning
@@ -3681,6 +3691,30 @@ void CMainDlg::GotoImageWithTransition(EImagePosition ePos, int nFlags) {
 	// The window has not been told about any of this, so ask for a proper repaint: the frame
 	// left on screen was painted into a memory DC and nothing would refresh it otherwise.
 	this->Invalidate(FALSE);
+}
+
+void CMainDlg::ScrollStep(bool bDown) {
+	if (!m_bScrollMode) {
+		return;
+	}
+	ScrollMath::EAction eAction = bDown ?
+		ScrollMath::ActionForStepDown(m_scrollState) : ScrollMath::ActionForStepUp(m_scrollState);
+	switch (eAction) {
+		case ScrollMath::ACTION_MoveDown:
+			ScrollMath::StartMovingDown(m_scrollState);
+			m_nScrollLastTick = ::GetTickCount();
+			break;
+		case ScrollMath::ACTION_MoveUp:
+			ScrollMath::StartMovingUp(m_scrollState);
+			m_nScrollLastTick = ::GetTickCount();
+			break;
+		case ScrollMath::ACTION_NextImage:
+			GotoImageWithTransition(POS_Next, 0);
+			break;
+		case ScrollMath::ACTION_PreviousImage:
+			GotoImageWithTransition(POS_Previous, 0);
+			break;
+	}
 }
 
 void CMainDlg::StopScrollMode() {

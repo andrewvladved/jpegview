@@ -23,11 +23,11 @@ void StartMovingUp(SState& state) {
 }
 
 EAction ActionForStepDown(const SState& state) {
-	return ACTION_MoveDown;
+	return (state.ePhase == PHASE_HoldBottom) ? ACTION_NextImage : ACTION_MoveDown;
 }
 
 EAction ActionForStepUp(const SState& state) {
-	return ACTION_MoveUp;
+	return (state.ePhase == PHASE_HoldTop) ? ACTION_PreviousImage : ACTION_MoveUp;
 }
 
 void Advance(SState& state, int nMaxOffsetY, double dSpeedPixelsPerSecond, int nHoldMs, int nElapsedMs) {
