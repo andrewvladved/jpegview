@@ -22,6 +22,14 @@ void StartMovingUp(SState& state) {
 	state.nPhaseElapsedMs = 0;
 }
 
+EAction ActionForStepDown(const SState& state) {
+	return ACTION_MoveDown;
+}
+
+EAction ActionForStepUp(const SState& state) {
+	return ACTION_MoveUp;
+}
+
 void Advance(SState& state, int nMaxOffsetY, double dSpeedPixelsPerSecond, int nHoldMs, int nElapsedMs) {
 	switch (state.ePhase) {
 		case PHASE_HoldTop:

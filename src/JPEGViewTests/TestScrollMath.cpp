@@ -134,3 +134,51 @@ TEST(AfterGlidingUpTheCycleCarriesOn) {
 	CHECK(state.ePhase == PHASE_Moving);
 	CHECK(!state.bMovingUp);
 }
+
+// The down key sets the image gliding down, wherever the cycle happens to be.
+TEST(StepDownGlidesDownWhileHoldingAtTheTop) {
+	SState state;
+	Reset(state, 400);
+	CHECK(ActionForStepDown(state) == ACTION_MoveDown);
+}
+
+TEST(StepDownGlidesDownWhileAlreadyMoving) {
+	SState state;
+	Reset(state, 400);
+	StartMovingUp(state);
+	CHECK(ActionForStepDown(state) == ACTION_MoveDown);
+}
+
+// Standing at the bottom there is nothing below to glide to, so it moves on instead of
+// waiting out the hold.
+TEST(StepDownAtTheBottomGoesToTheNextImage) {
+	SState state;
+	Reset(state, 300);
+	StartMovingDown(state);
+	Advance(state, 300, 100.0, 5000, 60000);
+	CHECK(state.ePhase == PHASE_HoldBottom);
+	CHECK(ActionForStepDown(state) == ACTION_NextImage);
+}
+
+TEST(StepUpGlidesUpWhileHoldingAtTheBottom) {
+	SState state;
+	Reset(state, 300);
+	StartMovingDown(state);
+	Advance(state, 300, 100.0, 5000, 60000);
+	CHECK(ActionForStepUp(state) == ACTION_MoveUp);
+}
+
+TEST(StepUpGlidesUpWhileAlreadyMoving) {
+	SState state;
+	Reset(state, 400);
+	StartMovingDown(state);
+	CHECK(ActionForStepUp(state) == ACTION_MoveUp);
+}
+
+// Standing at the top, up goes back a picture.
+TEST(StepUpAtTheTopGoesToThePreviousImage) {
+	SState state;
+	Reset(state, 400);
+	CHECK(state.ePhase == PHASE_HoldTop);
+	CHECK(ActionForStepUp(state) == ACTION_PreviousImage);
+}

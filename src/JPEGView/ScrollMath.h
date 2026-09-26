@@ -33,11 +33,22 @@ namespace ScrollMath {
 	// Parks a freshly loaded image at its top edge.
 	void Reset(SState& state, int nMaxOffsetY);
 
-	// Starts gliding at once, in either direction, whatever the cycle was doing. This is
-	// what the next and previous image commands do while scroll mode runs: rather than
-	// waiting out the hold, the image starts moving straight away.
+	// Starts gliding at once, in either direction, whatever the cycle was doing.
 	void StartMovingDown(SState& state);
 	void StartMovingUp(SState& state);
+
+	enum EAction {
+		ACTION_MoveDown,
+		ACTION_MoveUp,
+		ACTION_NextImage,
+		ACTION_PreviousImage
+	};
+
+	// What the down and up keys do while scroll mode runs. They set the image gliding
+	// without waiting out the hold - except at the end they are already standing at,
+	// where there is nothing left to glide through and they move on to another image.
+	EAction ActionForStepDown(const SState& state);
+	EAction ActionForStepUp(const SState& state);
 
 	// Moves the cycle on by nElapsedMs. dSpeedPixelsPerSecond is measured on screen, and
 	// nHoldMs is how long to stand still at each end.
