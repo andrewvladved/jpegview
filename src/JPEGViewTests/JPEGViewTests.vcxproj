@@ -106,6 +106,8 @@
     <ClCompile Include="TestValueInput.cpp" />
     <ClCompile Include="..\JPEGView\ZoomMath.cpp" />
     <ClCompile Include="TestZoomMath.cpp" />
+    <ClCompile Include="..\JPEGView\ScrollMath.cpp" />
+    <ClCompile Include="TestScrollMath.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="TestFramework.h" />
@@ -116,6 +118,7 @@
     <ClInclude Include="..\JPEGView\AnnotationGeometry.h" />
     <ClInclude Include="..\JPEGView\ValueInput.h" />
     <ClInclude Include="..\JPEGView\ZoomMath.h" />
+    <ClInclude Include="..\JPEGView\ScrollMath.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
