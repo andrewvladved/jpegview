@@ -258,7 +258,7 @@ TEST(WithTheAccentTheWayDownTakesLonger) {
 	Reset(accented, 1000);
 	StartMovingDown(plain);
 	StartMovingDown(accented);
-	for (int i = 0; i < 20000 / 33; i++) {
+	for (int i = 0; i < 21000 / 33; i++) { // 20 s is the plain way down
 		Advance(plain, 1000, 100.0, 0, 33);
 		Advance(accented, 1000, 100.0, 0, 33, true);
 	}
