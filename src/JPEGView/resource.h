@@ -153,7 +153,6 @@
 #define IDC_PV_LBL_SIDE                 2063
 #define IDC_PV_RB_LEFT                  2064
 #define IDC_PV_RB_RIGHT                 2065
-#define IDC_PV_ON_TOP                   2066
 
 // this is not used anywhere in code, but defined in KeyMap as an "invalid command", so make sure the defined number doesn't match anything!
 #define IDM_DONOTHING		1			// :KeyMap: do nothing (can be used to disable a standard command for a mouse button)
@@ -210,7 +209,8 @@
 #define IDM_SET_TRANSITION_TIME 7444	// asks for the length of the crossfade between images, in milliseconds
 #define IDM_CROSS_FADE 7445		// toggles the crossfade between images in every mode, menu only (no key mapping)
 #define IDM_PREVIEW 7446		// toggles the preview pane shown beside the image while playing, menu only (no key mapping)
-#define IDM_SET_PREVIEW_SETTINGS 7447	// asks for the size, the side and the placement of the preview pane
+#define IDM_SET_PREVIEW_SETTINGS 7447	// asks for the size and the side of the preview pane
+#define IDM_PREVIEW_ON_TOP 7448		// draws the preview pane over the image instead of beside it, menu only (no key mapping)
 #define IDM_EFFECT_NONE     7450
 #define IDM_EFFECT_BLEND    7451
 #define IDM_EFFECT_SLIDE_RL 7452

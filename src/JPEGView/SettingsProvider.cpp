@@ -633,17 +633,24 @@ void CSettingsProvider::SavePreview(bool bPreview) {
 	m_bUserINIExists = true;
 }
 
-void CSettingsProvider::SavePreviewSettings(int nSizePercent, bool bOnLeft, bool bOnTop) {
+void CSettingsProvider::SavePreviewSettings(int nSizePercent, bool bOnLeft) {
 	MakeSureUserINIExists();
 
 	m_nPreviewSize = nSizePercent;
 	m_bPreviewOnLeft = bOnLeft;
-	m_bPreviewOnTop = bOnTop;
 	const int BUFF_SIZE = 16;
 	TCHAR buff[BUFF_SIZE];
 	_sntprintf(buff, BUFF_SIZE, _T("%d"), nSizePercent);
 	WriteString(_T("PreviewSize"), buff);
 	WriteString(_T("PreviewSide"), bOnLeft ? _T("Left") : _T("Right"));
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SavePreviewOnTop(bool bOnTop) {
+	MakeSureUserINIExists();
+
+	m_bPreviewOnTop = bOnTop;
 	WriteBool(_T("PreviewOnTop"), bOnTop);
 
 	m_bUserINIExists = true;

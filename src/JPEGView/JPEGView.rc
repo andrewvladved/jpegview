@@ -190,7 +190,7 @@ BEGIN
     PUSHBUTTON      "Cancel",IDCANCEL,214,60,60,16
 END
 
-IDD_PREVIEW_SETTINGS DIALOGEX 8, 7, 200, 108
+IDD_PREVIEW_SETTINGS DIALOGEX 8, 7, 200, 86
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_TOOLWINDOW
 FONT 8, "MS Shell Dlg", 0, 0, 0x1
@@ -201,9 +201,8 @@ BEGIN
     LTEXT           "",IDC_PV_LBL_SIDE,10,36,70,10,NOT WS_GROUP
     CONTROL         "",IDC_PV_RB_LEFT,"Button",BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,84,35,52,10
     CONTROL         "",IDC_PV_RB_RIGHT,"Button",BS_AUTORADIOBUTTON,140,35,52,10
-    CONTROL         "",IDC_PV_ON_TOP,"Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,10,57,182,10
-    DEFPUSHBUTTON   "",IDOK,76,80,56,16
-    PUSHBUTTON      "",IDCANCEL,138,80,54,16
+    DEFPUSHBUTTON   "",IDOK,76,58,56,16
+    PUSHBUTTON      "",IDCANCEL,138,58,54,16
 END
 
 IDD_SET_VALUE DIALOGEX 8, 7, 178, 62
@@ -373,11 +372,6 @@ BEGIN
         END
         POPUP "Slideshow"
         BEGIN
-            MENUITEM "Preview",                     IDM_PREVIEW
-            MENUITEM "Set Preview Settings...",     IDM_SET_PREVIEW_SETTINGS
-            MENUITEM "Cross fade",                  IDM_CROSS_FADE
-            MENUITEM "Set Transition Time...",      IDM_SET_TRANSITION_TIME
-            MENUITEM SEPARATOR
             MENUITEM "Scroll",                      IDM_SCROLL_START
             MENUITEM "Fill with crop",              IDM_SCROLL_FILL_WITH_CROP
             MENUITEM "Set Scroll Speed...",         IDM_SCROLL_SET_SPEED
@@ -417,6 +411,13 @@ BEGIN
             MENUITEM SEPARATOR
             MENUITEM "Movie",                       IDM_MOVIE_START_FPS
             MENUITEM "Set Playback Speed...",       IDM_MOVIE_SET_SPEED
+            MENUITEM SEPARATOR
+            MENUITEM "Preview",                     IDM_PREVIEW
+            MENUITEM "On Top",                      IDM_PREVIEW_ON_TOP
+            MENUITEM "Set Preview Settings...",     IDM_SET_PREVIEW_SETTINGS
+            MENUITEM SEPARATOR
+            MENUITEM "Cross fade",                  IDM_CROSS_FADE
+            MENUITEM "Set Transition Time...",      IDM_SET_TRANSITION_TIME
         END
         MENUITEM SEPARATOR
         POPUP "Transform image"

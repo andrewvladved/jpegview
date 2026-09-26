@@ -222,7 +222,8 @@ public:
 	void SaveScrollFillWithCrop(bool bFillWithCrop);
 	void SaveCrossFade(bool bCrossFade);
 	void SavePreview(bool bPreview);
-	void SavePreviewSettings(int nSizePercent, bool bOnLeft, bool bOnTop);
+	void SavePreviewSettings(int nSizePercent, bool bOnLeft);
+	void SavePreviewOnTop(bool bOnTop);
 	// Saves the length of the transition between two images to the INI file
 	void SaveSlideShowEffectTime(int nMilliseconds);
 	

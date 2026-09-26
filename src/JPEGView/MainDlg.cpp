@@ -567,8 +567,9 @@ LRESULT CMainDlg::OnPaint(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 				CreateProcessingFlags(m_bHQResampling && !m_bTemporaryLowQ && !m_bZoomMode, m_bAutoContrast, m_bAutoContrastSection, m_bLDC, false, m_bLandscapeMode));
 		}
 
-		// Zoom navigator - check if visible and create exclusion rectangle
-		if (m_pZoomNavigatorCtl->IsVisible()) {
+		// Zoom navigator - check if visible and create exclusion rectangle. While the preview
+		// pane is up it takes the navigator's place, so the two are never on screen together.
+		if (m_pZoomNavigatorCtl->IsVisible() && !IsPreviewPaneActive()) {
 			visRectZoomNavigator = m_pZoomNavigatorCtl->GetVisibleRect(newSize, clippedSize, offsetsInImage);
 			excludedClippingRects.push_back(m_pZoomNavigatorCtl->PanelRect());
 		}
@@ -599,10 +600,12 @@ LRESULT CMainDlg::OnPaint(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 
 	// paint zoom navigator
 	CTrapezoid trapezoid = m_pTiltCorrectionPanelCtl->IsVisible() ? m_pTiltCorrectionPanelCtl->GetCurrentTrapezoid(CZoomNavigator::GetNavigatorRect(m_pCurrentImage, m_pImageProcPanelCtl->PanelRect(), m_pNavPanelCtl->PanelRect()).Size()) : CTrapezoid();
-	m_pZoomNavigatorCtl->OnPaint(dc, visRectZoomNavigator, m_pImageProcParams,
-		CreateProcessingFlags(!m_pRotationPanelCtl->IsVisible() && !m_pTiltCorrectionPanelCtl->IsVisible(), m_bAutoContrast, false, m_bLDC, false, m_bLandscapeMode), 
-		m_pRotationPanelCtl->IsVisible() ? m_pRotationPanelCtl->GetLQRotationAngle() : 0.0, 
-		m_pTiltCorrectionPanelCtl->IsVisible() ? &trapezoid : NULL);
+	if (!IsPreviewPaneActive()) {
+		m_pZoomNavigatorCtl->OnPaint(dc, visRectZoomNavigator, m_pImageProcParams,
+			CreateProcessingFlags(!m_pRotationPanelCtl->IsVisible() && !m_pTiltCorrectionPanelCtl->IsVisible(), m_bAutoContrast, false, m_bLDC, false, m_bLandscapeMode), 
+			m_pRotationPanelCtl->IsVisible() ? m_pRotationPanelCtl->GetLQRotationAngle() : 0.0, 
+			m_pTiltCorrectionPanelCtl->IsVisible() ? &trapezoid : NULL);
+	}
 
 	// Display file name if enabled
 	DisplayFileName(imageProcessingArea, dc, m_dRealizedZoom);
@@ -1381,6 +1384,7 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	if (m_bScrollFillWithCrop) ::CheckMenuItem(hMenuMovie, IDM_SCROLL_FILL_WITH_CROP, MF_CHECKED);
 	if (m_bCrossFade) ::CheckMenuItem(hMenuMovie, IDM_CROSS_FADE, MF_CHECKED);
 	if (m_bPreview) ::CheckMenuItem(hMenuMovie, IDM_PREVIEW, MF_CHECKED);
+	if (m_bPreviewOnTop) ::CheckMenuItem(hMenuMovie, IDM_PREVIEW_ON_TOP, MF_CHECKED);
 	HMENU hMenuZoom = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_ZOOM);
 	if (m_bSpanVirtualDesktop) ::CheckMenuItem(hMenuZoom,  IDM_SPAN_SCREENS, MF_CHECKED);
 	if (m_bFullScreenMode) ::CheckMenuItem(hMenuZoom,  IDM_FULL_SCREEN_MODE, MF_CHECKED);
@@ -1406,11 +1410,11 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	}
 	if (!m_bFullScreenMode) {
 		// Transition effect and speed only available in full screen mode. They are the
-		// thirteenth and fourteenth entries of the submenu: Preview, Set Preview Settings,
-		// Cross fade, Set Transition Time, a separator, the four scroll entries, a
-		// separator, Slideshow, Set Waiting Time, and then these two.
-		::DeleteMenu(hMenuMovie, 12, MF_BYPOSITION);
-		::DeleteMenu(hMenuMovie, 12, MF_BYPOSITION);
+		// Transition effect and speed only available in full screen mode. They are the
+		// eighth and ninth entries of the submenu: the four scroll entries, a separator,
+		// Slideshow, Set Waiting Time, and then these two.
+		::DeleteMenu(hMenuMovie, 7, MF_BYPOSITION);
+		::DeleteMenu(hMenuMovie, 7, MF_BYPOSITION);
 	} else {
 		::CheckMenuItem(hMenuMovie, m_eTransitionEffect + IDM_EFFECT_NONE, MF_CHECKED);
 		int nIndex = (m_nTransitionTime < 180) ? 0 : (m_nTransitionTime < 375) ? 1 : (m_nTransitionTime < 750) ? 2 : (m_nTransitionTime < 1500) ? 3 : 4;
@@ -1788,14 +1792,19 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			UpdateClientRect();
 			this->Invalidate(FALSE);
 			break;
+		case IDM_PREVIEW_ON_TOP:
+			m_bPreviewOnTop = !m_bPreviewOnTop;
+			sp.SavePreviewOnTop(m_bPreviewOnTop);
+			UpdateClientRect();
+			this->Invalidate(FALSE);
+			break;
 		case IDM_SET_PREVIEW_SETTINGS:
 			{
-				CPreviewSettingsDlg dlgPreview(m_nPreviewSize, m_bPreviewOnLeft, m_bPreviewOnTop);
+				CPreviewSettingsDlg dlgPreview(m_nPreviewSize, m_bPreviewOnLeft);
 				if (dlgPreview.DoModal(m_hWnd) == IDOK) {
 					m_nPreviewSize = dlgPreview.GetSizePercent();
 					m_bPreviewOnLeft = dlgPreview.IsOnLeft();
-					m_bPreviewOnTop = dlgPreview.IsOnTop();
-					sp.SavePreviewSettings(m_nPreviewSize, m_bPreviewOnLeft, m_bPreviewOnTop);
+					sp.SavePreviewSettings(m_nPreviewSize, m_bPreviewOnLeft);
 					UpdateClientRect();
 					this->Invalidate(FALSE);
 				}
@@ -3467,9 +3476,27 @@ CRect CMainDlg::GetPreviewPaneRect() {
 	this->GetClientRect(&fullRect);
 	int nPaneWidth = MulDiv(fullRect.Width(), m_nPreviewSize, 100);
 	nPaneWidth = max(1, min(fullRect.Width(), nPaneWidth));
-	return m_bPreviewOnLeft ?
-		CRect(fullRect.left, fullRect.top, fullRect.left + nPaneWidth, fullRect.bottom) :
-		CRect(fullRect.right - nPaneWidth, fullRect.top, fullRect.right, fullRect.bottom);
+	if (!m_bPreviewOnTop) {
+		// A column of its own, which the image makes room for.
+		return m_bPreviewOnLeft ?
+			CRect(fullRect.left, fullRect.top, fullRect.left + nPaneWidth, fullRect.bottom) :
+			CRect(fullRect.right - nPaneWidth, fullRect.top, fullRect.right, fullRect.bottom);
+	}
+	// Over the image it sits in a bottom corner the way the zoom navigator does, and is as
+	// wide as Preview Size asks for rather than the fixed size the navigator uses.
+	CRect panelRect = m_pImageProcPanelCtl->PanelRect();
+	int nBottom = panelRect.top - 1;
+	int nMaxHeight = max(1, nBottom - fullRect.top - 1);
+	CSize sizePreview(nPaneWidth, min(nPaneWidth, nMaxHeight));
+	if (m_pCurrentImage != NULL) {
+		double dZoom;
+		sizePreview = Helpers::GetImageRect(m_pCurrentImage->OrigWidth(), m_pCurrentImage->OrigHeight(),
+			nPaneWidth, nMaxHeight, Helpers::ZM_FitToScreen, dZoom);
+		sizePreview = CSize(max(1, sizePreview.cx), max(1, sizePreview.cy));
+	}
+	int nLeft = m_bPreviewOnLeft ? fullRect.left + 1 : fullRect.right - sizePreview.cx - 1;
+	int nTop = nBottom - sizePreview.cy;
+	return CRect(nLeft, nTop, nLeft + sizePreview.cx, nBottom);
 }
 
 void CMainDlg::UpdateClientRect() {
@@ -3495,13 +3522,16 @@ void CMainDlg::PaintPreviewPane(CDC& dc) {
 		return;
 	}
 	CRect paneRect = GetPreviewPaneRect();
-	COLORREF backColor = CSettingsProvider::This().ColorBackground();
-	if (backColor == 0) {
-		backColor = RGB(0, 0, 1); // the same nVidia blending workaround the rest of the painting uses
+	if (!m_bPreviewOnTop) {
+		// The column is the pane's own space, so it carries its own background.
+		COLORREF backColor = CSettingsProvider::This().ColorBackground();
+		if (backColor == 0) {
+			backColor = RGB(0, 0, 1); // the same nVidia blending workaround the rest of the painting uses
+		}
+		CBrush backBrush;
+		backBrush.CreateSolidBrush(backColor);
+		dc.FillRect(&paneRect, backBrush);
 	}
-	CBrush backBrush;
-	backBrush.CreateSolidBrush(backColor);
-	dc.FillRect(&paneRect, backBrush);
 	if (m_pCurrentImage == NULL) {
 		return;
 	}
@@ -3527,6 +3557,13 @@ void CMainDlg::PaintPreviewPane(CDC& dc) {
 	bmInfo.bmiHeader.biCompression = BI_RGB;
 	dc.SetDIBitsToDevice(xDest, yDest, sizeThumb.cx, sizeThumb.cy, 0, 0, 0, sizeThumb.cy, pDIBData,
 		&bmInfo, DIB_RGB_COLORS);
+	if (m_bPreviewOnTop) {
+		// A thin frame, so the pane reads as a window over the image - the zoom navigator
+		// draws the same one around itself.
+		dc.SelectStockBrush(HOLLOW_BRUSH);
+		dc.SelectStockPen(WHITE_PEN);
+		HelpersGUI::DrawRectangle(dc, CRect(xDest - 1, yDest - 1, xDest + sizeThumb.cx + 1, yDest + sizeThumb.cy + 1));
+	}
 }
 
 bool CMainDlg::UseCrossFade() {

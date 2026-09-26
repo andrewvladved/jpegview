@@ -5,15 +5,17 @@
 
 #include "resource.h"
 
-// The three settings behind the 'Set Preview Settings' menu entry. The caller passes the
-// current values and reads them back after DoModal() returns IDOK.
+// The two settings behind the 'Set Preview Settings' menu entry. Whether the pane is
+// drawn on top of the image is a check mark in the menu instead, so it can be switched
+// without opening a dialog. The caller passes the current values and reads them back
+// after DoModal() returns IDOK.
 class CPreviewSettingsDlg : public CDialogImpl<CPreviewSettingsDlg>
 {
 public:
 	enum { IDD = IDD_PREVIEW_SETTINGS };
 
-	CPreviewSettingsDlg(int nSizePercent, bool bOnLeft, bool bOnTop)
-		: m_nSizePercent(nSizePercent), m_bOnLeft(bOnLeft), m_bOnTop(bOnTop) {}
+	CPreviewSettingsDlg(int nSizePercent, bool bOnLeft)
+		: m_nSizePercent(nSizePercent), m_bOnLeft(bOnLeft) {}
 
 	BEGIN_MSG_MAP(CPreviewSettingsDlg)
 		MESSAGE_HANDLER(WM_INITDIALOG, OnInitDialog)
@@ -27,7 +29,6 @@ public:
 
 	int GetSizePercent() const { return m_nSizePercent; }
 	bool IsOnLeft() const { return m_bOnLeft; }
-	bool IsOnTop() const { return m_bOnTop; }
 
 	// The size is offered in steps of five percent, from a tenth of the window to all of it
 	static const int MIN_SIZE_PERCENT = 10;
@@ -37,10 +38,8 @@ public:
 private:
 	int m_nSizePercent;
 	bool m_bOnLeft;
-	bool m_bOnTop;
 
 	CComboBox m_cbSize;
 	CButton m_rbLeft;
 	CButton m_rbRight;
-	CButton m_chkOnTop;
 };
