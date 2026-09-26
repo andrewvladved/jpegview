@@ -86,6 +86,12 @@ public:
 	// Whether images are cross faded into each other in scroll, slide show and movie
 	// mode. The length of the fade is SlideShowEffectTime.
 	bool CrossFade() { return m_bCrossFade; }
+	// The preview pane beside the image while scroll, slide show or movie mode is
+	// playing. It is unrelated to the zoom navigator JPEGView shows on its own.
+	bool Preview() { return m_bPreview; }
+	int PreviewSize() { return m_nPreviewSize; }
+	bool PreviewOnLeft() { return m_bPreviewOnLeft; }
+	bool PreviewOnTop() { return m_bPreviewOnTop; }
 
 	// Bounds shared by the INI clamp and by the dialogs asking for these two values
 	static const int MIN_SLIDESHOW_WAIT_TIME = 1;
@@ -215,6 +221,8 @@ public:
 	void SaveScrollTime(int nSeconds);
 	void SaveScrollFillWithCrop(bool bFillWithCrop);
 	void SaveCrossFade(bool bCrossFade);
+	void SavePreview(bool bPreview);
+	void SavePreviewSettings(int nSizePercent, bool bOnLeft, bool bOnTop);
 	// Saves the length of the transition between two images to the INI file
 	void SaveSlideShowEffectTime(int nMilliseconds);
 	
@@ -308,6 +316,10 @@ private:
 	int m_nScrollTime;
 	bool m_bScrollFillWithCrop;
 	bool m_bCrossFade;
+	bool m_bPreview;
+	int m_nPreviewSize;
+	bool m_bPreviewOnLeft;
+	bool m_bPreviewOnTop;
 	bool m_bForceGDIPlus;
 	bool m_bSingleInstance;
 	bool m_bSingleFullScreenInstance;

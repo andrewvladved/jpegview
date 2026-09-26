@@ -228,6 +228,9 @@
     <ClCompile Include="SaveAnnotationsDlg.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="PreviewSettingsDlg.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="SetValueDlg.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -528,6 +531,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SaveAnnotationsDlg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PreviewSettingsDlg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SetValueDlg.h">

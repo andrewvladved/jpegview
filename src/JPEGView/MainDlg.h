@@ -319,6 +319,10 @@ private:
 	bool m_bScrollMode;
 	bool m_bScrollFillWithCrop;
 	bool m_bCrossFade;
+	bool m_bPreview;
+	int m_nPreviewSize;
+	bool m_bPreviewOnLeft;
+	bool m_bPreviewOnTop;
 	bool m_bRelativeZoomTemporary; // relative zoom switched on by scroll mode, not by the user
 	ScrollMath::SState m_scrollState;
 	DWORD m_nScrollLastTick;
@@ -420,6 +424,14 @@ private:
 	// are painted into memory DCs and blended into each other.
 	void GotoImageWithTransition(EImagePosition ePos, int nFlags);
 	bool UseCrossFade();
+	// The preview pane beside the image while a folder is playing. It has nothing to do
+	// with the zoom navigator JPEGView shows on its own.
+	bool IsPreviewPaneActive();
+	CRect GetPreviewPaneRect();
+	void PaintPreviewPane(CDC& dc);
+	// Reads the client rectangle and takes the preview pane out of it when the pane is
+	// not drawn on top, so everything measured against it lands beside the pane.
+	void UpdateClientRect();
 	int CrossFadeDurationMs();
 	int GetScrollMaxOffsetY();
 	double GetScrollZoom();

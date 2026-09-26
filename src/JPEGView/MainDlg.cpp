@@ -34,6 +34,7 @@
 #include "AboutDlg.h"
 #include "CropSizeDlg.h"
 #include "SetValueDlg.h"
+#include "PreviewSettingsDlg.h"
 #include "ZoomMath.h"
 #include "ScrollMath.h"
 #include "ResizeDlg.h"
@@ -255,6 +256,10 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_bScrollMode = false;
 	m_bScrollFillWithCrop = sp.ScrollFillWithCrop();
 	m_bCrossFade = sp.CrossFade();
+	m_bPreview = sp.Preview();
+	m_nPreviewSize = sp.PreviewSize();
+	m_bPreviewOnLeft = sp.PreviewOnLeft();
+	m_bPreviewOnTop = sp.PreviewOnTop();
 	m_bRelativeZoomTemporary = false;
 	m_nScrollLastTick = 0;
 	ScrollMath::Reset(m_scrollState, 0);
@@ -502,7 +507,7 @@ LRESULT CMainDlg::OnPaint(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 	CPaintDC dc(m_hWnd);
 	m_dRealizedZoom = 1.0;
 
-	this->GetClientRect(&m_clientRect);
+	UpdateClientRect();
 	CRect imageProcessingArea = m_pImageProcPanelCtl->PanelRect();
 	CRectF visRectZoomNavigator(0.0f, 0.0f, 1.0f, 1.0f);
 	CBrush backBrush;
@@ -627,6 +632,9 @@ LRESULT CMainDlg::OnPaint(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 		HelpersGUI::DrawTextBordered(dc, sZoom, GetZoomTextRect(imageProcessingArea), DT_RIGHT);
 	}
 
+	// The preview pane sits over the image and under the panels
+	PaintPreviewPane(dc);
+
 	// let crop controller and panels paint its stuff
 	m_pCropCtl->OnPaint(dc);
 	m_pPanelMgr->OnPostPaint(dc);
@@ -680,6 +688,7 @@ void CMainDlg::PaintToDC(CDC& dc) {
 		DisplayFileName(imageProcessingArea, dc, m_dRealizedZoom);
 		DisplayErrors(pCurrentImage, m_clientRect, dc);
 	}
+	PaintPreviewPane(dc);
 }
 
 void CMainDlg::BlendBlackRect(CDC & targetDC, CPanel& panel, float fBlendFactor) {
@@ -732,7 +741,7 @@ void CMainDlg::DisplayFileName(const CRect& imageProcessingArea, CDC& dc, double
 
 LRESULT CMainDlg::OnSize(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/) {
 	bool bKeepFitToScreen = !m_bResizeForNewImage && fabs(m_dZoom - GetZoomFactorForFitToScreen(false, false)) < 0.01;
-	this->GetClientRect(&m_clientRect);
+	UpdateClientRect();
 	this->Invalidate(FALSE);
 	if (m_clientRect.Width() < HelpersGUI::ScaleToScreen(800)) {
 		if (m_pImageProcPanelCtl != NULL) m_pImageProcPanelCtl->SetVisible(false);
@@ -1371,6 +1380,7 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	if (!m_bMovieMode && !m_bScrollMode) ::EnableMenuItem(hMenuMovie, IDM_STOP_MOVIE, MF_BYCOMMAND | MF_GRAYED);
 	if (m_bScrollFillWithCrop) ::CheckMenuItem(hMenuMovie, IDM_SCROLL_FILL_WITH_CROP, MF_CHECKED);
 	if (m_bCrossFade) ::CheckMenuItem(hMenuMovie, IDM_CROSS_FADE, MF_CHECKED);
+	if (m_bPreview) ::CheckMenuItem(hMenuMovie, IDM_PREVIEW, MF_CHECKED);
 	HMENU hMenuZoom = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_ZOOM);
 	if (m_bSpanVirtualDesktop) ::CheckMenuItem(hMenuZoom,  IDM_SPAN_SCREENS, MF_CHECKED);
 	if (m_bFullScreenMode) ::CheckMenuItem(hMenuZoom,  IDM_FULL_SCREEN_MODE, MF_CHECKED);
@@ -1396,11 +1406,11 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	}
 	if (!m_bFullScreenMode) {
 		// Transition effect and speed only available in full screen mode. They are the
-		// eleventh and twelfth entries of the submenu: Cross fade, Set Transition Time, a
-		// separator, the four scroll entries, a separator, Slideshow, Set Waiting Time,
-		// and then these two.
-		::DeleteMenu(hMenuMovie, 10, MF_BYPOSITION);
-		::DeleteMenu(hMenuMovie, 10, MF_BYPOSITION);
+		// thirteenth and fourteenth entries of the submenu: Preview, Set Preview Settings,
+		// Cross fade, Set Transition Time, a separator, the four scroll entries, a
+		// separator, Slideshow, Set Waiting Time, and then these two.
+		::DeleteMenu(hMenuMovie, 12, MF_BYPOSITION);
+		::DeleteMenu(hMenuMovie, 12, MF_BYPOSITION);
 	} else {
 		::CheckMenuItem(hMenuMovie, m_eTransitionEffect + IDM_EFFECT_NONE, MF_CHECKED);
 		int nIndex = (m_nTransitionTime < 180) ? 0 : (m_nTransitionTime < 375) ? 1 : (m_nTransitionTime < 750) ? 2 : (m_nTransitionTime < 1500) ? 3 : 4;
@@ -1772,6 +1782,25 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			m_bScrollFillWithCrop = !m_bScrollFillWithCrop;
 			sp.SaveScrollFillWithCrop(m_bScrollFillWithCrop);
 			break;
+		case IDM_PREVIEW:
+			m_bPreview = !m_bPreview;
+			sp.SavePreview(m_bPreview);
+			UpdateClientRect();
+			this->Invalidate(FALSE);
+			break;
+		case IDM_SET_PREVIEW_SETTINGS:
+			{
+				CPreviewSettingsDlg dlgPreview(m_nPreviewSize, m_bPreviewOnLeft, m_bPreviewOnTop);
+				if (dlgPreview.DoModal(m_hWnd) == IDOK) {
+					m_nPreviewSize = dlgPreview.GetSizePercent();
+					m_bPreviewOnLeft = dlgPreview.IsOnLeft();
+					m_bPreviewOnTop = dlgPreview.IsOnTop();
+					sp.SavePreviewSettings(m_nPreviewSize, m_bPreviewOnLeft, m_bPreviewOnTop);
+					UpdateClientRect();
+					this->Invalidate(FALSE);
+				}
+			}
+			break;
 		case IDM_CROSS_FADE:
 			m_bCrossFade = !m_bCrossFade;
 			sp.SaveCrossFade(m_bCrossFade);
@@ -2059,7 +2088,7 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 					this->SetWindowPos(HWND_TOP, &rectAllScreens, SWP_NOZORDER);
 				}
 				m_bSpanVirtualDesktop = !m_bSpanVirtualDesktop;
-				this->GetClientRect(&m_clientRect);
+				UpdateClientRect();
 			}
 			break;
 		case IDM_FULL_SCREEN_MODE:
@@ -3253,7 +3282,7 @@ void CMainDlg::ResetZoomToFitScreen(bool bFillWithCrop, bool bAllowEnlarge, bool
 			}
 			m_bResizeForNewImage = true;
 			this->SetWindowPos(HWND_TOP, wndRect.left, wndRect.top, wndRect.Width(), wndRect.Height(), SWP_NOZORDER | SWP_NOCOPYBITS);
-			this->GetClientRect(&m_clientRect);
+			UpdateClientRect();
 			m_bResizeForNewImage = false;
 			this->Invalidate(FALSE);
 		} else {
@@ -3403,6 +3432,7 @@ void CMainDlg::StartScrollMode() {
 	StopMovieMode();
 	StopAnimation();
 	m_bScrollMode = true;
+	UpdateClientRect();
 	if (!m_bScrollFillWithCrop) {
 		// Gliding through the image at its current zoom only makes sense if that zoom is
 		// carried to the next image, which is exactly what relative zoom mode does - so it
@@ -3424,6 +3454,79 @@ void CMainDlg::StartScrollMode() {
 	}
 	SetupScrollForCurrentImage();
 	::SetTimer(this->m_hWnd, SCROLL_TIMER_EVENT_ID, SCROLL_TIMER_INTERVAL_MS, NULL);
+}
+
+bool CMainDlg::IsPreviewPaneActive() {
+	// Only while a folder is playing. Every other time the image gets the whole window and
+	// the zoom navigator JPEGView shows on its own is the overview, untouched by any of this.
+	return m_bPreview && (m_bScrollMode || m_bMovieMode);
+}
+
+CRect CMainDlg::GetPreviewPaneRect() {
+	CRect fullRect;
+	this->GetClientRect(&fullRect);
+	int nPaneWidth = MulDiv(fullRect.Width(), m_nPreviewSize, 100);
+	nPaneWidth = max(1, min(fullRect.Width(), nPaneWidth));
+	return m_bPreviewOnLeft ?
+		CRect(fullRect.left, fullRect.top, fullRect.left + nPaneWidth, fullRect.bottom) :
+		CRect(fullRect.right - nPaneWidth, fullRect.top, fullRect.right, fullRect.bottom);
+}
+
+void CMainDlg::UpdateClientRect() {
+	this->GetClientRect(&m_clientRect);
+	if (IsPreviewPaneActive() && !m_bPreviewOnTop) {
+		// The pane takes its share of the window and the image gets what is left, so the two
+		// split the screen instead of one covering the other. Everything measured against the
+		// client rectangle - the zoom that fits, the offsets, the panels - follows from here.
+		CRect paneRect = GetPreviewPaneRect();
+		if (m_bPreviewOnLeft) {
+			m_clientRect.left = paneRect.right;
+		} else {
+			m_clientRect.right = paneRect.left;
+		}
+		if (m_clientRect.Width() < 1) {
+			m_clientRect.right = m_clientRect.left + 1;
+		}
+	}
+}
+
+void CMainDlg::PaintPreviewPane(CDC& dc) {
+	if (!IsPreviewPaneActive()) {
+		return;
+	}
+	CRect paneRect = GetPreviewPaneRect();
+	COLORREF backColor = CSettingsProvider::This().ColorBackground();
+	if (backColor == 0) {
+		backColor = RGB(0, 0, 1); // the same nVidia blending workaround the rest of the painting uses
+	}
+	CBrush backBrush;
+	backBrush.CreateSolidBrush(backColor);
+	dc.FillRect(&paneRect, backBrush);
+	if (m_pCurrentImage == NULL) {
+		return;
+	}
+
+	// The whole image, scaled into the pane and kept in proportion, so nothing is cut off.
+	double dZoom;
+	CSize sizeThumb = Helpers::GetImageRect(m_pCurrentImage->OrigWidth(), m_pCurrentImage->OrigHeight(),
+		paneRect.Width(), paneRect.Height(), Helpers::ZM_FitToScreen, dZoom);
+	sizeThumb = CSize(max(1, sizeThumb.cx), max(1, sizeThumb.cy));
+	void* pDIBData = m_pCurrentImage->GetThumbnailDIB(sizeThumb, *m_pImageProcParams,
+		CreateProcessingFlags(false, m_bAutoContrast, false, m_bLDC, false, m_bLandscapeMode));
+	if (pDIBData == NULL) {
+		return;
+	}
+	int xDest = paneRect.left + (paneRect.Width() - sizeThumb.cx) / 2;
+	int yDest = paneRect.top + (paneRect.Height() - sizeThumb.cy) / 2;
+	BITMAPINFO bmInfo = { 0 };
+	bmInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	bmInfo.bmiHeader.biWidth = sizeThumb.cx;
+	bmInfo.bmiHeader.biHeight = -sizeThumb.cy;
+	bmInfo.bmiHeader.biPlanes = 1;
+	bmInfo.bmiHeader.biBitCount = 32;
+	bmInfo.bmiHeader.biCompression = BI_RGB;
+	dc.SetDIBitsToDevice(xDest, yDest, sizeThumb.cx, sizeThumb.cy, 0, 0, 0, sizeThumb.cy, pDIBData,
+		&bmInfo, DIB_RGB_COLORS);
 }
 
 bool CMainDlg::UseCrossFade() {
@@ -3513,6 +3616,8 @@ void CMainDlg::StopScrollMode() {
 		return;
 	}
 	m_bScrollMode = false;
+	UpdateClientRect();
+	this->Invalidate(FALSE);
 	if (m_bRelativeZoomTemporary) {
 		m_bRelativeZoom = false;
 		m_bRelativeZoomTemporary = false;
@@ -3546,6 +3651,7 @@ void CMainDlg::StartMovieMode(double dFPS) {
 		m_bLandscapeMode = false;
 	}
 	m_bMovieMode = true;
+	UpdateClientRect();
 	StartSlideShowTimer(Helpers::RoundToInt(1000.0/dFPS));
 	AfterNewImageLoaded(false, false, false);
 	Invalidate(FALSE);
@@ -3575,6 +3681,7 @@ void CMainDlg::StopMovieMode() {
 		}
 		m_bMovieMode = false;
 		m_bProcFlagsTouched = false;
+		UpdateClientRect(); // the preview pane goes away with the mode
 		StopSlideShowTimer();
 		AfterNewImageLoaded(false, false, false);
 		this->Invalidate(FALSE);
@@ -3723,7 +3830,7 @@ void CMainDlg::AdjustWindowToImage(bool bAfterStartup) {
 		m_bResizeForNewImage = true;
 		this->Invalidate(FALSE);
 		this->SetWindowPos(HWND_TOP, windowRect.left, windowRect.top, windowRect.Width(), windowRect.Height(), SWP_NOZORDER | SWP_NOCOPYBITS);
-		this->GetClientRect(&m_clientRect);
+		UpdateClientRect();
 		m_bResizeForNewImage = false;
 	}
 }
@@ -4099,7 +4206,7 @@ void CMainDlg::ToggleMonitor() {
 		m_nMonitor = (m_nMonitor + 1) % nMaxMonitorIdx;
 		m_monitorRect = CMultiMonitorSupport::GetMonitorRect(m_nMonitor);
 		SetWindowPos(HWND_TOP, &m_monitorRect, SWP_NOZORDER);
-		this->GetClientRect(&m_clientRect);
+		UpdateClientRect();
 	}
 }
 

@@ -177,6 +177,10 @@ CSettingsProvider::CSettingsProvider(void) {
 	m_nScrollTime = GetInt(_T("ScrollTime"), 2, MIN_SCROLL_TIME, MAX_SCROLL_TIME);
 	m_bScrollFillWithCrop = GetBool(_T("ScrollFillWithCrop"), true);
 	m_bCrossFade = GetBool(_T("CrossFade"), true);
+	m_bPreview = GetBool(_T("Preview"), false);
+	m_nPreviewSize = GetInt(_T("PreviewSize"), 25, 10, 100);
+	m_bPreviewOnLeft = GetString(_T("PreviewSide"), _T("Right")).CompareNoCase(_T("Left")) == 0;
+	m_bPreviewOnTop = GetBool(_T("PreviewOnTop"), true);
 	m_bForceGDIPlus = GetBool(_T("ForceGDIPlus"), false);
 	m_bSingleInstance = GetBool(_T("SingleInstance"), false);
 	m_bSingleFullScreenInstance = GetBool(_T("SingleFullScreenInstance"), true);
@@ -616,6 +620,31 @@ void CSettingsProvider::SaveCrossFade(bool bCrossFade) {
 
 	m_bCrossFade = bCrossFade;
 	WriteBool(_T("CrossFade"), bCrossFade);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SavePreview(bool bPreview) {
+	MakeSureUserINIExists();
+
+	m_bPreview = bPreview;
+	WriteBool(_T("Preview"), bPreview);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SavePreviewSettings(int nSizePercent, bool bOnLeft, bool bOnTop) {
+	MakeSureUserINIExists();
+
+	m_nPreviewSize = nSizePercent;
+	m_bPreviewOnLeft = bOnLeft;
+	m_bPreviewOnTop = bOnTop;
+	const int BUFF_SIZE = 16;
+	TCHAR buff[BUFF_SIZE];
+	_sntprintf(buff, BUFF_SIZE, _T("%d"), nSizePercent);
+	WriteString(_T("PreviewSize"), buff);
+	WriteString(_T("PreviewSide"), bOnLeft ? _T("Left") : _T("Right"));
+	WriteBool(_T("PreviewOnTop"), bOnTop);
 
 	m_bUserINIExists = true;
 }

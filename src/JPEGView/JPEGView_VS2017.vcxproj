@@ -365,6 +365,7 @@
     <ClCompile Include="AnnotationStylePanel.cpp" />
     <ClCompile Include="AnnotationStylePanelCtl.cpp" />
     <ClCompile Include="SaveAnnotationsDlg.cpp" />
+    <ClCompile Include="PreviewSettingsDlg.cpp" />
     <ClCompile Include="SetValueDlg.cpp" />
     <ClCompile Include="ScrollMath.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -472,6 +473,7 @@
     <ClInclude Include="AnnotationStylePanel.h" />
     <ClInclude Include="AnnotationStylePanelCtl.h" />
     <ClInclude Include="SaveAnnotationsDlg.h" />
+    <ClInclude Include="PreviewSettingsDlg.h" />
     <ClInclude Include="SetValueDlg.h" />
     <ClInclude Include="ScrollMath.h" />
     <ClInclude Include="ZoomMath.h" />
