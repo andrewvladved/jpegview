@@ -1738,10 +1738,18 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			m_pNavPanelCtl->SetActive(!m_pNavPanelCtl->IsActive());
 			break;
 		case IDM_NEXT:
-			GotoImage(POS_Next);
+			if (m_bScrollMode) {
+				GotoImageWithTransition(POS_Next, 0); // the same route the down and up keys take
+			} else {
+				GotoImage(POS_Next);
+			}
 			break;
 		case IDM_PREV:
-			GotoImage(POS_Previous);
+			if (m_bScrollMode) {
+				GotoImageWithTransition(POS_Previous, 0);
+			} else {
+				GotoImage(POS_Previous);
+			}
 			break;
 		case IDM_FIRST:
 			GotoImage(POS_First);
@@ -3634,9 +3642,6 @@ void CMainDlg::GotoImageWithTransition(EImagePosition ePos, int nFlags) {
 	int nDurationMs = UseCrossFade() ? CrossFadeDurationMs() : 0;
 	if (nW <= 0 || nH <= 0 || nDurationMs <= 0) {
 		GotoImage(ePos, nFlags);
-		if (m_bScrollMode) {
-			SetupScrollForCurrentImage();
-		}
 		return;
 	}
 
@@ -3655,9 +3660,6 @@ void CMainDlg::GotoImageWithTransition(EImagePosition ePos, int nFlags) {
 
 	PaintToDC(oldDC);
 	GotoImage(ePos, nFlags | NO_UPDATE_WINDOW);
-	if (m_bScrollMode) {
-		SetupScrollForCurrentImage();
-	}
 	PaintToDC(newDC);
 
 	const int nFrameTimeMs = 20;
@@ -3897,7 +3899,13 @@ void CMainDlg::AfterNewImageLoaded(bool bSynchronize, bool bAfterStartup, bool n
 			if (m_bKeepParams) {
 				m_nRotation = m_pCurrentImage->GetInitialRotation() + m_nUserRotation;
 			}
-			if (m_bRelativeZoom && !m_pCurrentImage->HasZoomStoredInParamDB()) {
+			if (m_bScrollMode) {
+				// Scroll mode gives the image its own zoom and parks it at the top edge. Every
+				// way of reaching another image passes through here, so the ones that do not
+				// know about scroll mode - the next and previous commands among them - no longer
+				// leave the new image at whatever zoom the auto mode chose.
+				SetupScrollForCurrentImage();
+			} else if (m_bRelativeZoom && !m_pCurrentImage->HasZoomStoredInParamDB()) {
 				// The whole point of relative zoom mode: the fitted image is 100%, so a new
 				// image opens at the same percentage of its own fitted size as the last one
 				// was showing. Without this the zoom fell back to the auto zoom mode on every
