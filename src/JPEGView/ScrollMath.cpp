@@ -30,7 +30,12 @@ EAction ActionForStepUp(const SState& state) {
 	return (state.ePhase == PHASE_HoldTop) ? ACTION_PreviousImage : ACTION_MoveUp;
 }
 
-void Advance(SState& state, int nMaxOffsetY, double dSpeedPixelsPerSecond, int nHoldMs, int nElapsedMs) {
+double AccentSpeedFactor(double dOffsetY, int nMaxOffsetY) {
+	return 1.0;
+}
+
+void Advance(SState& state, int nMaxOffsetY, double dSpeedPixelsPerSecond, int nHoldMs, int nElapsedMs,
+	bool bAccentOnCenter) {
 	switch (state.ePhase) {
 		case PHASE_HoldTop:
 			state.nPhaseElapsedMs += nElapsedMs;

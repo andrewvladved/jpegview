@@ -182,3 +182,99 @@ TEST(StepUpAtTheTopGoesToThePreviousImage) {
 	CHECK(state.ePhase == PHASE_HoldTop);
 	CHECK(ActionForStepUp(state) == ACTION_PreviousImage);
 }
+
+// Accent on center: the glide slows down towards the middle of the image and speeds up again.
+TEST(TheAccentFactorIsSixtyPercentAtTheCentre) {
+	CHECK_NEAR(AccentSpeedFactor(0.0, 400), 0.6, 0.0001);
+}
+
+TEST(TheAccentFactorIsTheFullSpeedAtBothEdges) {
+	CHECK_NEAR(AccentSpeedFactor(400.0, 400), 1.0, 0.0001);
+	CHECK_NEAR(AccentSpeedFactor(-400.0, 400), 1.0, 0.0001);
+}
+
+TEST(TheAccentFactorIsTheSameAboveAndBelowTheCentre) {
+	CHECK_NEAR(AccentSpeedFactor(150.0, 400), AccentSpeedFactor(-150.0, 400), 0.0001);
+}
+
+TEST(TheAccentFactorGrowsSteadilyFromTheCentreToTheEdge) {
+	double dLast = AccentSpeedFactor(0.0, 400);
+	for (int i = 1; i <= 40; i++) {
+		double dFactor = AccentSpeedFactor(i * 10.0, 400);
+		CHECK(dFactor > dLast);
+		dLast = dFactor;
+	}
+}
+
+// Smooth: next to the centre and next to the edges the speed hardly changes, so there is no kink.
+TEST(TheAccentFactorHasNoKinkAtTheCentreOrTheEdges) {
+	CHECK(AccentSpeedFactor(4.0, 400) - AccentSpeedFactor(0.0, 400) < 0.001);
+	CHECK(AccentSpeedFactor(400.0, 400) - AccentSpeedFactor(396.0, 400) < 0.001);
+}
+
+TEST(AnImageWithNothingToGlideThroughHasTheFullSpeed) {
+	CHECK_NEAR(AccentSpeedFactor(0.0, 0), 1.0, 0.0001);
+}
+
+TEST(WithTheAccentTheGlideLeavesTheTopEdgeAtFullSpeed) {
+	SState state;
+	Reset(state, 4000);
+	StartMovingDown(state);
+	Advance(state, 4000, 100.0, 0, 100, true);
+	CHECK_NEAR(state.dOffsetY, 3990.0, 0.01);
+}
+
+TEST(WithTheAccentTheGlidePassesTheCentreAtSixtyPercent) {
+	SState state;
+	Reset(state, 4000);
+	StartMovingDown(state);
+	state.dOffsetY = 5.0;
+	Advance(state, 4000, 100.0, 0, 100, true); // 10 px at full speed, 6 px at the centre
+	CHECK_NEAR(state.dOffsetY, -1.0, 0.01);
+}
+
+TEST(WithTheAccentTheGlideUpSlowsDownAtTheCentreToo) {
+	SState state;
+	Reset(state, 4000);
+	StartMovingUp(state);
+	state.dOffsetY = -5.0;
+	Advance(state, 4000, 100.0, 0, 100, true);
+	CHECK_NEAR(state.dOffsetY, 1.0, 0.01);
+}
+
+TEST(WithTheAccentTheGlideStillStopsExactlyAtTheBottomEdge) {
+	SState state;
+	Reset(state, 300);
+	StartMovingDown(state);
+	Advance(state, 300, 100.0, 0, 60000, true);
+	CHECK(state.ePhase == PHASE_HoldBottom);
+	CHECK_NEAR(state.dOffsetY, -300.0, 0.001);
+}
+
+// Slower in the middle, so the whole way down takes longer than without the accent.
+TEST(WithTheAccentTheWayDownTakesLonger) {
+	SState plain, accented;
+	Reset(plain, 1000);
+	Reset(accented, 1000);
+	StartMovingDown(plain);
+	StartMovingDown(accented);
+	for (int i = 0; i < 20000 / 33; i++) {
+		Advance(plain, 1000, 100.0, 0, 33);
+		Advance(accented, 1000, 100.0, 0, 33, true);
+	}
+	CHECK(plain.ePhase == PHASE_HoldBottom);
+	CHECK(accented.ePhase == PHASE_Moving);
+}
+
+TEST(WithTheAccentTheDistanceDoesNotDependOnTheTickSize) {
+	SState fewTicks, manyTicks;
+	Reset(fewTicks, 4000);
+	Reset(manyTicks, 4000);
+	StartMovingDown(fewTicks);
+	StartMovingDown(manyTicks);
+	Advance(fewTicks, 4000, 200.0, 0, 5000, true);
+	for (int i = 0; i < 100; i++) {
+		Advance(manyTicks, 4000, 200.0, 0, 50, true);
+	}
+	CHECK_NEAR(fewTicks.dOffsetY, manyTicks.dOffsetY, 0.5);
+}

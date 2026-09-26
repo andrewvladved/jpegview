@@ -52,5 +52,16 @@ namespace ScrollMath {
 
 	// Moves the cycle on by nElapsedMs. dSpeedPixelsPerSecond is measured on screen, and
 	// nHoldMs is how long to stand still at each end.
-	void Advance(SState& state, int nMaxOffsetY, double dSpeedPixelsPerSecond, int nHoldMs, int nElapsedMs);
+	//
+	// With bAccentOnCenter the glide eases off on its way to the centre of the image, down to
+	// ACCENT_CENTER_SPEED_FACTOR of the speed there, and picks up again just as smoothly on
+	// its way to the other edge - in both directions.
+	void Advance(SState& state, int nMaxOffsetY, double dSpeedPixelsPerSecond, int nHoldMs, int nElapsedMs,
+		bool bAccentOnCenter = false);
+
+	// The share of the speed the image glides with at dOffsetY when the centre is accented:
+	// ACCENT_CENTER_SPEED_FACTOR at the centre, 1 at either edge, and a smooth curve between
+	// that neither jumps at the centre nor at the edges.
+	const double ACCENT_CENTER_SPEED_FACTOR = 0.6;
+	double AccentSpeedFactor(double dOffsetY, int nMaxOffsetY);
 }
