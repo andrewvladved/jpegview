@@ -172,6 +172,7 @@ CSettingsProvider::CSettingsProvider(void) {
 	m_nSlideShowEffectTimeMs = GetInt(_T("SlideShowEffectTime"), 200, 100, 5000);
 	m_nSlideShowWaitTime = GetInt(_T("SlideShowWaitTime"), 3, MIN_SLIDESHOW_WAIT_TIME, MAX_SLIDESHOW_WAIT_TIME);
 	m_nMoviePlaybackSpeed = GetInt(_T("MoviePlaybackSpeed"), 5, MIN_MOVIE_PLAYBACK_SPEED, MAX_MOVIE_PLAYBACK_SPEED);
+	m_bRelativeZoomMode = GetBool(_T("RelativeZoomMode"), false);
 	m_bForceGDIPlus = GetBool(_T("ForceGDIPlus"), false);
 	m_bSingleInstance = GetBool(_T("SingleInstance"), false);
 	m_bSingleFullScreenInstance = GetBool(_T("SingleFullScreenInstance"), true);
@@ -560,6 +561,15 @@ void CSettingsProvider::SaveMoviePlaybackSpeed(int nFPS) {
 	TCHAR buff[BUFF_SIZE];
 	_sntprintf(buff, BUFF_SIZE, _T("%d"), nFPS);
 	WriteString(_T("MoviePlaybackSpeed"), buff);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SaveRelativeZoomMode(bool bRelativeZoomMode) {
+	MakeSureUserINIExists();
+
+	m_bRelativeZoomMode = bRelativeZoomMode;
+	WriteBool(_T("RelativeZoomMode"), bRelativeZoomMode);
 
 	m_bUserINIExists = true;
 }

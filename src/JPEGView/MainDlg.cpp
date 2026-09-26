@@ -34,6 +34,7 @@
 #include "AboutDlg.h"
 #include "CropSizeDlg.h"
 #include "SetValueDlg.h"
+#include "ZoomMath.h"
 #include "ResizeDlg.h"
 #include "ResizeFilter.h"
 #include "EXIFReader.h"
@@ -79,6 +80,7 @@ static const int DARKEN_HIGHLIGHTS = 0; // used in AdjustLDC() call
 static const int BRIGHTEN_SHADOWS = 1; // used in AdjustLDC() call
 
 static const int ZOOM_TEXT_RECT_WIDTH = 70; // zoom label width
+static const int ZOOM_TEXT_RECT_WIDTH_RELATIVE = 150; // wider: relative zoom mode shows two percentages
 static const int ZOOM_TEXT_RECT_HEIGHT = 25; // zoom label height
 static const int ZOOM_TEXT_RECT_OFFSET = 35; // zoom label offset from right border
 static const int PAN_STEP = 48; // number of pixels to pan if pan with cursor keys (SHIFT+up/down/left/right)
@@ -246,6 +248,7 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_nCapturedX = m_nCapturedY = 0;
 	m_nMouseX = m_nMouseY = 0;
 	m_bAutoFitWndToImage = sp.DefaultWndToImage();
+	m_bRelativeZoom = sp.RelativeZoomMode();
 	m_bFullScreenMode = bForceFullScreen || (sp.ShowFullScreen() && !sp.AutoFullScreen());
 	m_bLockPaint = true;
 	m_nCurrentTimeout = 0;
@@ -609,11 +612,10 @@ LRESULT CMainDlg::OnPaint(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 
 	// Show current zoom factor
 	if (m_bInZooming || m_bShowZoomFactor) {
-		TCHAR buff[32];
-		_stprintf_s(buff, 32, _T("%d %%"), int(m_dZoom*100 + 0.5));
+		CString sZoom = ZoomMath::FormatZoom(m_dZoom, RelativeZoomBase());
 		dc.SetTextColor(CSettingsProvider::This().ColorGUI());
 		HelpersGUI::SelectDefaultFileNameFont(dc);
-		HelpersGUI::DrawTextBordered(dc, buff, GetZoomTextRect(imageProcessingArea), DT_RIGHT);
+		HelpersGUI::DrawTextBordered(dc, sZoom, GetZoomTextRect(imageProcessingArea), DT_RIGHT);
 	}
 
 	// let crop controller and panels paint its stuff
@@ -714,7 +716,7 @@ void CMainDlg::DisplayFileName(const CRect& imageProcessingArea, CDC& dc, double
 
 	if (m_bShowFileName) {
 		HelpersGUI::SelectDefaultFileNameFont(dc);
-		CString sFileName = Helpers::GetFileInfoString(CSettingsProvider::This().FileNameFormat(), m_pCurrentImage, m_pFileList, realizedZoom);
+		CString sFileName = Helpers::GetFileInfoString(CSettingsProvider::This().FileNameFormat(), m_pCurrentImage, m_pFileList, realizedZoom, RelativeZoomBase());
 		HelpersGUI::DrawTextBordered(dc, sFileName, CRect(HelpersGUI::ScaleToScreen(2) + imageProcessingArea.left, 0, imageProcessingArea.right, HelpersGUI::ScaleToScreen(30)), DT_LEFT); 
 	}
 }
@@ -1341,7 +1343,9 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	if (m_bTransparentTitleBar) ::CheckMenuItem(hMenuTrackPopup, IDM_TRANSPARENT_TITLE_BAR, MF_CHECKED);
 	if (m_bAlwaysOnTop) ::CheckMenuItem(hMenuZoom, IDM_ALWAYS_ON_TOP, MF_CHECKED);
 	if (IsAdjustWindowToImage() && IsImageExactlyFittingWindow()) ::CheckMenuItem(hMenuZoom, IDM_FIT_WINDOW_TO_IMAGE, MF_CHECKED);
-	HMENU hMenuAutoZoomMode = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_AUTOZOOMMODE);
+	if (m_bRelativeZoom) ::CheckMenuItem(hMenuZoom, IDM_RELATIVE_ZOOM_MODE, MF_CHECKED);
+	// Auto zoom mode moved into the zoom submenu, so it is looked up there now
+	HMENU hMenuAutoZoomMode = ::GetSubMenu(hMenuZoom, SUBMENU_POS_AUTOZOOMMODE);
 	::CheckMenuItem(hMenuAutoZoomMode, GetAutoZoomMode() * 10 + IDM_AUTO_ZOOM_FIT_NO_ZOOM, MF_CHECKED);
 	HMENU hMenuSettings = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_SETTINGS);
 	HMENU hMenuModDate = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_MODDATE);
@@ -2118,23 +2122,29 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			AdjustWindowToImage(false);
 			break;
 		case IDM_ZOOM_400:
-			PerformZoom(4.0, false, m_bMouseOn, true);
+			PerformZoom(ZoomMath::AbsoluteZoom(4.0, RelativeZoomBase()), false, m_bMouseOn, true);
 			break;
 		case IDM_ZOOM_200:
-			PerformZoom(2.0, false, m_bMouseOn, true);
+			PerformZoom(ZoomMath::AbsoluteZoom(2.0, RelativeZoomBase()), false, m_bMouseOn, true);
 			break;
 		case IDM_ZOOM_100:
 			ResetZoomTo100Percents(m_bMouseOn);
 			break;
 		case IDM_ZOOM_50:
-			PerformZoom(0.5, false, m_bMouseOn, true);
+			PerformZoom(ZoomMath::AbsoluteZoom(0.5, RelativeZoomBase()), false, m_bMouseOn, true);
 			break;
 		case IDM_ZOOM_25:
-			PerformZoom(0.25, false, m_bMouseOn, true);
+			PerformZoom(ZoomMath::AbsoluteZoom(0.25, RelativeZoomBase()), false, m_bMouseOn, true);
 			break;
 		case IDM_ZOOM_INC:
 		case IDM_ZOOM_DEC:
 			PerformZoom((nCommand == IDM_ZOOM_INC) ? 1 : -1, true, m_bMouseOn, true);
+			break;
+		case IDM_RELATIVE_ZOOM_MODE:
+			m_bRelativeZoom = !m_bRelativeZoom;
+			sp.SaveRelativeZoomMode(m_bRelativeZoom);
+			m_dZoomMult = -1.0; // the step depends on the mode, recompute it for this image
+			this->Invalidate(FALSE); // the zoom read-out changes meaning
 			break;
 		case IDM_ZOOM_MODE:
 			m_bZoomModeOnLeftMouse = !m_bZoomModeOnLeftMouse;
@@ -2986,17 +2996,20 @@ bool CMainDlg::PerformZoom(double dValue, bool bExponent, bool bZoomToMouse, boo
 	double dZoomMin = max(0.0001, min(Helpers::ZoomMin, GetZoomFactorForFitToScreen(false, false) * 0.5));
 	m_dZoom = max(dZoomMin, min(Helpers::ZoomMax, m_dZoom));
 
-	// always try to snap to 100%... aka if within 1% of 100%, snap exactly to it
-	if (abs(m_dZoom - 1.0) < 0.01) {
-		m_dZoom = 1.0;
+	// always try to snap to 100%... aka if within 1% of 100%, snap exactly to it.
+	// In relative zoom mode 100% is the fitted image, so both the target and the tolerance
+	// are scaled by the anchor; outside the mode dBase is 1.0 and nothing changes.
+	double dBase = RelativeZoomBase();
+	if (abs(m_dZoom - dBase) < 0.01 * dBase) {
+		m_dZoom = dBase;
 	}
 
 	// only pause on some percent if enabled
-	double pauseAtZoom = CSettingsProvider::This().ZoomPauseFactor();
+	double pauseAtZoom = CSettingsProvider::This().ZoomPauseFactor() * dBase;
 	if (pauseAtZoom != 0) {
 		// snap to zoom factor... aka if within 1% of the set zoom factor, snap exactly to it
 		// skip it if the zoom factor is 100% since it's already checked above - save one expensive calculation of abs()
-		if (pauseAtZoom != 1 && abs(m_dZoom - pauseAtZoom) < 0.01) {
+		if (pauseAtZoom != dBase && abs(m_dZoom - pauseAtZoom) < 0.01 * dBase) {
 			m_dZoom = pauseAtZoom;
 		}
 
@@ -3105,6 +3118,17 @@ void CMainDlg::ZoomToSelection() {
 	}
 }
 
+double CMainDlg::RelativeZoomBase() {
+	// In relative zoom mode the image fitted to the window is what 100% means, so every
+	// zoom factor below is multiplied by this. Fitting here always enlarges a small image,
+	// independently of the auto zoom mode, so the anchor is the same for every image.
+	// Outside the mode this is 1.0 and all the arithmetic collapses to what it always was.
+	if (!m_bRelativeZoom || m_pCurrentImage == NULL) {
+		return 1.0;
+	}
+	return GetZoomFactorForFitToScreen(false, true);
+}
+
 double CMainDlg::GetZoomFactorForFitToScreen(bool bFillWithCrop, bool bAllowEnlarge) {
 	if (m_pCurrentImage != NULL) {
 		double dZoom;
@@ -3149,9 +3173,10 @@ void CMainDlg::ResetZoomToFitScreen(bool bFillWithCrop, bool bAllowEnlarge, bool
 }
 
 void CMainDlg::ResetZoomTo100Percents(bool bZoomToMouse) {
-	if (m_pCurrentImage != NULL && fabs(m_dZoom - 1) > 0.01) {
+	double dTarget = RelativeZoomBase();
+	if (m_pCurrentImage != NULL && fabs(m_dZoom - dTarget) > 0.01 * dTarget) {
 		// the current design (unless changed) cursor always shows in windowed mode, so always zoom to cursor when not fullscreen
-		PerformZoom(1.0, false, bZoomToMouse || !m_bFullScreenMode, true);
+		PerformZoom(dTarget, false, bZoomToMouse || !m_bFullScreenMode, true);
 	}
 }
 
@@ -3799,11 +3824,12 @@ void CMainDlg::ToggleMonitor() {
 
 CRect CMainDlg::GetZoomTextRect(CRect imageProcessingArea) {
 	int nZoomTextRectBottomOffset = (m_clientRect.Width() < HelpersGUI::ScaleToScreen(800)) ? 25 : ZOOM_TEXT_RECT_OFFSET;
-	int nStartX = imageProcessingArea.right - HelpersGUI::ScaleToScreen(ZOOM_TEXT_RECT_WIDTH + ZOOM_TEXT_RECT_OFFSET);
+	int nZoomTextRectWidth = m_bRelativeZoom ? ZOOM_TEXT_RECT_WIDTH_RELATIVE : ZOOM_TEXT_RECT_WIDTH;
+	int nStartX = imageProcessingArea.right - HelpersGUI::ScaleToScreen(nZoomTextRectWidth + ZOOM_TEXT_RECT_OFFSET);
 	if (m_pImageProcPanelCtl->IsVisible()) {
 		nStartX = max(nStartX, m_pImageProcPanelCtl->GetUnsharpMaskButtonRect().right);
 	}
-	int nEndX = nStartX + HelpersGUI::ScaleToScreen(ZOOM_TEXT_RECT_WIDTH);
+	int nEndX = nStartX + HelpersGUI::ScaleToScreen(nZoomTextRectWidth);
 	if (m_pImageProcPanelCtl->IsVisible()) {
 		nEndX = min(nEndX, imageProcessingArea.right - 2);
 	}
@@ -3907,12 +3933,9 @@ void CMainDlg::PrefetchDIB(const CRect& clientRect) {
 
 double CMainDlg::GetZoomMultiplier(CJPEGImage* pImage, const CRect& clientRect) {
 	double dZoomToFit;
-	CSize fittedSize = Helpers::GetImageRect(pImage->OrigWidth(), pImage->OrigHeight(), 
+	Helpers::GetImageRect(pImage->OrigWidth(), pImage->OrigHeight(), 
 		clientRect.Width(), clientRect.Height(), true, false, false, dZoomToFit);
-	// Zoom multiplier (zoom step) should be around 1.1 but reach the value 1.0 after an integral number
-	// of zooming steps
-	int n = Helpers::RoundToInt(log(1/dZoomToFit)/log(1.1));
-	return (n == 0) ? 1.1 : exp(log(1/dZoomToFit)/n);
+	return ZoomMath::StepMultiplier(dZoomToFit, m_bRelativeZoom);
 }
 
 EProcessingFlags CMainDlg::CreateDefaultProcessingFlags(bool bKeepParams) {

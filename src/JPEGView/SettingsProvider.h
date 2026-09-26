@@ -158,6 +158,11 @@ public:
 
 	double ZoomPauseFactor() { return m_zoomPauseFactor; }  // while internally this is represented in doubles, using a whole number percent simplifies it for the user... configuring doubles is not user friendly at all
 
+	// Relative zoom mode: the image fitted to the window counts as 100%, so every zoom
+	// command is expressed against that instead of against the image's own pixel size.
+	// The Zoom submenu toggles it and writes it back to the INI file.
+	bool RelativeZoomMode() { return m_bRelativeZoomMode; }
+
 	// Returns if a user INI file exists
 	bool ExistsUserINI();
 	// Copies the user INI file (in AppData/Roaming) from the INI file template JPEGView.ini.tpl
@@ -184,6 +189,9 @@ public:
 	// Saves the slide show waiting time / the movie playback speed to the INI file
 	void SaveSlideShowWaitTime(int nSeconds);
 	void SaveMoviePlaybackSpeed(int nFPS);
+
+	// Saves the relative zoom mode flag to the INI file
+	void SaveRelativeZoomMode(bool bRelativeZoomMode);
 	
 	// Update user settings with settings from INI file template
 	void UpdateUserSettings();
@@ -270,6 +278,7 @@ private:
 	int m_nSlideShowEffectTimeMs;
 	int m_nSlideShowWaitTime;
 	int m_nMoviePlaybackSpeed;
+	bool m_bRelativeZoomMode;
 	bool m_bForceGDIPlus;
 	bool m_bSingleInstance;
 	bool m_bSingleFullScreenInstance;

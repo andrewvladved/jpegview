@@ -435,6 +435,15 @@ BEGIN
         MENUITEM SEPARATOR
         POPUP "Zoom"
         BEGIN
+            POPUP "Auto zoom mode"
+            BEGIN
+                MENUITEM "Fit to screen (no zoom)",     IDM_AUTO_ZOOM_FIT_NO_ZOOM
+                MENUITEM "Fill with crop (no zoom)",    IDM_AUTO_ZOOM_FILL_NO_ZOOM
+                MENUITEM "Fit to screen",               IDM_AUTO_ZOOM_FIT
+                MENUITEM "Fill with crop",              IDM_AUTO_ZOOM_FILL
+            END
+            MENUITEM "Relative zoom mode",          IDM_RELATIVE_ZOOM_MODE
+            MENUITEM SEPARATOR
             MENUITEM "Fit to screen",               IDM_FIT_TO_SCREEN
             MENUITEM "Fill with crop",              IDM_FILL_WITH_CROP
             MENUITEM "Span all screens",            IDM_SPAN_SCREENS
@@ -449,13 +458,6 @@ BEGIN
             MENUITEM "100 %\t0x3a98",               IDM_ZOOM_100
             MENUITEM "50 %",                        IDM_ZOOM_50
             MENUITEM "25 %",                        IDM_ZOOM_25
-        END
-        POPUP "Auto zoom mode"
-        BEGIN
-            MENUITEM "Fit to screen (no zoom)",     IDM_AUTO_ZOOM_FIT_NO_ZOOM
-            MENUITEM "Fill with crop (no zoom)",    IDM_AUTO_ZOOM_FILL_NO_ZOOM
-            MENUITEM "Fit to screen",               IDM_AUTO_ZOOM_FIT
-            MENUITEM "Fill with crop",              IDM_AUTO_ZOOM_FILL
         END
         MENUITEM SEPARATOR
         POPUP "Settings/Admin"

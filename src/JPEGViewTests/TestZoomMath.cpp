@@ -24,10 +24,19 @@ TEST(StepMultiplierIsTheSameForEveryImageInRelativeMode) {
 	CHECK_NEAR(dBigPhoto, 1.1, 0.0001);
 }
 
-TEST(StepMultiplierDiffersBetweenImagesWithoutRelativeMode) {
-	double dBigPhoto = ZoomMath::StepMultiplier(0.11, false);
-	double dSmallPicture = ZoomMath::StepMultiplier(0.97, false);
-	CHECK(fabs(dBigPhoto - dSmallPicture) > 0.001);
+// The magnification after the same number of steps is what the eye actually compares.
+// Without relative mode ten steps from fit-to-screen enlarge two differently sized
+// images by different amounts - the behaviour the relative mode exists to remove.
+TEST(TenStepsMagnifyImagesDifferentlyWithoutRelativeMode) {
+	double dBigPhoto = pow(ZoomMath::StepMultiplier(0.11, false), 10);
+	double dSmallPicture = pow(ZoomMath::StepMultiplier(0.30, false), 10);
+	CHECK(fabs(dBigPhoto - dSmallPicture) > 0.05);
+}
+
+TEST(TenStepsMagnifyEveryImageEquallyInRelativeMode) {
+	double dBigPhoto = pow(ZoomMath::StepMultiplier(0.11, true), 10);
+	double dSmallPicture = pow(ZoomMath::StepMultiplier(0.30, true), 10);
+	CHECK_NEAR(dBigPhoto, dSmallPicture, 0.000001);
 }
 
 TEST(AbsoluteZoomScalesTheFactorByTheAnchor) {

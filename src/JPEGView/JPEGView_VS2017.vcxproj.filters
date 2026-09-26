@@ -231,6 +231,9 @@
     <ClCompile Include="SetValueDlg.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ZoomMath.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="ValueInput.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -507,6 +510,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SetValueDlg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ZoomMath.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ValueInput.h">

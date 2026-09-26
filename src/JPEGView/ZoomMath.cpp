@@ -11,7 +11,10 @@ double StepMultiplier(double dZoomToFit, bool bRelativeZoom) {
 	}
 	// Around 1.1, but adjusted so that a whole number of steps from the fitted image
 	// lands exactly on the image's own 100%.
-	int n = (int)floor(log(1 / dZoomToFit) / log(1.1) + 0.5);
+	// Rounded exactly the way Helpers::RoundToInt does it, so the step outside relative
+	// mode stays bit for bit what JPEGView computed before.
+	double d = log(1 / dZoomToFit) / log(1.1);
+	int n = (d < 0) ? (int)(d - 0.5) : (int)(d + 0.5);
 	return (n == 0) ? 1.1 : exp(log(1 / dZoomToFit) / n);
 }
 
