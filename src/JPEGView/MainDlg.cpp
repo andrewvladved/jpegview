@@ -3374,7 +3374,15 @@ CProcessParams CMainDlg::CreateProcessParams(bool bNoProcessingAfterLoad) {
 			_SetLandscapeModeParams(m_bLandscapeMode, *m_pImageProcParamsKept), 
 			SetProcessingFlag(_SetLandscapeModeFlags(m_eProcessingFlagsKept), PFLAG_NoProcessingAfterLoad, bNoProcessingAfterLoad));
 	} else {
-		m_isUserFitToScreen = false;
+		if (m_isUserFitToScreen && !IsAdjustWindowToImage() && (m_bScrollMode || m_bMovieMode)) {
+			// A Fit to screen applied by hand lasts for the image it was applied to and is
+			// dropped when the next one is requested. While a folder is playing that means
+			// every image after the first falls back to the auto zoom mode, so here it is
+			// carried on for the whole run instead.
+			eAutoZoomMode = m_autoZoomFitToScreen;
+		} else {
+			m_isUserFitToScreen = false;
+		}
 		CSettingsProvider& sp = CSettingsProvider::This();
 		return CProcessParams(nClientWidth, nClientHeight, 
 			CMultiMonitorSupport::GetMonitorRect(m_hWnd).Size(),
