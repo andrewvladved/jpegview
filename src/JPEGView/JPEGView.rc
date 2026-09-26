@@ -358,8 +358,10 @@ BEGIN
         POPUP "Slideshow"
         BEGIN
             MENUITEM "Scroll",                      IDM_SCROLL_START
+            MENUITEM "Fill with crop",              IDM_SCROLL_FILL_WITH_CROP
             MENUITEM "Set Scroll Speed...",         IDM_SCROLL_SET_SPEED
             MENUITEM "Set Scroll Time...",          IDM_SCROLL_SET_TIME
+            MENUITEM "Set Scroll Transition Time...", IDM_SCROLL_SET_TRANSITION_TIME
             MENUITEM SEPARATOR
             MENUITEM "Slideshow",                   IDM_SLIDESHOW_START
             MENUITEM "Set Waiting Time...",         IDM_SLIDESHOW_SET_TIME

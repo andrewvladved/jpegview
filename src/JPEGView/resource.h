@@ -198,6 +198,8 @@
 #define IDM_SCROLL_START 7440		// starts scroll mode, menu only (no key mapping)
 #define IDM_SCROLL_SET_SPEED 7441	// asks for the scroll speed in pixels per second
 #define IDM_SCROLL_SET_TIME 7442	// asks for how long to hold at each end, in seconds
+#define IDM_SCROLL_FILL_WITH_CROP 7443	// scroll mode fills the window with the image, menu only (no key mapping)
+#define IDM_SCROLL_SET_TRANSITION_TIME 7444	// asks for the length of the crossfade between images, in milliseconds
 #define IDM_EFFECT_NONE     7450
 #define IDM_EFFECT_BLEND    7451
 #define IDM_EFFECT_SLIDE_RL 7452

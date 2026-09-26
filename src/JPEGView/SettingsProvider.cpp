@@ -175,6 +175,8 @@ CSettingsProvider::CSettingsProvider(void) {
 	m_bRelativeZoomMode = GetBool(_T("RelativeZoomMode"), false);
 	m_nScrollSpeed = GetInt(_T("ScrollSpeed"), 100, MIN_SCROLL_SPEED, MAX_SCROLL_SPEED);
 	m_nScrollTime = GetInt(_T("ScrollTime"), 2, MIN_SCROLL_TIME, MAX_SCROLL_TIME);
+	m_bScrollFillWithCrop = GetBool(_T("ScrollFillWithCrop"), true);
+	m_nScrollTransitionTime = GetInt(_T("ScrollTransitionTime"), 250, MIN_SCROLL_TRANSITION_TIME, MAX_SCROLL_TRANSITION_TIME);
 	m_bForceGDIPlus = GetBool(_T("ForceGDIPlus"), false);
 	m_bSingleInstance = GetBool(_T("SingleInstance"), false);
 	m_bSingleFullScreenInstance = GetBool(_T("SingleFullScreenInstance"), true);
@@ -596,6 +598,27 @@ void CSettingsProvider::SaveScrollTime(int nSeconds) {
 	TCHAR buff[BUFF_SIZE];
 	_sntprintf(buff, BUFF_SIZE, _T("%d"), nSeconds);
 	WriteString(_T("ScrollTime"), buff);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SaveScrollFillWithCrop(bool bFillWithCrop) {
+	MakeSureUserINIExists();
+
+	m_bScrollFillWithCrop = bFillWithCrop;
+	WriteBool(_T("ScrollFillWithCrop"), bFillWithCrop);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SaveScrollTransitionTime(int nMilliseconds) {
+	MakeSureUserINIExists();
+
+	m_nScrollTransitionTime = nMilliseconds;
+	const int BUFF_SIZE = 16;
+	TCHAR buff[BUFF_SIZE];
+	_sntprintf(buff, BUFF_SIZE, _T("%d"), nMilliseconds);
+	WriteString(_T("ScrollTransitionTime"), buff);
 
 	m_bUserINIExists = true;
 }

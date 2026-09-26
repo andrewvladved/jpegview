@@ -253,6 +253,8 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_bRelativeZoom = sp.RelativeZoomMode();
 	m_dRelativeZoomFactor = 1.0;
 	m_bScrollMode = false;
+	m_bScrollFillWithCrop = sp.ScrollFillWithCrop();
+	m_bRelativeZoomTemporary = false;
 	m_nScrollLastTick = 0;
 	ScrollMath::Reset(m_scrollState, 0);
 	m_bFullScreenMode = bForceFullScreen || (sp.ShowFullScreen() && !sp.AutoFullScreen());
@@ -1359,6 +1361,7 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	}
 	HMENU hMenuMovie = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_MOVIE);
 	if (!m_bMovieMode && !m_bScrollMode) ::EnableMenuItem(hMenuMovie, IDM_STOP_MOVIE, MF_BYCOMMAND | MF_GRAYED);
+	if (m_bScrollFillWithCrop) ::CheckMenuItem(hMenuMovie, IDM_SCROLL_FILL_WITH_CROP, MF_CHECKED);
 	HMENU hMenuZoom = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_ZOOM);
 	if (m_bSpanVirtualDesktop) ::CheckMenuItem(hMenuZoom,  IDM_SPAN_SCREENS, MF_CHECKED);
 	if (m_bFullScreenMode) ::CheckMenuItem(hMenuZoom,  IDM_FULL_SCREEN_MODE, MF_CHECKED);
@@ -1384,10 +1387,10 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	}
 	if (!m_bFullScreenMode) {
 		// Transition effect and speed only available in full screen mode. They are the
-		// seventh and eighth entries of the submenu: Scroll, Set Scroll Speed, Set Scroll
-		// Time, a separator, Slideshow, Set Waiting Time, and then these two.
-		::DeleteMenu(hMenuMovie, 6, MF_BYPOSITION);
-		::DeleteMenu(hMenuMovie, 6, MF_BYPOSITION);
+		// ninth and tenth entries of the submenu: the five scroll entries, a separator,
+		// Slideshow, Set Waiting Time, and then these two.
+		::DeleteMenu(hMenuMovie, 8, MF_BYPOSITION);
+		::DeleteMenu(hMenuMovie, 8, MF_BYPOSITION);
 	} else {
 		::CheckMenuItem(hMenuMovie, m_eTransitionEffect + IDM_EFFECT_NONE, MF_CHECKED);
 		int nIndex = (m_nTransitionTime < 180) ? 0 : (m_nTransitionTime < 375) ? 1 : (m_nTransitionTime < 750) ? 2 : (m_nTransitionTime < 1500) ? 3 : 4;
@@ -1754,6 +1757,20 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			break;
 		case IDM_SCROLL_START:
 			StartScrollMode();
+			break;
+		case IDM_SCROLL_FILL_WITH_CROP:
+			m_bScrollFillWithCrop = !m_bScrollFillWithCrop;
+			sp.SaveScrollFillWithCrop(m_bScrollFillWithCrop);
+			break;
+		case IDM_SCROLL_SET_TRANSITION_TIME:
+			{
+				CSetValueDlg dlgScrollFade(CNLS::GetString(_T("Set Scroll Transition Time")), CNLS::GetString(_T("Crossfade")),
+					CNLS::GetString(_T("ms")), sp.ScrollTransitionTime(),
+					CSettingsProvider::MIN_SCROLL_TRANSITION_TIME, CSettingsProvider::MAX_SCROLL_TRANSITION_TIME);
+				if (dlgScrollFade.DoModal(m_hWnd) == IDOK) {
+					sp.SaveScrollTransitionTime(dlgScrollFade.GetValue());
+				}
+			}
 			break;
 		case IDM_SCROLL_SET_SPEED:
 			{
@@ -2191,6 +2208,7 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			break;
 		case IDM_RELATIVE_ZOOM_MODE:
 			m_bRelativeZoom = !m_bRelativeZoom;
+			m_bRelativeZoomTemporary = false; // an explicit choice, not the one scroll mode makes
 			m_dRelativeZoomFactor = 1.0; // the mode starts from the fitted image
 			sp.SaveRelativeZoomMode(m_bRelativeZoom);
 			m_dZoomMult = -1.0; // the step depends on the mode, recompute it for this image
@@ -3321,15 +3339,29 @@ void CMainDlg::StopSlideShowTimer(void) {
 	}
 }
 
+double CMainDlg::GetScrollZoom() {
+	if (m_bScrollFillWithCrop) {
+		return GetZoomFactorForFitToScreen(true, true);
+	}
+	// Without filling the window the image keeps the zoom it already has, and relative zoom
+	// mode is what carries that zoom from one image to the next.
+	if (m_dZoom > 0) {
+		return m_dZoom;
+	}
+	if (m_dRealizedZoom > 0) {
+		return m_dRealizedZoom;
+	}
+	return GetZoomFactorForFitToScreen(false, true);
+}
+
 int CMainDlg::GetScrollMaxOffsetY() {
 	if (m_pCurrentImage == NULL) {
 		return 0;
 	}
-	// The image is scaled to fill the window, so what sticks out above and below is what
-	// there is to scroll through. Offsets are measured from the centre, which is why this
-	// is half the overflow - the same arithmetic Helpers::LimitOffsets uses.
-	double dZoom = GetZoomFactorForFitToScreen(true, true);
-	int nVirtualHeight = Helpers::RoundToInt(m_pCurrentImage->OrigHeight() * dZoom);
+	// What sticks out above and below the window is what there is to scroll through.
+	// Offsets are measured from the centre, which is why this is half the overflow - the
+	// same arithmetic Helpers::LimitOffsets uses.
+	int nVirtualHeight = Helpers::RoundToInt(m_pCurrentImage->OrigHeight() * GetScrollZoom());
 	return max(0, (nVirtualHeight - m_clientRect.Height()) / 2);
 }
 
@@ -3337,10 +3369,14 @@ void CMainDlg::SetupScrollForCurrentImage() {
 	if (m_pCurrentImage == NULL) {
 		return;
 	}
-	// Fill the window the way the 'Fill with crop' command does, then park at the top edge.
-	m_dZoom = GetZoomFactorForFitToScreen(true, true);
-	m_isUserFitToScreen = false;
-	m_bUserZoom = true;
+	if (m_bScrollFillWithCrop) {
+		// Fill the window the way the 'Fill with crop' command does.
+		m_dZoom = GetZoomFactorForFitToScreen(true, true);
+		m_isUserFitToScreen = false;
+		m_bUserZoom = true;
+	}
+	// Otherwise the zoom the image arrived with is kept, and relative zoom mode has already
+	// set it to the same percentage of the fitted size the previous image was showing.
 	m_bUserPan = true;
 	ScrollMath::Reset(m_scrollState, GetScrollMaxOffsetY());
 	m_offsets = CPoint(0, Helpers::RoundToInt(m_scrollState.dOffsetY));
@@ -3352,6 +3388,25 @@ void CMainDlg::StartScrollMode() {
 	StopMovieMode();
 	StopAnimation();
 	m_bScrollMode = true;
+	if (!m_bScrollFillWithCrop) {
+		// Gliding through the image at its current zoom only makes sense if that zoom is
+		// carried to the next image, which is exactly what relative zoom mode does - so it
+		// is switched on for the duration if the user has not switched it on already.
+		if (!m_bRelativeZoom) {
+			m_bRelativeZoom = true;
+			m_bRelativeZoomTemporary = true;
+		}
+		if (m_pCurrentImage != NULL) {
+			double dCurrentZoom = GetScrollZoom();
+			double dFitZoom = GetZoomFactorForFitToScreen(false, true);
+			if (dFitZoom > 0) {
+				m_dRelativeZoomFactor = dCurrentZoom / dFitZoom;
+			}
+			m_dZoom = dCurrentZoom; // pin it, so it cannot fall back to the auto zoom mode
+			m_isUserFitToScreen = false;
+			m_bUserZoom = true;
+		}
+	}
 	SetupScrollForCurrentImage();
 	::SetTimer(this->m_hWnd, SCROLL_TIMER_EVENT_ID, SCROLL_TIMER_INTERVAL_MS, NULL);
 }
@@ -3362,7 +3417,7 @@ void CMainDlg::ScrollToNextImage() {
 	// two snapshots means every frame is computed from scratch, so the fade is even; the
 	// slideshow transition blends onto whatever is already on screen, which compounds.
 	int nW = m_clientRect.Width(), nH = m_clientRect.Height();
-	int nDurationMs = m_nTransitionTime;
+	int nDurationMs = CSettingsProvider::This().ScrollTransitionTime();
 	if (nW <= 0 || nH <= 0 || nDurationMs <= 0) {
 		GotoImage(POS_Next);
 		SetupScrollForCurrentImage();
@@ -3421,6 +3476,10 @@ void CMainDlg::StopScrollMode() {
 		return;
 	}
 	m_bScrollMode = false;
+	if (m_bRelativeZoomTemporary) {
+		m_bRelativeZoom = false;
+		m_bRelativeZoomTemporary = false;
+	}
 	::KillTimer(this->m_hWnd, SCROLL_TIMER_EVENT_ID);
 }
 

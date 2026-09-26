@@ -79,6 +79,12 @@ public:
 	// it stands still at each end, in seconds. Both are asked for in a dialog.
 	int ScrollSpeed() { return m_nScrollSpeed; }
 	int ScrollTime() { return m_nScrollTime; }
+	// Whether scroll mode fills the window with the image before gliding through it.
+	// With it off the image keeps the zoom it has and scroll mode glides through
+	// whatever sticks out at that zoom.
+	bool ScrollFillWithCrop() { return m_bScrollFillWithCrop; }
+	// Length of the crossfade between two images in scroll mode, in milliseconds
+	int ScrollTransitionTime() { return m_nScrollTransitionTime; }
 
 	// Bounds shared by the INI clamp and by the dialogs asking for these two values
 	static const int MIN_SLIDESHOW_WAIT_TIME = 1;
@@ -89,6 +95,8 @@ public:
 	static const int MAX_SCROLL_SPEED = 5000;
 	static const int MIN_SCROLL_TIME = 0; // zero means no pause at the ends
 	static const int MAX_SCROLL_TIME = 600;
+	static const int MIN_SCROLL_TRANSITION_TIME = 0; // zero means no crossfade
+	static const int MAX_SCROLL_TRANSITION_TIME = 5000;
 
 	bool ForceGDIPlus() { return m_bForceGDIPlus; }
 	bool SingleInstance() { return m_bSingleInstance; }
@@ -204,6 +212,8 @@ public:
 	// Saves the scroll speed / the time scroll mode holds at each end to the INI file
 	void SaveScrollSpeed(int nPixelsPerSecond);
 	void SaveScrollTime(int nSeconds);
+	void SaveScrollFillWithCrop(bool bFillWithCrop);
+	void SaveScrollTransitionTime(int nMilliseconds);
 	
 	// Update user settings with settings from INI file template
 	void UpdateUserSettings();
@@ -293,6 +303,8 @@ private:
 	bool m_bRelativeZoomMode;
 	int m_nScrollSpeed;
 	int m_nScrollTime;
+	bool m_bScrollFillWithCrop;
+	int m_nScrollTransitionTime;
 	bool m_bForceGDIPlus;
 	bool m_bSingleInstance;
 	bool m_bSingleFullScreenInstance;

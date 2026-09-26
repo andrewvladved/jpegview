@@ -317,6 +317,8 @@ private:
 	bool m_bRelativeZoom;
 	double m_dRelativeZoomFactor; // current zoom as a multiple of the fitted image
 	bool m_bScrollMode;
+	bool m_bScrollFillWithCrop;
+	bool m_bRelativeZoomTemporary; // relative zoom switched on by scroll mode, not by the user
 	ScrollMath::SState m_scrollState;
 	DWORD m_nScrollLastTick;
 	bool m_bLockPaint;
@@ -415,6 +417,7 @@ private:
 	void SetupScrollForCurrentImage();
 	void ScrollToNextImage();
 	int GetScrollMaxOffsetY();
+	double GetScrollZoom();
 	CProcessParams CreateProcessParams(bool bNoProcessingAfterLoad);
 	void ResetParamsToDefault();
 	void StartSlideShowTimer(int nMilliSeconds);
