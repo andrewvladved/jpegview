@@ -8,6 +8,7 @@
 #include "Helpers.h"
 #include "CropCtl.h"
 #include "AnnotationCtl.h"
+#include "ScrollMath.h"
 
 class CFileList;
 class CJPEGProvider;
@@ -314,6 +315,9 @@ private:
 	bool m_bFullScreenMode;
 	bool m_bAutoFitWndToImage;
 	bool m_bRelativeZoom;
+	bool m_bScrollMode;
+	ScrollMath::SState m_scrollState;
+	DWORD m_nScrollLastTick;
 	bool m_bLockPaint;
 	int m_nCurrentTimeout;
 	POINT m_startMouse;
@@ -403,6 +407,12 @@ private:
 	double GetZoomFactorForFitToScreen(bool bFillWithCrop, bool bAllowEnlarge);
 	// 1.0 normally; the zoom that fits the image to the window in relative zoom mode
 	double RelativeZoomBase();
+	// Scroll mode: fill the window with the image, hold at its top edge, glide down to
+	// the bottom edge, hold again, then move on to the next image.
+	void StartScrollMode();
+	void StopScrollMode();
+	void SetupScrollForCurrentImage();
+	int GetScrollMaxOffsetY();
 	CProcessParams CreateProcessParams(bool bNoProcessingAfterLoad);
 	void ResetParamsToDefault();
 	void StartSlideShowTimer(int nMilliSeconds);

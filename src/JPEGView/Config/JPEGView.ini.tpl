@@ -542,6 +542,15 @@ SlideShowWaitTime=3
 ; The 'Set Playback Speed' entry of the same menu writes this value.
 MoviePlaybackSpeed=5
 
+; Scroll mode: how fast the image glides down, in screen pixels per second.
+; The 'Set Scroll Speed' entry of the Slideshow submenu writes this value.
+ScrollSpeed=100
+
+; Scroll mode: how long to stand still at the top and at the bottom of each image,
+; in seconds. Zero means no pause.
+; The 'Set Scroll Time' entry of the Slideshow submenu writes this value.
+ScrollTime=2
+
 
 
 ; *****************************************************************************

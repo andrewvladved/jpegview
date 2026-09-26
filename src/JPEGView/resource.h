@@ -195,6 +195,9 @@
 #define IDM_SLIDESHOW_RESUME 7399		// :KeyMap: resume slide show (after stop)
 #define IDM_SLIDESHOW_START 7400		// starts a slide show with the stored waiting time
 #define IDM_SLIDESHOW_SET_TIME 7430	// asks for the slide show waiting time in seconds
+#define IDM_SCROLL_START 7440		// starts scroll mode, menu only (no key mapping)
+#define IDM_SCROLL_SET_SPEED 7441	// asks for the scroll speed in pixels per second
+#define IDM_SCROLL_SET_TIME 7442	// asks for how long to hold at each end, in seconds
 #define IDM_EFFECT_NONE     7450
 #define IDM_EFFECT_BLEND    7451
 #define IDM_EFFECT_SLIDE_RL 7452

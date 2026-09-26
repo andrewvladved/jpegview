@@ -75,12 +75,20 @@ public:
 	// written back to the INI file, so they survive a restart.
 	int SlideShowWaitTime() { return m_nSlideShowWaitTime; }
 	int MoviePlaybackSpeed() { return m_nMoviePlaybackSpeed; }
+	// Scroll mode: how fast the image glides, in screen pixels per second, and how long
+	// it stands still at each end, in seconds. Both are asked for in a dialog.
+	int ScrollSpeed() { return m_nScrollSpeed; }
+	int ScrollTime() { return m_nScrollTime; }
 
 	// Bounds shared by the INI clamp and by the dialogs asking for these two values
 	static const int MIN_SLIDESHOW_WAIT_TIME = 1;
 	static const int MAX_SLIDESHOW_WAIT_TIME = 3600;
 	static const int MIN_MOVIE_PLAYBACK_SPEED = 1;
 	static const int MAX_MOVIE_PLAYBACK_SPEED = 200;
+	static const int MIN_SCROLL_SPEED = 1;
+	static const int MAX_SCROLL_SPEED = 5000;
+	static const int MIN_SCROLL_TIME = 0; // zero means no pause at the ends
+	static const int MAX_SCROLL_TIME = 600;
 
 	bool ForceGDIPlus() { return m_bForceGDIPlus; }
 	bool SingleInstance() { return m_bSingleInstance; }
@@ -192,6 +200,10 @@ public:
 
 	// Saves the relative zoom mode flag to the INI file
 	void SaveRelativeZoomMode(bool bRelativeZoomMode);
+
+	// Saves the scroll speed / the time scroll mode holds at each end to the INI file
+	void SaveScrollSpeed(int nPixelsPerSecond);
+	void SaveScrollTime(int nSeconds);
 	
 	// Update user settings with settings from INI file template
 	void UpdateUserSettings();
@@ -279,6 +291,8 @@ private:
 	int m_nSlideShowWaitTime;
 	int m_nMoviePlaybackSpeed;
 	bool m_bRelativeZoomMode;
+	int m_nScrollSpeed;
+	int m_nScrollTime;
 	bool m_bForceGDIPlus;
 	bool m_bSingleInstance;
 	bool m_bSingleFullScreenInstance;

@@ -35,6 +35,7 @@
 #include "CropSizeDlg.h"
 #include "SetValueDlg.h"
 #include "ZoomMath.h"
+#include "ScrollMath.h"
 #include "ResizeDlg.h"
 #include "ResizeFilter.h"
 #include "EXIFReader.h"
@@ -84,6 +85,7 @@ static const int ZOOM_TEXT_RECT_WIDTH_RELATIVE = 150; // wider: relative zoom mo
 static const int ZOOM_TEXT_RECT_HEIGHT = 25; // zoom label height
 static const int ZOOM_TEXT_RECT_OFFSET = 35; // zoom label offset from right border
 static const int PAN_STEP = 48; // number of pixels to pan if pan with cursor keys (SHIFT+up/down/left/right)
+static const int SCROLL_TIMER_INTERVAL_MS = 30; // how often scroll mode moves the image, about 33 times a second
 
 static const bool SHOW_TIMING_INFO = false; // Set to true for debugging
 
@@ -249,6 +251,9 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_nMouseX = m_nMouseY = 0;
 	m_bAutoFitWndToImage = sp.DefaultWndToImage();
 	m_bRelativeZoom = sp.RelativeZoomMode();
+	m_bScrollMode = false;
+	m_nScrollLastTick = 0;
+	ScrollMath::Reset(m_scrollState, 0);
 	m_bFullScreenMode = bForceFullScreen || (sp.ShowFullScreen() && !sp.AutoFullScreen());
 	m_bLockPaint = true;
 	m_nCurrentTimeout = 0;
@@ -1267,6 +1272,25 @@ LRESULT CMainDlg::OnTimer(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOOL&
 				m_nLastSlideShowImageTickCount = ::GetTickCount();
 			}
 		}
+	} else if (wParam == SCROLL_TIMER_EVENT_ID) {
+		if (m_bScrollMode) {
+			CSettingsProvider& sp = CSettingsProvider::This();
+			DWORD nNow = ::GetTickCount();
+			int nElapsedMs = (int)(nNow - m_nScrollLastTick);
+			m_nScrollLastTick = nNow;
+			ScrollMath::Advance(m_scrollState, GetScrollMaxOffsetY(), sp.ScrollSpeed(), sp.ScrollTime() * 1000, nElapsedMs);
+			if (m_scrollState.bAdvanceToNextImage) {
+				GotoImage(POS_Next);
+				SetupScrollForCurrentImage();
+			} else {
+				CPoint newOffsets(0, Helpers::RoundToInt(m_scrollState.dOffsetY));
+				if (newOffsets != m_offsets) {
+					m_offsets = newOffsets;
+					m_bUserPan = true;
+					this->Invalidate(FALSE);
+				}
+			}
+		}
 	} else if (wParam == ZOOM_TIMER_EVENT_ID) {
 		::KillTimer(this->m_hWnd, ZOOM_TIMER_EVENT_ID);
 		if (m_bTemporaryLowQ || m_bInZooming) {
@@ -1334,7 +1358,7 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 		::EnableMenuItem(hMenuOrdering, IDM_SORT_DESCENDING, MF_BYCOMMAND | MF_GRAYED);
 	}
 	HMENU hMenuMovie = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_MOVIE);
-	if (!m_bMovieMode) ::EnableMenuItem(hMenuMovie, IDM_STOP_MOVIE, MF_BYCOMMAND | MF_GRAYED);
+	if (!m_bMovieMode && !m_bScrollMode) ::EnableMenuItem(hMenuMovie, IDM_STOP_MOVIE, MF_BYCOMMAND | MF_GRAYED);
 	HMENU hMenuZoom = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_ZOOM);
 	if (m_bSpanVirtualDesktop) ::CheckMenuItem(hMenuZoom,  IDM_SPAN_SCREENS, MF_CHECKED);
 	if (m_bFullScreenMode) ::CheckMenuItem(hMenuZoom,  IDM_FULL_SCREEN_MODE, MF_CHECKED);
@@ -1360,9 +1384,10 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	}
 	if (!m_bFullScreenMode) {
 		// Transition effect and speed only available in full screen mode. They are the
-		// third and fourth entries of the submenu, after Slideshow and Set Waiting Time.
-		::DeleteMenu(hMenuMovie, 2, MF_BYPOSITION);
-		::DeleteMenu(hMenuMovie, 2, MF_BYPOSITION);
+		// seventh and eighth entries of the submenu: Scroll, Set Scroll Speed, Set Scroll
+		// Time, a separator, Slideshow, Set Waiting Time, and then these two.
+		::DeleteMenu(hMenuMovie, 6, MF_BYPOSITION);
+		::DeleteMenu(hMenuMovie, 6, MF_BYPOSITION);
 	} else {
 		::CheckMenuItem(hMenuMovie, m_eTransitionEffect + IDM_EFFECT_NONE, MF_CHECKED);
 		int nIndex = (m_nTransitionTime < 180) ? 0 : (m_nTransitionTime < 375) ? 1 : (m_nTransitionTime < 750) ? 2 : (m_nTransitionTime < 1500) ? 3 : 4;
@@ -1434,8 +1459,8 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 		::EnableMenuItem(hMenuTrackPopup, IDM_SAVE_PARAMETERS, MF_BYCOMMAND | MF_GRAYED);
 		::EnableMenuItem(hMenuTrackPopup, IDM_SAVE_PARAM_DB, MF_BYCOMMAND | MF_GRAYED);
 		::EnableMenuItem(hMenuTrackPopup, IDM_CLEAR_PARAM_DB, MF_BYCOMMAND | MF_GRAYED);
-	} else {
-		// Delete the 'Stop movie' menu entry if no movie is playing
+	} else if (!m_bScrollMode) {
+		// Delete the 'Stop movie' menu entry if nothing is playing
 		::DeleteMenu(hMenuTrackPopup, 0, MF_BYPOSITION);
 		::DeleteMenu(hMenuTrackPopup, 0, MF_BYPOSITION);
 	}
@@ -1721,10 +1746,34 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			}
 			break;
 		case IDM_STOP_MOVIE:
+			StopScrollMode();
 			StopMovieMode();
 			break;
 		case IDM_SLIDESHOW_RESUME:
 			StartMovieMode(m_dMovieFPS);
+			break;
+		case IDM_SCROLL_START:
+			StartScrollMode();
+			break;
+		case IDM_SCROLL_SET_SPEED:
+			{
+				CSetValueDlg dlgScrollSpeed(CNLS::GetString(_T("Set Scroll Speed")), CNLS::GetString(_T("Scroll speed")),
+					CNLS::GetString(_T("px/s")), sp.ScrollSpeed(),
+					CSettingsProvider::MIN_SCROLL_SPEED, CSettingsProvider::MAX_SCROLL_SPEED);
+				if (dlgScrollSpeed.DoModal(m_hWnd) == IDOK) {
+					sp.SaveScrollSpeed(dlgScrollSpeed.GetValue());
+				}
+			}
+			break;
+		case IDM_SCROLL_SET_TIME:
+			{
+				CSetValueDlg dlgScrollTime(CNLS::GetString(_T("Set Scroll Time")), CNLS::GetString(_T("Hold at each end")),
+					CNLS::GetString(_T("sec")), sp.ScrollTime(),
+					CSettingsProvider::MIN_SCROLL_TIME, CSettingsProvider::MAX_SCROLL_TIME);
+				if (dlgScrollTime.DoModal(m_hWnd) == IDOK) {
+					sp.SaveScrollTime(dlgScrollTime.GetValue());
+				}
+			}
 			break;
 		case IDM_SLIDESHOW_START:
 			StartMovieMode(1.0 / sp.SlideShowWaitTime());
@@ -2206,7 +2255,12 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			CleanupAndTerminate();
 			break;
 		case IDM_DEFAULT_ESC:
-			if (m_bMovieMode) {
+			if (m_bScrollMode) {
+				if (m_bAutoExit)
+					CleanupAndTerminate();
+				else
+					StopScrollMode();
+			} else if (m_bMovieMode) {
 				if (m_bAutoExit)
 					CleanupAndTerminate();
 				else
@@ -3253,9 +3307,54 @@ void CMainDlg::StopSlideShowTimer(void) {
 	}
 }
 
+int CMainDlg::GetScrollMaxOffsetY() {
+	if (m_pCurrentImage == NULL) {
+		return 0;
+	}
+	// The image is scaled to fill the window, so what sticks out above and below is what
+	// there is to scroll through. Offsets are measured from the centre, which is why this
+	// is half the overflow - the same arithmetic Helpers::LimitOffsets uses.
+	double dZoom = GetZoomFactorForFitToScreen(true, true);
+	int nVirtualHeight = Helpers::RoundToInt(m_pCurrentImage->OrigHeight() * dZoom);
+	return max(0, (nVirtualHeight - m_clientRect.Height()) / 2);
+}
+
+void CMainDlg::SetupScrollForCurrentImage() {
+	if (m_pCurrentImage == NULL) {
+		return;
+	}
+	// Fill the window the way the 'Fill with crop' command does, then park at the top edge.
+	m_dZoom = GetZoomFactorForFitToScreen(true, true);
+	m_isUserFitToScreen = false;
+	m_bUserZoom = true;
+	m_bUserPan = true;
+	ScrollMath::Reset(m_scrollState, GetScrollMaxOffsetY());
+	m_offsets = CPoint(0, Helpers::RoundToInt(m_scrollState.dOffsetY));
+	m_nScrollLastTick = ::GetTickCount();
+	this->Invalidate(FALSE);
+}
+
+void CMainDlg::StartScrollMode() {
+	StopMovieMode();
+	StopAnimation();
+	m_bScrollMode = true;
+	SetupScrollForCurrentImage();
+	::SetTimer(this->m_hWnd, SCROLL_TIMER_EVENT_ID, SCROLL_TIMER_INTERVAL_MS, NULL);
+}
+
+void CMainDlg::StopScrollMode() {
+	if (!m_bScrollMode) {
+		return;
+	}
+	m_bScrollMode = false;
+	::KillTimer(this->m_hWnd, SCROLL_TIMER_EVENT_ID);
+}
+
 void CMainDlg::StartMovieMode(double dFPS) {
 	// if more than this number of frames are requested per seconds, it is considered to be a movie
 	const double cdFPSMovie = 4.9;
+
+	StopScrollMode(); // the two modes drive the same window, only one of them at a time
 
 	m_dMovieFPS = dFPS;
 
@@ -4105,6 +4204,7 @@ void CMainDlg::CleanupAndTerminate() {
 	// The sticky window rect is read after the dialog ends, so it has to be taken
 	// while the window still exists - EndDialog() below raises no WM_CLOSE.
 	GetWindowRect(m_windowRectOnClose);
+	StopScrollMode();
 	StopMovieMode();
 	StopAnimation();
 	delete m_pJPEGProvider; // delete this early to properly shut down the loading threads
