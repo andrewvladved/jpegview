@@ -102,6 +102,8 @@
     <ClCompile Include="TestAnnotationRenderer.cpp" />
     <ClCompile Include="..\JPEGView\AnnotationGeometry.cpp" />
     <ClCompile Include="TestAnnotationGeometry.cpp" />
+    <ClCompile Include="..\JPEGView\ValueInput.cpp" />
+    <ClCompile Include="TestValueInput.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="TestFramework.h" />
@@ -110,6 +112,7 @@
     <ClInclude Include="..\JPEGView\AnnotationCtl.h" />
     <ClInclude Include="..\JPEGView\AnnotationRenderer.h" />
     <ClInclude Include="..\JPEGView\AnnotationGeometry.h" />
+    <ClInclude Include="..\JPEGView\ValueInput.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
