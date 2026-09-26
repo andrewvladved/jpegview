@@ -70,6 +70,18 @@ public:
 	int MaxSlideShowFileListSize() { return m_nMaxSlideShowFileListSize; }
 	Helpers::ETransitionEffect SlideShowTransitionEffect() { return m_eSlideShowTransitionEffect; }
 	int SlideShowEffectTimeMs() { return m_nSlideShowEffectTimeMs; }
+	// Waiting time in seconds used by the Slideshow menu entry, and playback speed in
+	// frames per second used by the Movie entry. Both are asked for in a dialog and
+	// written back to the INI file, so they survive a restart.
+	int SlideShowWaitTime() { return m_nSlideShowWaitTime; }
+	int MoviePlaybackSpeed() { return m_nMoviePlaybackSpeed; }
+
+	// Bounds shared by the INI clamp and by the dialogs asking for these two values
+	static const int MIN_SLIDESHOW_WAIT_TIME = 1;
+	static const int MAX_SLIDESHOW_WAIT_TIME = 3600;
+	static const int MIN_MOVIE_PLAYBACK_SPEED = 1;
+	static const int MAX_MOVIE_PLAYBACK_SPEED = 200;
+
 	bool ForceGDIPlus() { return m_bForceGDIPlus; }
 	bool SingleInstance() { return m_bSingleInstance; }
 	bool SingleFullScreenInstance() { return m_bSingleFullScreenInstance; }
@@ -168,6 +180,10 @@ public:
 
 	// Saves the sticky window size to the INI file
 	void SaveStickyWindowRect(CRect rect);
+
+	// Saves the slide show waiting time / the movie playback speed to the INI file
+	void SaveSlideShowWaitTime(int nSeconds);
+	void SaveMoviePlaybackSpeed(int nFPS);
 	
 	// Update user settings with settings from INI file template
 	void UpdateUserSettings();
@@ -252,6 +268,8 @@ private:
 	int m_nMaxSlideShowFileListSize;
 	Helpers::ETransitionEffect m_eSlideShowTransitionEffect;
 	int m_nSlideShowEffectTimeMs;
+	int m_nSlideShowWaitTime;
+	int m_nMoviePlaybackSpeed;
 	bool m_bForceGDIPlus;
 	bool m_bSingleInstance;
 	bool m_bSingleFullScreenInstance;

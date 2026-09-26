@@ -529,6 +529,14 @@ SlideShowTransitionEffect=Blend
 ; Time of the slide show transition effect in milliseconds, only used in full screen mode
 SlideShowEffectTime=250
 
+; Waiting time in seconds used by the 'Slideshow' entry of the context menu.
+; The 'Set Waiting Time' entry of the same menu writes this value.
+SlideShowWaitTime=3
+
+; Playback speed in frames per second used by the 'Movie' entry of the context menu.
+; The 'Set Playback Speed' entry of the same menu writes this value.
+MoviePlaybackSpeed=5
+
 
 
 ; *****************************************************************************

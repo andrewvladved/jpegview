@@ -546,6 +546,21 @@ void CFileList::SetNavigationMode(Helpers::ENavigationMode eMode) {
 	m_iterStart = m_bWrapAroundFolder ? m_iter : m_fileList.begin();
 }
 
+void CFileList::SetWrapAroundFolder(bool bWrapAroundFolder) {
+	// m_iterStart is where Next() decides the folder is finished, and it is derived from
+	// this flag - the current file when wrapping, the first file when not - so it has to
+	// be recomputed here, the same way SetNavigationMode does it.
+	// The flag lives on each list, and the history holds one list per visited folder, so
+	// the whole chain is updated; a list created later inherits the value from its parent.
+	CFileList* pList = this;
+	while (pList->m_prev != NULL) pList = pList->m_prev;
+	while (pList != NULL) {
+		pList->m_bWrapAroundFolder = bWrapAroundFolder;
+		pList->m_iterStart = bWrapAroundFolder ? pList->m_iter : pList->m_fileList.begin();
+		pList = pList->m_next;
+	}
+}
+
 void CFileList::MarkCurrentFile() {
 	LPCTSTR sCurrent = Current();
 	if (::GetFileAttributes(sCurrent) != INVALID_FILE_ATTRIBUTES) {

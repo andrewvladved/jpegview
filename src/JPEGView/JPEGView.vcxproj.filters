@@ -228,6 +228,12 @@
     <ClCompile Include="SaveAnnotationsDlg.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SetValueDlg.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ValueInput.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="AnnotationModel.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -516,6 +522,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SaveAnnotationsDlg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SetValueDlg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ValueInput.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="AnnotationModel.h">

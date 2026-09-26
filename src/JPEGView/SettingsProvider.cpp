@@ -170,6 +170,8 @@ CSettingsProvider::CSettingsProvider(void) {
 
 	m_nMaxSlideShowFileListSize = GetInt(_T("MaxSlideShowFileListSizeKB"), 200, 100, 10000);
 	m_nSlideShowEffectTimeMs = GetInt(_T("SlideShowEffectTime"), 200, 100, 5000);
+	m_nSlideShowWaitTime = GetInt(_T("SlideShowWaitTime"), 3, MIN_SLIDESHOW_WAIT_TIME, MAX_SLIDESHOW_WAIT_TIME);
+	m_nMoviePlaybackSpeed = GetInt(_T("MoviePlaybackSpeed"), 5, MIN_MOVIE_PLAYBACK_SPEED, MAX_MOVIE_PLAYBACK_SPEED);
 	m_bForceGDIPlus = GetBool(_T("ForceGDIPlus"), false);
 	m_bSingleInstance = GetBool(_T("SingleInstance"), false);
 	m_bSingleFullScreenInstance = GetBool(_T("SingleFullScreenInstance"), true);
@@ -536,6 +538,30 @@ void CSettingsProvider::SaveStickyWindowRect(CRect rect) {
 
 		m_bUserINIExists = true;
 	}
+}
+
+void CSettingsProvider::SaveSlideShowWaitTime(int nSeconds) {
+	MakeSureUserINIExists();
+
+	m_nSlideShowWaitTime = nSeconds;
+	const int BUFF_SIZE = 16;
+	TCHAR buff[BUFF_SIZE];
+	_sntprintf(buff, BUFF_SIZE, _T("%d"), nSeconds);
+	WriteString(_T("SlideShowWaitTime"), buff);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SaveMoviePlaybackSpeed(int nFPS) {
+	MakeSureUserINIExists();
+
+	m_nMoviePlaybackSpeed = nFPS;
+	const int BUFF_SIZE = 16;
+	TCHAR buff[BUFF_SIZE];
+	_sntprintf(buff, BUFF_SIZE, _T("%d"), nFPS);
+	WriteString(_T("MoviePlaybackSpeed"), buff);
+
+	m_bUserINIExists = true;
 }
 
 bool CSettingsProvider::ExistsUserINI() {

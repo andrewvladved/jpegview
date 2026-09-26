@@ -33,6 +33,7 @@
 #include "ManageOpenWithDlg.h"
 #include "AboutDlg.h"
 #include "CropSizeDlg.h"
+#include "SetValueDlg.h"
 #include "ResizeDlg.h"
 #include "ResizeFilter.h"
 #include "EXIFReader.h"
@@ -1317,6 +1318,7 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	if (m_bKeepParams) ::CheckMenuItem(hMenuTrackPopup, IDM_KEEP_PARAMETERS, MF_CHECKED);
 	HMENU hMenuNavigation = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_NAVIGATION);
 	::CheckMenuItem(hMenuNavigation,  m_pFileList->GetNavigationMode()*10 + IDM_LOOP_FOLDER, MF_CHECKED);
+	if (m_pFileList->IsWrapAroundFolder()) ::CheckMenuItem(hMenuNavigation, IDM_WRAP_AROUND_FOLDER, MF_CHECKED);
 	HMENU hMenuOrdering = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_DISPLAY_ORDER);
 	::CheckMenuItem(hMenuOrdering,  
 		(m_pFileList->GetSorting() == Helpers::FS_LastModTime) ? IDM_SORT_MOD_DATE :
@@ -1353,9 +1355,10 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 		::DeleteMenu(hMenuTrackPopup, SUBMENU_POS_USER_COMMANDS - 1, MF_BYPOSITION);
 	}
 	if (!m_bFullScreenMode) {
-		// Transition effect and speed only available in full screen mode
-		::DeleteMenu(hMenuMovie, 9, MF_BYPOSITION);
-		::DeleteMenu(hMenuMovie, 9, MF_BYPOSITION);
+		// Transition effect and speed only available in full screen mode. They are the
+		// third and fourth entries of the submenu, after Slideshow and Set Waiting Time.
+		::DeleteMenu(hMenuMovie, 2, MF_BYPOSITION);
+		::DeleteMenu(hMenuMovie, 2, MF_BYPOSITION);
 	} else {
 		::CheckMenuItem(hMenuMovie, m_eTransitionEffect + IDM_EFFECT_NONE, MF_CHECKED);
 		int nIndex = (m_nTransitionTime < 180) ? 0 : (m_nTransitionTime < 375) ? 1 : (m_nTransitionTime < 750) ? 2 : (m_nTransitionTime < 1500) ? 3 : 4;
@@ -1368,9 +1371,6 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	if (!m_bFullScreenMode) ::EnableMenuItem(hMenuZoom, IDM_SPAN_SCREENS, MF_BYCOMMAND | MF_GRAYED);
 	if (m_bFullScreenMode) ::EnableMenuItem(hMenuZoom, IDM_HIDE_TITLE_BAR, MF_BYCOMMAND | MF_GRAYED);
 	if (m_bFullScreenMode) ::EnableMenuItem(hMenuTrackPopup, IDM_TRANSPARENT_TITLE_BAR, MF_BYCOMMAND | MF_GRAYED);
-
-	::EnableMenuItem(hMenuMovie, IDM_SLIDESHOW_START, MF_BYCOMMAND | MF_GRAYED);
-	::EnableMenuItem(hMenuMovie, IDM_MOVIE_START_FPS, MF_BYCOMMAND | MF_GRAYED);
 
 	if (!CSettingsProvider::This().AllowEditGlobalSettings()) {
 		::DeleteMenu(hMenuSettings, 0, MF_BYPOSITION);
@@ -1692,6 +1692,9 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 				(nCommand == IDM_LOOP_RECURSIVELY) ? Helpers::NM_LoopSubDirectories : 
 				Helpers::NM_LoopSameDirectoryLevel);
 			break;
+		case IDM_WRAP_AROUND_FOLDER:
+			m_pFileList->SetWrapAroundFolder(!m_pFileList->IsWrapAroundFolder());
+			break;
 		case IDM_SORT_MOD_DATE:
 		case IDM_SORT_CREATION_DATE:
 		case IDM_SORT_NAME:
@@ -1719,15 +1722,18 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 		case IDM_SLIDESHOW_RESUME:
 			StartMovieMode(m_dMovieFPS);
 			break;
-		case IDM_SLIDESHOW_1:
-		case IDM_SLIDESHOW_2:
-		case IDM_SLIDESHOW_3:
-		case IDM_SLIDESHOW_4:
-		case IDM_SLIDESHOW_5:
-		case IDM_SLIDESHOW_7:
-		case IDM_SLIDESHOW_10:
-		case IDM_SLIDESHOW_20:
-			StartMovieMode(1.0/(nCommand - IDM_SLIDESHOW_START));
+		case IDM_SLIDESHOW_START:
+			StartMovieMode(1.0 / sp.SlideShowWaitTime());
+			break;
+		case IDM_SLIDESHOW_SET_TIME:
+			{
+				CSetValueDlg dlgWaitTime(CNLS::GetString(_T("Set Waiting Time")), CNLS::GetString(_T("Waiting time")),
+					CNLS::GetString(_T("sec")), sp.SlideShowWaitTime(),
+					CSettingsProvider::MIN_SLIDESHOW_WAIT_TIME, CSettingsProvider::MAX_SLIDESHOW_WAIT_TIME);
+				if (dlgWaitTime.DoModal(m_hWnd) == IDOK) {
+					sp.SaveSlideShowWaitTime(dlgWaitTime.GetValue());
+				}
+			}
 			break;
 		case IDM_EFFECT_NONE:
 		case IDM_EFFECT_BLEND:
@@ -1752,13 +1758,18 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 		case IDM_EFFECTTIME_VERY_SLOW:
 			m_nTransitionTime = 125 * (1 << (nCommand - IDM_EFFECTTIME_VERY_FAST));
 			break;
-		case IDM_MOVIE_5_FPS:
-		case IDM_MOVIE_10_FPS:
-		case IDM_MOVIE_25_FPS:
-		case IDM_MOVIE_30_FPS:
-		case IDM_MOVIE_50_FPS:
-		case IDM_MOVIE_100_FPS:
-			StartMovieMode(nCommand - IDM_MOVIE_START_FPS);
+		case IDM_MOVIE_START_FPS:
+			StartMovieMode(sp.MoviePlaybackSpeed());
+			break;
+		case IDM_MOVIE_SET_SPEED:
+			{
+				CSetValueDlg dlgFPS(CNLS::GetString(_T("Set Playback Speed")), CNLS::GetString(_T("Playback speed")),
+					CNLS::GetString(_T("fps")), sp.MoviePlaybackSpeed(),
+					CSettingsProvider::MIN_MOVIE_PLAYBACK_SPEED, CSettingsProvider::MAX_MOVIE_PLAYBACK_SPEED);
+				if (dlgFPS.DoModal(m_hWnd) == IDOK) {
+					sp.SaveMoviePlaybackSpeed(dlgFPS.GetValue());
+				}
+			}
 			break;
 		case IDM_SAVE_PARAM_DB:
 			if (m_pCurrentImage != NULL && !m_bMovieMode && !m_bKeepParams) {
@@ -2478,9 +2489,12 @@ void CMainDlg::OpenFile(LPCTSTR sFileName, bool bAfterStartup) {
 	// recreate file list based on image opened
 	Helpers::ESorting eOldSorting = m_pFileList->GetSorting();
 	bool oOldAscending = m_pFileList->IsSortedAscending();
+	// Carried over like the sorting: it can have been toggled in the Navigation menu, and
+	// reading it from the settings again would silently undo that on every file opened.
+	bool bOldWrapAround = m_pFileList->IsWrapAroundFolder();
 	delete m_pFileList;
 	m_sStartupFile = sFileName;
-	m_pFileList = new CFileList(m_sStartupFile, *m_pDirectoryWatcher, eOldSorting, oOldAscending, CSettingsProvider::This().WrapAroundFolder());
+	m_pFileList = new CFileList(m_sStartupFile, *m_pDirectoryWatcher, eOldSorting, oOldAscending, bOldWrapAround);
 	// free current image and all read ahead images
 	InitParametersForNewImage();
 	m_pJPEGProvider->NotifyNotUsed(m_pCurrentImage);

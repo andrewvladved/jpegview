@@ -190,6 +190,18 @@ BEGIN
     PUSHBUTTON      "Cancel",IDCANCEL,214,60,60,16
 END
 
+IDD_SET_VALUE DIALOGEX 8, 7, 178, 62
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_TOOLWINDOW
+FONT 8, "MS Shell Dlg", 0, 0, 0x1
+BEGIN
+    LTEXT           "",IDC_SETVAL_LABEL,10,12,84,10,NOT WS_GROUP
+    EDITTEXT        IDC_SETVAL_EDIT,98,10,40,12,ES_NUMBER | NOT WS_BORDER,WS_EX_CLIENTEDGE
+    LTEXT           "",IDC_SETVAL_UNIT,142,12,30,10,NOT WS_GROUP
+    DEFPUSHBUTTON   "",IDOK,58,38,56,16
+    PUSHBUTTON      "",IDCANCEL,120,38,50,16
+END
+
 IDD_PRINT DIALOGEX 0, 0, 521, 350
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 FONT 8, "MS Shell Dlg", 0, 0, 0x1
@@ -329,6 +341,8 @@ BEGIN
             MENUITEM "Loop folder",                 IDM_LOOP_FOLDER
             MENUITEM "Loop recursively",            IDM_LOOP_RECURSIVELY
             MENUITEM "Loop siblings",               IDM_LOOP_SIBLINGS
+            MENUITEM SEPARATOR
+            MENUITEM "Wrap around folder",          IDM_WRAP_AROUND_FOLDER
         END
         POPUP "Display order"
         BEGIN
@@ -341,17 +355,10 @@ BEGIN
             MENUITEM "Ascending",                   IDM_SORT_ASCENDING
             MENUITEM "Descending",                  IDM_SORT_DESCENDING
         END
-        POPUP "Play folder as slideshow/movie"
+        POPUP "Slideshow"
         BEGIN
             MENUITEM "Slideshow",                   IDM_SLIDESHOW_START
-            MENUITEM "Waiting time\t1 sec",         IDM_SLIDESHOW_1
-            MENUITEM "Waiting time\t2 sec",         IDM_SLIDESHOW_2
-            MENUITEM "Waiting time\t3 sec",         IDM_SLIDESHOW_3
-            MENUITEM "Waiting time\t4 sec",         IDM_SLIDESHOW_4
-            MENUITEM "Waiting time\t5 sec",         IDM_SLIDESHOW_5
-            MENUITEM "Waiting time\t7 sec",         IDM_SLIDESHOW_7
-            MENUITEM "Waiting time\t10 sec",        IDM_SLIDESHOW_10
-            MENUITEM "Waiting time\t20 sec",        IDM_SLIDESHOW_20
+            MENUITEM "Set Waiting Time...",         IDM_SLIDESHOW_SET_TIME
             POPUP "Transition Effect"
             BEGIN
                 MENUITEM "None",                        IDM_EFFECT_NONE
@@ -382,13 +389,8 @@ BEGIN
                 MENUITEM "Very slow",                   IDM_EFFECTTIME_VERY_SLOW
             END
             MENUITEM SEPARATOR
-            MENUITEM "Movie",                           IDM_MOVIE_START_FPS
-            MENUITEM "Playback speed\t5 fps",           IDM_MOVIE_5_FPS
-            MENUITEM "Playback speed\t10 fps",          IDM_MOVIE_10_FPS
-            MENUITEM "Playback speed\t25 fps",          IDM_MOVIE_25_FPS
-            MENUITEM "Playback speed\t30 fps",          IDM_MOVIE_30_FPS
-            MENUITEM "Playback speed\t50 fps",          IDM_MOVIE_50_FPS
-            MENUITEM "Playback speed\t100 fps",         IDM_MOVIE_100_FPS
+            MENUITEM "Movie",                       IDM_MOVIE_START_FPS
+            MENUITEM "Set Playback Speed...",       IDM_MOVIE_SET_SPEED
         END
         MENUITEM SEPARATOR
         POPUP "Transform image"

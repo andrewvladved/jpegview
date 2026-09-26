@@ -54,6 +54,7 @@
 
 #define IDD_SET_CROP_SIZE 3000
 #define IDD_SAVE_ANNOTATIONS 3010
+#define IDD_SET_VALUE 3020
 #define IDC_EDT_X 1001
 #define IDC_EDT_Y 1002
 #define IDC_RB_SCREEN 1003
@@ -142,6 +143,9 @@
 #define IDC_ANNOT_OVERWRITE             2043
 #define IDC_ANNOT_SAVEAS                2044
 #define IDC_ANNOT_DISCARD               2045
+#define IDC_SETVAL_LABEL                2050
+#define IDC_SETVAL_EDIT                 2051
+#define IDC_SETVAL_UNIT                 2052
 
 // this is not used anywhere in code, but defined in KeyMap as an "invalid command", so make sure the defined number doesn't match anything!
 #define IDM_DONOTHING		1			// :KeyMap: do nothing (can be used to disable a standard command for a mouse button)
@@ -180,6 +184,7 @@
 #define IDM_LOOP_FOLDER		6000		// :KeyMap: set navigation mode loop through folder
 #define IDM_LOOP_RECURSIVELY 6010		// :KeyMap: set navigation mode loop through folder and subfolders
 #define IDM_LOOP_SIBLINGS	6020		// :KeyMap: set navigation mode loop through folders on same level
+#define IDM_WRAP_AROUND_FOLDER 6030		// toggles wrap around at the end of the folder, menu only (no key mapping)
 #define IDM_SORT_MOD_DATE	7000		// :KeyMap: sorting order by modification date
 #define IDM_SORT_CREATION_DATE 7010		// :KeyMap: sorting order by creation date
 #define IDM_SORT_NAME		7020		// :KeyMap: sorting order by name
@@ -188,15 +193,8 @@
 #define IDM_SORT_ASCENDING	7100		// :KeyMap: sort ascending (increasing in value, e.g. A->Z, 0->9)
 #define IDM_SORT_DESCENDING 7110		// :KeyMap: sort descending (decreasing in value, e.g. Z->A, 9->0)
 #define IDM_SLIDESHOW_RESUME 7399		// :KeyMap: resume slide show (after stop)
-#define IDM_SLIDESHOW_START 7400
-#define IDM_SLIDESHOW_1		7401
-#define IDM_SLIDESHOW_2		7402
-#define IDM_SLIDESHOW_3		7403
-#define IDM_SLIDESHOW_4		7404
-#define IDM_SLIDESHOW_5		7405
-#define IDM_SLIDESHOW_7		7407
-#define IDM_SLIDESHOW_10	7410
-#define IDM_SLIDESHOW_20	7420
+#define IDM_SLIDESHOW_START 7400		// starts a slide show with the stored waiting time
+#define IDM_SLIDESHOW_SET_TIME 7430	// asks for the slide show waiting time in seconds
 #define IDM_EFFECT_NONE     7450
 #define IDM_EFFECT_BLEND    7451
 #define IDM_EFFECT_SLIDE_RL 7452
@@ -216,13 +214,8 @@
 #define IDM_EFFECTTIME_NORMAL 7472
 #define IDM_EFFECTTIME_SLOW  7473
 #define IDM_EFFECTTIME_VERY_SLOW  7474
-#define IDM_MOVIE_START_FPS 7500 // Pseudo entry (diff of the rest of the IDM_MOVIE_* values used to calculate actual FPS)
-#define IDM_MOVIE_5_FPS		7505
-#define IDM_MOVIE_10_FPS	7510
-#define IDM_MOVIE_25_FPS	7525
-#define IDM_MOVIE_30_FPS	7530
-#define IDM_MOVIE_50_FPS	7550
-#define IDM_MOVIE_100_FPS	7600
+#define IDM_MOVIE_START_FPS 7500	// starts a movie with the stored playback speed
+#define IDM_MOVIE_SET_SPEED 7610	// asks for the movie playback speed in fps
 #define IDM_ROTATE_90		8000		// :KeyMap: rotate image 90 deg
 #define IDM_ROTATE_270		9000		// :KeyMap: rotate image 270 deg
 #define IDM_ROTATE          9100		// :KeyMap: show free rotation dialog
