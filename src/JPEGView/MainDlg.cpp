@@ -786,7 +786,6 @@ LRESULT CMainDlg::OnClose(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL&
 		bHandled = TRUE; // the user cancelled, so the window stays open
 		return 0;
 	}
-	GetWindowRect(m_windowRectOnClose);
 	bHandled = FALSE;
 	return 0;
 }
@@ -4061,11 +4060,14 @@ void CMainDlg::AnimateTransition() {
 
 void CMainDlg::CleanupAndTerminate() {
 	// Every way of quitting lands here - IDM_EXIT from both of JPEGView's own close
-	// buttons, Esc, Alt+F4, movie auto-exit - and none of them raises WM_CLOSE, so this
-	// is the only place that catches them all.
+	// buttons, Esc, Alt+F4, the system close button, movie auto-exit - so this is the
+	// only place that catches them all. Only the system routes raise WM_CLOSE.
 	if (!PromptSaveAnnotations()) {
 		return;
 	}
+	// The sticky window rect is read after the dialog ends, so it has to be taken
+	// while the window still exists - EndDialog() below raises no WM_CLOSE.
+	GetWindowRect(m_windowRectOnClose);
 	StopMovieMode();
 	StopAnimation();
 	delete m_pJPEGProvider; // delete this early to properly shut down the loading threads
