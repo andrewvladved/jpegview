@@ -520,6 +520,15 @@ LRESULT CMainDlg::OnPaint(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 #endif
 
 	std::list<CRect> excludedClippingRects;
+	if (IsPreviewPaneActive() && m_bPreviewOnTop) {
+		// Lying over the image, the pane is in the way of the image painting, which would
+		// otherwise fill its area with the background and leave it that way until the pane is
+		// painted at the end - a whole picture's worth of drawing later. The panels are kept
+		// clear of the same thing this way.
+		CRect paneRect = GetPreviewPaneRect();
+		paneRect.InflateRect(1, 1); // the frame around it, too
+		excludedClippingRects.push_back(paneRect);
+	}
 
 	// Panels are handled over memory DCs to eliminate flickering
 	CPaintMemDCMgr memDCMgr(dc);
@@ -1318,7 +1327,9 @@ LRESULT CMainDlg::OnTimer(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOOL&
 				if (newOffsets != m_offsets) {
 					m_offsets = newOffsets;
 					m_bUserPan = true;
-					this->Invalidate(FALSE);
+					// Only the image moves. Where the pane has a column of its own, that column
+					// shows the same picture from one step to the next and is left untouched.
+					this->InvalidateRect(&m_clientRect, FALSE);
 				}
 			}
 		}
@@ -3569,6 +3580,33 @@ void CMainDlg::PaintPreviewPane(CDC& dc) {
 		return;
 	}
 	CRect paneRect = GetPreviewPaneRect();
+	// The frame belongs to the pane and is drawn with it, so the two reach the screen
+	// together rather than one after the other.
+	CRect outerRect = paneRect;
+	if (m_bPreviewOnTop) {
+		outerRect.InflateRect(1, 1);
+	}
+	int nW = outerRect.Width(), nH = outerRect.Height();
+	if (nW <= 0 || nH <= 0) {
+		return;
+	}
+	CRect clipBox;
+	if (dc.GetClipBox(&clipBox) != NULLREGION) {
+		CRect intersection;
+		if (!intersection.IntersectRect(&clipBox, &outerRect)) {
+			return; // nothing of the pane is being repainted, so nothing here is worth doing
+		}
+	}
+
+	// Everything is put together off screen and blitted once. Filling the pane and then
+	// drawing the picture into it leaves it empty for the moment in between, and while a
+	// folder scrolls past that moment comes thirty times a second.
+	CDC memDC;
+	memDC.CreateCompatibleDC(dc);
+	CBitmap memBitmap;
+	memBitmap.CreateCompatibleBitmap(dc, nW, nH);
+	HBITMAP hOldBitmap = memDC.SelectBitmap(memBitmap);
+
 	// The pane is its own space in both shapes, so it carries its own background: the image
 	// inside keeps its proportions and any margin left over shows the background.
 	COLORREF backColor = CSettingsProvider::This().ColorBackground();
@@ -3577,39 +3615,40 @@ void CMainDlg::PaintPreviewPane(CDC& dc) {
 	}
 	CBrush backBrush;
 	backBrush.CreateSolidBrush(backColor);
-	dc.FillRect(&paneRect, backBrush);
-	if (m_pCurrentImage == NULL) {
-		return;
-	}
+	CRect memRect(0, 0, nW, nH);
+	memDC.FillRect(&memRect, backBrush);
 
-	// The whole image, scaled into the pane and kept in proportion, so nothing is cut off.
-	double dZoom;
-	CSize sizeThumb = Helpers::GetImageRect(m_pCurrentImage->OrigWidth(), m_pCurrentImage->OrigHeight(),
-		paneRect.Width(), paneRect.Height(), Helpers::ZM_FitToScreen, dZoom);
-	sizeThumb = CSize(max(1, sizeThumb.cx), max(1, sizeThumb.cy));
-	void* pDIBData = m_pCurrentImage->GetThumbnailDIB(sizeThumb, *m_pImageProcParams,
-		CreateProcessingFlags(false, m_bAutoContrast, false, m_bLDC, false, m_bLandscapeMode));
-	if (pDIBData == NULL) {
-		return;
+	if (m_pCurrentImage != NULL) {
+		// The whole image, scaled into the pane and kept in proportion, so nothing is cut off.
+		double dZoom;
+		CSize sizeThumb = Helpers::GetImageRect(m_pCurrentImage->OrigWidth(), m_pCurrentImage->OrigHeight(),
+			paneRect.Width(), paneRect.Height(), Helpers::ZM_FitToScreen, dZoom);
+		sizeThumb = CSize(max(1, sizeThumb.cx), max(1, sizeThumb.cy));
+		void* pDIBData = m_pCurrentImage->GetThumbnailDIB(sizeThumb, *m_pImageProcParams,
+			CreateProcessingFlags(false, m_bAutoContrast, false, m_bLDC, false, m_bLandscapeMode));
+		if (pDIBData != NULL) {
+			int xDest = (paneRect.left - outerRect.left) + (paneRect.Width() - sizeThumb.cx) / 2;
+			int yDest = (paneRect.top - outerRect.top) + (paneRect.Height() - sizeThumb.cy) / 2;
+			BITMAPINFO bmInfo = { 0 };
+			bmInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+			bmInfo.bmiHeader.biWidth = sizeThumb.cx;
+			bmInfo.bmiHeader.biHeight = -sizeThumb.cy;
+			bmInfo.bmiHeader.biPlanes = 1;
+			bmInfo.bmiHeader.biBitCount = 32;
+			bmInfo.bmiHeader.biCompression = BI_RGB;
+			memDC.SetDIBitsToDevice(xDest, yDest, sizeThumb.cx, sizeThumb.cy, 0, 0, 0, sizeThumb.cy,
+				pDIBData, &bmInfo, DIB_RGB_COLORS);
+		}
 	}
-	int xDest = paneRect.left + (paneRect.Width() - sizeThumb.cx) / 2;
-	int yDest = paneRect.top + (paneRect.Height() - sizeThumb.cy) / 2;
-	BITMAPINFO bmInfo = { 0 };
-	bmInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-	bmInfo.bmiHeader.biWidth = sizeThumb.cx;
-	bmInfo.bmiHeader.biHeight = -sizeThumb.cy;
-	bmInfo.bmiHeader.biPlanes = 1;
-	bmInfo.bmiHeader.biBitCount = 32;
-	bmInfo.bmiHeader.biCompression = BI_RGB;
-	dc.SetDIBitsToDevice(xDest, yDest, sizeThumb.cx, sizeThumb.cy, 0, 0, 0, sizeThumb.cy, pDIBData,
-		&bmInfo, DIB_RGB_COLORS);
 	if (m_bPreviewOnTop) {
 		// A thin frame, so the pane reads as a window over the image - the zoom navigator
 		// draws the same one around itself.
-		dc.SelectStockBrush(HOLLOW_BRUSH);
-		dc.SelectStockPen(WHITE_PEN);
-		HelpersGUI::DrawRectangle(dc, CRect(paneRect.left - 1, paneRect.top - 1, paneRect.right + 1, paneRect.bottom + 1));
+		memDC.SelectStockBrush(HOLLOW_BRUSH);
+		memDC.SelectStockPen(WHITE_PEN);
+		HelpersGUI::DrawRectangle(memDC, memRect);
 	}
+	dc.BitBlt(outerRect.left, outerRect.top, nW, nH, memDC, 0, 0, SRCCOPY);
+	memDC.SelectBitmap(hOldBitmap);
 }
 
 bool CMainDlg::UseCrossFade() {
