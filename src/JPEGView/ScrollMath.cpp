@@ -7,6 +7,13 @@ void Reset(SState& state, int nMaxOffsetY) {
 	state.dOffsetY = nMaxOffsetY; // a positive offset shows the top of the image
 	state.nPhaseElapsedMs = 0;
 	state.bAdvanceToNextImage = false;
+	state.bMovingUp = false;
+}
+
+void StartMovingDown(SState& state) {
+}
+
+void StartMovingUp(SState& state) {
 }
 
 void Advance(SState& state, int nMaxOffsetY, double dSpeedPixelsPerSecond, int nHoldMs, int nElapsedMs) {

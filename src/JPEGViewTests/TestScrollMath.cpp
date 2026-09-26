@@ -84,3 +84,53 @@ TEST(AnImageThatNeedsNoScrollingIsStillHeldBeforeTheNextOne) {
 	Advance(state, 0, 100.0, 1500, 500);
 	CHECK(state.bAdvanceToNextImage);
 }
+
+// The next image command in scroll mode does not wait out the hold at the top: the image
+// starts gliding down straight away.
+TEST(StartMovingDownSkipsTheWaitAtTheTop) {
+	SState state;
+	Reset(state, 400);
+	Advance(state, 400, 100.0, 10000, 200); // still holding, the wait is ten seconds
+	CHECK(state.ePhase == PHASE_HoldTop);
+	StartMovingDown(state);
+	CHECK(state.ePhase == PHASE_Moving);
+	Advance(state, 400, 100.0, 10000, 1000);
+	CHECK_NEAR(state.dOffsetY, 300.0, 0.001);
+}
+
+// The previous image command sends it the other way, also at once.
+TEST(StartMovingUpGlidesTowardsTheTopEdge) {
+	SState state;
+	Reset(state, 400);
+	StartMovingDown(state);
+	Advance(state, 400, 100.0, 0, 3000); // 300 px down, now at 100
+	CHECK_NEAR(state.dOffsetY, 100.0, 0.001);
+	StartMovingUp(state);
+	Advance(state, 400, 100.0, 0, 1000);
+	CHECK(state.ePhase == PHASE_Moving);
+	CHECK_NEAR(state.dOffsetY, 200.0, 0.001);
+}
+
+TEST(GlidingUpStopsExactlyAtTheTopEdge) {
+	SState state;
+	Reset(state, 400);
+	StartMovingDown(state);
+	Advance(state, 400, 100.0, 0, 3000);
+	StartMovingUp(state);
+	Advance(state, 400, 100.0, 1000, 60000); // far more than enough to get back up
+	CHECK(state.ePhase == PHASE_HoldTop);
+	CHECK_NEAR(state.dOffsetY, 400.0, 0.001);
+	CHECK(!state.bAdvanceToNextImage);
+}
+
+// Having come back up, the cycle carries on as usual: the hold, then down again.
+TEST(AfterGlidingUpTheCycleCarriesOn) {
+	SState state;
+	Reset(state, 400);
+	StartMovingUp(state);
+	Advance(state, 400, 100.0, 1000, 60000); // already at the top, so it holds there
+	CHECK(state.ePhase == PHASE_HoldTop);
+	Advance(state, 400, 100.0, 1000, 1000);
+	CHECK(state.ePhase == PHASE_Moving);
+	CHECK(!state.bMovingUp);
+}

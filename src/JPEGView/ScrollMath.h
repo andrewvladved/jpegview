@@ -27,10 +27,17 @@ namespace ScrollMath {
 		double dOffsetY;
 		int nPhaseElapsedMs;
 		bool bAdvanceToNextImage;
+		bool bMovingUp;
 	};
 
 	// Parks a freshly loaded image at its top edge.
 	void Reset(SState& state, int nMaxOffsetY);
+
+	// Starts gliding at once, in either direction, whatever the cycle was doing. This is
+	// what the next and previous image commands do while scroll mode runs: rather than
+	// waiting out the hold, the image starts moving straight away.
+	void StartMovingDown(SState& state);
+	void StartMovingUp(SState& state);
 
 	// Moves the cycle on by nElapsedMs. dSpeedPixelsPerSecond is measured on screen, and
 	// nHoldMs is how long to stand still at each end.
