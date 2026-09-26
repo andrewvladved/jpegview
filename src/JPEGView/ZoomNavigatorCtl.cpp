@@ -35,7 +35,11 @@ bool CZoomNavigatorCtl::IsVisible() {
 }
 
 bool CZoomNavigatorCtl::IsActive() {
-	return m_pMainDlg->GetCurrentImage() != NULL && CSettingsProvider::This().ShowZoomNavigator();
+	// The preview pane takes the navigator's place while it is up, so the navigator is
+	// switched off entirely - not only unpainted, but out of hit testing and redrawing
+	// too, which is what left it appearing over the pane.
+	return m_pMainDlg->GetCurrentImage() != NULL && CSettingsProvider::This().ShowZoomNavigator()
+		&& !m_pMainDlg->IsPreviewPaneActive();
 }
 
 CRect CZoomNavigatorCtl::PanelRect() {

@@ -53,6 +53,9 @@
 #define IDC_NUMCORES 1007
 
 #define IDD_SET_CROP_SIZE 3000
+#define IDD_SAVE_ANNOTATIONS 3010
+#define IDD_SET_VALUE 3020
+#define IDD_PREVIEW_SETTINGS 3030
 #define IDC_EDT_X 1001
 #define IDC_EDT_Y 1002
 #define IDC_RB_SCREEN 1003
@@ -134,6 +137,22 @@
 #define IDC_PD_BOTTOM_TITLE             2035
 #define IDC_PD_ED_BOTTOM                2036
 #define IDC_PD_CM3                      2037
+#define IDC_ANNOTATION_EDIT             2040
+#define IDC_ANNOTATION_VALUE_EDIT       2046
+#define IDC_ANNOT_TITLE                 2041
+#define IDC_ANNOT_FILENAME              2042
+#define IDC_ANNOT_OVERWRITE             2043
+#define IDC_ANNOT_SAVEAS                2044
+#define IDC_ANNOT_DISCARD               2045
+#define IDC_SETVAL_LABEL                2050
+#define IDC_SETVAL_EDIT                 2051
+#define IDC_SETVAL_UNIT                 2052
+#define IDC_PV_LBL_SIZE                 2060
+#define IDC_PV_SIZE                     2061
+#define IDC_PV_LBL_PERCENT              2062
+#define IDC_PV_LBL_SIDE                 2063
+#define IDC_PV_RB_LEFT                  2064
+#define IDC_PV_RB_RIGHT                 2065
 
 // this is not used anywhere in code, but defined in KeyMap as an "invalid command", so make sure the defined number doesn't match anything!
 #define IDM_DONOTHING		1			// :KeyMap: do nothing (can be used to disable a standard command for a mouse button)
@@ -172,6 +191,7 @@
 #define IDM_LOOP_FOLDER		6000		// :KeyMap: set navigation mode loop through folder
 #define IDM_LOOP_RECURSIVELY 6010		// :KeyMap: set navigation mode loop through folder and subfolders
 #define IDM_LOOP_SIBLINGS	6020		// :KeyMap: set navigation mode loop through folders on same level
+#define IDM_WRAP_AROUND_FOLDER 6030		// toggles wrap around at the end of the folder, menu only (no key mapping)
 #define IDM_SORT_MOD_DATE	7000		// :KeyMap: sorting order by modification date
 #define IDM_SORT_CREATION_DATE 7010		// :KeyMap: sorting order by creation date
 #define IDM_SORT_NAME		7020		// :KeyMap: sorting order by name
@@ -180,15 +200,17 @@
 #define IDM_SORT_ASCENDING	7100		// :KeyMap: sort ascending (increasing in value, e.g. A->Z, 0->9)
 #define IDM_SORT_DESCENDING 7110		// :KeyMap: sort descending (decreasing in value, e.g. Z->A, 9->0)
 #define IDM_SLIDESHOW_RESUME 7399		// :KeyMap: resume slide show (after stop)
-#define IDM_SLIDESHOW_START 7400
-#define IDM_SLIDESHOW_1		7401
-#define IDM_SLIDESHOW_2		7402
-#define IDM_SLIDESHOW_3		7403
-#define IDM_SLIDESHOW_4		7404
-#define IDM_SLIDESHOW_5		7405
-#define IDM_SLIDESHOW_7		7407
-#define IDM_SLIDESHOW_10	7410
-#define IDM_SLIDESHOW_20	7420
+#define IDM_SLIDESHOW_START 7400		// starts a slide show with the stored waiting time
+#define IDM_SLIDESHOW_SET_TIME 7430	// asks for the slide show waiting time in seconds
+#define IDM_SCROLL_START 7440		// starts scroll mode, menu only (no key mapping)
+#define IDM_SCROLL_SET_SPEED 7441	// asks for the scroll speed in pixels per second
+#define IDM_SCROLL_SET_TIME 7442	// asks for how long to hold at each end, in seconds
+#define IDM_SCROLL_FILL_WITH_CROP 7443	// scroll mode fills the window with the image, menu only (no key mapping)
+#define IDM_SET_TRANSITION_TIME 7444	// asks for the length of the crossfade between images, in milliseconds
+#define IDM_CROSS_FADE 7445		// toggles the crossfade between images in every mode, menu only (no key mapping)
+#define IDM_PREVIEW 7446		// toggles the preview pane shown beside the image while playing, menu only (no key mapping)
+#define IDM_SET_PREVIEW_SETTINGS 7447	// asks for the size and the side of the preview pane
+#define IDM_PREVIEW_ON_TOP 7448		// draws the preview pane over the image instead of beside it, menu only (no key mapping)
 #define IDM_EFFECT_NONE     7450
 #define IDM_EFFECT_BLEND    7451
 #define IDM_EFFECT_SLIDE_RL 7452
@@ -208,13 +230,8 @@
 #define IDM_EFFECTTIME_NORMAL 7472
 #define IDM_EFFECTTIME_SLOW  7473
 #define IDM_EFFECTTIME_VERY_SLOW  7474
-#define IDM_MOVIE_START_FPS 7500 // Pseudo entry (diff of the rest of the IDM_MOVIE_* values used to calculate actual FPS)
-#define IDM_MOVIE_5_FPS		7505
-#define IDM_MOVIE_10_FPS	7510
-#define IDM_MOVIE_25_FPS	7525
-#define IDM_MOVIE_30_FPS	7530
-#define IDM_MOVIE_50_FPS	7550
-#define IDM_MOVIE_100_FPS	7600
+#define IDM_MOVIE_START_FPS 7500	// starts a movie with the stored playback speed
+#define IDM_MOVIE_SET_SPEED 7610	// asks for the movie playback speed in fps
 #define IDM_ROTATE_90		8000		// :KeyMap: rotate image 90 deg
 #define IDM_ROTATE_270		9000		// :KeyMap: rotate image 270 deg
 #define IDM_ROTATE          9100		// :KeyMap: show free rotation dialog
@@ -246,6 +263,9 @@
 #define IDM_FULL_SCREEN_MODE 12011		// :KeyMap: toggle full screen mode
 #define IDM_HIDE_TITLE_BAR  12012		// :KeyMap: toggle hiding window title bar.  Note: in this mode, the window can't be manually resized
 #define IDM_ALWAYS_ON_TOP   12013		// :KeyMap: toggle window mode to always on top
+#define IDM_TRANSPARENT_TITLE_BAR 12014		// :KeyMap: toggle transparent window title bar (shows only the file path and the window buttons over the image)
+#define IDM_MAXIMIZE_RESTORE 12015		// :KeyMap: maximize the window, or restore it when it is maximized
+#define IDM_RELATIVE_ZOOM_MODE 12016		// toggles relative zoom mode - the image fitted to the window counts as 100%, menu only (no key mapping)
 #define IDM_ZOOM_400        12020		// :KeyMap: zoom to 400 %
 #define IDM_ZOOM_200		12030		// :KeyMap: zoom to 200 %
 #define IDM_ZOOM_100		12040		// :KeyMap: zoom to 100 %
@@ -313,6 +333,17 @@
 #define IDM_CROPMODE_IMAGE         20899
 #define IDM_CROPMODE_USER          20900
 
+// annotation commands
+#define IDM_ANNOTATE_FREEHAND   21000		// :KeyMap: select the freehand annotation tool, press again to toggle the arrow head
+#define IDM_ANNOTATE_TEXT       21001		// :KeyMap: select the text annotation tool, press again to toggle the filled background
+#define IDM_ANNOTATE_RECT       21002		// :KeyMap: select the shape annotation tool, press again for the next shape
+#define IDM_ANNOTATE_UNDO       21003		// :KeyMap: undo the last annotation
+#define IDM_ANNOTATE_REDO       21004		// :KeyMap: redo the last undone annotation
+#define IDM_ANNOTATE_CLEAR      21005		// :KeyMap: remove all annotations from the current image
+#define IDM_ANNOTATE_OFF        21006		// :KeyMap: leave annotation mode
+#define IDM_ANNOTATE_APPLY_SAVE 21007		// :KeyMap: burn the annotations into the image and save it
+#define IDM_ANNOTATE_FILL       21008		// :KeyMap: fill the shapes instead of drawing their outline
+
 #define IDM_FIRST_USER_CMD  22000
 #define IDM_LAST_USER_CMD   22099
 
@@ -324,15 +355,15 @@
 #define SUBMENU_POS_OPENWITH 3
 #define SUBMENU_POS_MODDATE 9
 #define SUBMENU_POS_WALLPAPER 10
-#define SUBMENU_POS_NAVIGATION 23
-#define SUBMENU_POS_DISPLAY_ORDER 24
-#define SUBMENU_POS_MOVIE 25
-#define SUBMENU_POS_TRANSFORM 27
-#define SUBMENU_POS_TRANSFORM_LOSSLESS 28
-#define SUBMENU_POS_ZOOM 36
-#define SUBMENU_POS_AUTOZOOMMODE 37
-#define SUBMENU_POS_SETTINGS 39
-#define SUBMENU_POS_USER_COMMANDS 41
+#define SUBMENU_POS_NAVIGATION 24
+#define SUBMENU_POS_DISPLAY_ORDER 25
+#define SUBMENU_POS_MOVIE 26
+#define SUBMENU_POS_TRANSFORM 28
+#define SUBMENU_POS_TRANSFORM_LOSSLESS 30
+#define SUBMENU_POS_ZOOM 38
+#define SUBMENU_POS_AUTOZOOMMODE 0	// inside the zoom submenu, not in the main menu
+#define SUBMENU_POS_SETTINGS 40
+#define SUBMENU_POS_USER_COMMANDS 42
 
 // in the crop menu
 #define SUBMENU_POS_CROPMODE 3

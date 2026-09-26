@@ -1,4 +1,4 @@
-// Main dialog of JPEGView
+﻿// Main dialog of JPEGView
 /////////////////////////////////////////////////////////////////////////////
 
 #pragma once
@@ -7,6 +7,8 @@
 #include "ProcessParams.h"
 #include "Helpers.h"
 #include "CropCtl.h"
+#include "AnnotationCtl.h"
+#include "ScrollMath.h"
 
 class CFileList;
 class CJPEGProvider;
@@ -23,6 +25,8 @@ class CTiltCorrectionPanelCtl;
 class CUnsharpMaskPanelCtl;
 class CWndButtonPanelCtl;
 class CInfoButtonPanelCtl;
+class CTitleBarPanelCtl;
+class CAnnotationStylePanelCtl;
 class CZoomNavigatorCtl;
 class CCropCtl;
 class CKeyMap;
@@ -35,7 +39,7 @@ enum EMouseEvent;
 
 // The main dialog is a full screen modal dialog with no border and no window title.
 // This dialog is the main window of the JPEGView application.
-class CMainDlg : public CDialogImpl<CMainDlg>
+class CMainDlg : public CDialogImpl<CMainDlg>, public IAnnotationHost
 {
 public:
 	enum { IDD = IDD_MAINDLG };
@@ -64,6 +68,9 @@ public:
 		MESSAGE_HANDLER(WM_GETMINMAXINFO, OnGetMinMaxInfo)
 		MESSAGE_HANDLER(WM_PAINT, OnPaint)
 		MESSAGE_HANDLER(WM_NCHITTEST, OnNCHitTest)
+		MESSAGE_HANDLER(WM_NCCALCSIZE, OnNCCalcSize)
+		MESSAGE_HANDLER(WM_NCACTIVATE, OnNCActivate)
+		MESSAGE_HANDLER(WM_NCPAINT, OnNCPaint)
 		MESSAGE_HANDLER(WM_NCLBUTTONDOWN, OnNCLButtonDown)
 		MESSAGE_HANDLER(WM_LBUTTONDOWN, OnLButtonDown)
 		MESSAGE_HANDLER(WM_LBUTTONUP, OnLButtonUp)
@@ -109,6 +116,9 @@ public:
 	LRESULT OnLButtonDown(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnNCLButtonDown(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnNCHitTest(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
+	LRESULT OnNCCalcSize(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
+	LRESULT OnNCActivate(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOOL& bHandled);
+	LRESULT OnNCPaint(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& bHandled);
 	LRESULT OnRButtonDown(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnRButtonUp(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnLButtonUp(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
@@ -158,6 +168,7 @@ public:
 	bool IsPanMouseCursorSet() { return m_bPanMouseCursorSet; }
 	bool IsMouseOn() { return m_bMouseOn; }
 	bool IsWindowBorderless() { return m_bWindowBorderless; }
+	bool IsTransparentTitleBar() { return m_bTransparentTitleBar; }
 	bool IsAlwaysOnTop() { return m_bAlwaysOnTop; }
 
 	CPoint GetMousePos() { return CPoint(m_nMouseX, m_nMouseY); }
@@ -176,8 +187,24 @@ public:
 	CZoomNavigatorCtl* GetZoomNavigatorCtl() { return m_pZoomNavigatorCtl; }
 	CWndButtonPanelCtl* GetWndButtonPanelCtl() { return m_pWndButtonPanelCtl; }
 	CInfoButtonPanelCtl* GetInfoButtonPanelCtl() { return m_pInfoButtonPanelCtl; }
+	CTitleBarPanelCtl* GetTitleBarPanelCtl() { return m_pTitleBarPanelCtl; }
+	CAnnotationStylePanelCtl* GetAnnotationStylePanelCtl() { return m_pAnnotationStylePanelCtl; }
 	CCropCtl* GetCropCtl() { return m_pCropCtl; }
+	CAnnotationCtl* GetAnnotationCtl() { return m_pAnnotationCtl; }
+	// Called by the style strip when the user clicks the Opacity or Line width number,
+	// to put an edit box over that field.
+	void StartAnnotationValueEdit(int nWhich, const CRect& rcField, int nCurrentValue, int nMin, int nMax);
+	bool IsAnnotating() { return m_pAnnotationCtl != NULL && m_pAnnotationCtl->IsAnnotating(); }
+
+	// IAnnotationHost - lets CAnnotationCtl place annotations without knowing this class.
+	virtual CPoint GetImageOrigin() { return m_ptImageOrigin; }
+	virtual float GetRealizedZoom() { return (m_dRealizedZoom > 0.0) ? (float)m_dRealizedZoom : 1.0f; }
+	virtual CSize GetImageSize();
+	virtual void InvalidateScreenRect(const CRect& rect) { this->InvalidateRect(&rect, FALSE); }
 	const CRect& ClientRect() { return m_clientRect; }
+	// The preview pane beside the image while a folder is playing. It has nothing to do
+	// with the zoom navigator JPEGView shows on its own, which stands down while it is up.
+	bool IsPreviewPaneActive();
 	const CRect& WindowRectOnClose() { return m_windowRectOnClose; } // only valid after having closed the window
 	const CRect& MonitorRect() { return m_monitorRect; }
 	const CSize& VirtualImageSize() { return m_virtualImageSize; }
@@ -208,6 +235,7 @@ public:
 	bool ScreenToImage(float & fX, float & fY); 
 	bool ImageToScreen(float & fX, float & fY);
 	void ExecuteCommand(int nCommand);
+	bool PromptSaveAnnotations(); // false means the caller must abandon what it was about to do
 	bool PrepareForModalPanel(); // returns if navigation panel was enabled, turns it off
 	int TrackPopupMenu(CPoint pos, HMENU hMenu);
 	void AdjustWindowToImage(bool bAfterStartup);
@@ -289,6 +317,18 @@ private:
 	bool m_bShowFileName;
 	bool m_bFullScreenMode;
 	bool m_bAutoFitWndToImage;
+	bool m_bRelativeZoom;
+	double m_dRelativeZoomFactor; // current zoom as a multiple of the fitted image
+	bool m_bScrollMode;
+	bool m_bScrollFillWithCrop;
+	bool m_bCrossFade;
+	bool m_bPreview;
+	int m_nPreviewSize;
+	bool m_bPreviewOnLeft;
+	bool m_bPreviewOnTop;
+	bool m_bRelativeZoomTemporary; // relative zoom switched on by scroll mode, not by the user
+	ScrollMath::SState m_scrollState;
+	DWORD m_nScrollLastTick;
 	bool m_bLockPaint;
 	int m_nCurrentTimeout;
 	POINT m_startMouse;
@@ -311,12 +351,34 @@ private:
 	CString m_sSaveDirectory;
 	CString m_sSaveExtension;
 	CCropCtl* m_pCropCtl;
+	CAnnotationCtl* m_pAnnotationCtl;
+	CPoint m_ptImageOrigin; // screen position of the image's top left corner, set in OnPaint
+	CEdit m_annotationEdit;
+	CFont m_annotationEditFont;
+	bool m_bAnnotationEditActive;
+	CEdit m_annotationValueEdit;
+	CFont m_annotationValueEditFont;
+	bool m_bAnnotationValueEditActive;
+	int m_nAnnotationValueEditWhich;
+	int m_nAnnotationValueEditMin, m_nAnnotationValueEditMax;
+	bool m_bAnnotationsBurnedIn;   // the pixels already carry them; do not burn twice
+	bool m_bInSaveAnnotationsPrompt; // the prompt runs a message loop, so it can re-enter
+	void PaintAnnotations(CPaintDC& dc, const CPoint& ptDIBStart, const CSize& clippedSize, void* pDIBData, BITMAPINFO* pBitmapInfo);
+	void StartAnnotationTextEdit();
+	void DestroyAnnotationEdit(CEdit& edit, bool& bActive);
+	void OnAnnotationTextCommitted();
+	void OnAnnotationTextCancelled();
+	void CommitAnnotationValueEdit();
+	void CancelAnnotationValueEdit();
+	bool IsAnnotationValueEditActive() { return m_bAnnotationValueEditActive; }
 	CZoomNavigatorCtl* m_pZoomNavigatorCtl;
 	CImageProcPanelCtl* m_pImageProcPanelCtl;
 	CNavigationPanelCtl* m_pNavPanelCtl;
 	CEXIFDisplayCtl* m_pEXIFDisplayCtl;
 	CWndButtonPanelCtl* m_pWndButtonPanelCtl;
 	CInfoButtonPanelCtl* m_pInfoButtonPanelCtl;
+	CTitleBarPanelCtl* m_pTitleBarPanelCtl;
+	CAnnotationStylePanelCtl* m_pAnnotationStylePanelCtl;
 	CUnsharpMaskPanelCtl* m_pUnsharpMaskPanelCtl;
 	CRotationPanelCtl* m_pRotationPanelCtl;
 	CTiltCorrectionPanelCtl* m_pTiltCorrectionPanelCtl;
@@ -331,10 +393,13 @@ private:
 	bool m_isBeforeFileSelected;
 	double m_dLastImageDisplayTime;
 	bool m_bWindowBorderless;
+	bool m_bTransparentTitleBar;
 	bool m_bAlwaysOnTop;
 	bool m_bSelectZoom;  // keeps track of select-to-zoom mode when CTRL+SHIFT+LMouse
 
 	void ExploreFile();
+	// Switches the window between having a system title bar and being borderless
+	void SetWindowBorderless(bool bBorderless);
 	bool OpenFileWithDialog(bool bFullScreen, bool bAfterStartup);
 	void OpenFile(LPCTSTR sFileName, bool bAfterStartup);
 	bool SaveImage(bool bFullSize);
@@ -351,6 +416,25 @@ private:
 	bool PerformZoom(double dValue, bool bExponent, bool bZoomToMouse, bool bAdjustWindowToImage);
 	void ZoomToSelection();
 	double GetZoomFactorForFitToScreen(bool bFillWithCrop, bool bAllowEnlarge);
+	// 1.0 normally; the zoom that fits the image to the window in relative zoom mode
+	double RelativeZoomBase();
+	// Scroll mode: fill the window with the image, hold at its top edge, glide down to
+	// the bottom edge, hold again, then move on to the next image.
+	void StartScrollMode();
+	void StopScrollMode();
+	void SetupScrollForCurrentImage();
+	// Hands over to another image with a crossfade when the mode is on: the two frames
+	// are painted into memory DCs and blended into each other.
+	void GotoImageWithTransition(EImagePosition ePos, int nFlags);
+	bool UseCrossFade();
+	CRect GetPreviewPaneRect();
+	void PaintPreviewPane(CDC& dc);
+	// Reads the client rectangle and takes the preview pane out of it when the pane is
+	// not drawn on top, so everything measured against it lands beside the pane.
+	void UpdateClientRect();
+	int CrossFadeDurationMs();
+	int GetScrollMaxOffsetY();
+	double GetScrollZoom();
 	CProcessParams CreateProcessParams(bool bNoProcessingAfterLoad);
 	void ResetParamsToDefault();
 	void StartSlideShowTimer(int nMilliSeconds);

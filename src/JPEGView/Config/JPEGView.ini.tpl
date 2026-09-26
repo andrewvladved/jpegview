@@ -151,6 +151,20 @@ MinimalWindowSize=320 240
 ; The window mode can be changed after startup
 WindowBorderlessOnStartup=false
 
+; If set to 'true', window starts with a transparent title bar
+; (only the file path and the window buttons are painted on top of the image)
+; The window mode can be changed after startup
+TransparentTitleBarOnStartup=false
+
+; Default colour for annotations (freehand, text, rectangles), R G B format as used by BackgroundColor
+AnnotationColor=255 0 0
+; Default annotation opacity in percent, 0 (invisible) .. 100 (opaque)
+AnnotationOpacity=70
+; Default annotation line width in screen pixels
+AnnotationPenWidth=4
+; Default annotation font size in screen pixels
+AnnotationFontSize=24
+
 ; If set to 'true', window starts in always-on-top mode (window will always be visible on top of other windows)
 ; The window mode can be changed after startup
 WindowAlwaysOnTopOnStartup=false
@@ -302,6 +316,11 @@ AutoZoomModeFullscreen=
 ; default: 100
 ; set to 0 to disable the pause
 ZoomPausePercent=100
+
+; Relative zoom mode: the image fitted to the window counts as 100%, so a zoom command
+; magnifies every image by the same amount regardless of its pixel size.
+; The 'Relative zoom mode' entry of the Zoom submenu writes this value.
+RelativeZoomMode=false
 
 ; -----------------------------------------------
 ; - ADVANCED IMAGE CORRECTION PARAMETERS
@@ -514,6 +533,52 @@ SlideShowTransitionEffect=Blend
 
 ; Time of the slide show transition effect in milliseconds, only used in full screen mode
 SlideShowEffectTime=250
+
+; Waiting time in seconds used by the 'Slideshow' entry of the context menu.
+; The 'Set Waiting Time' entry of the same menu writes this value.
+SlideShowWaitTime=3
+
+; Playback speed in frames per second used by the 'Movie' entry of the context menu.
+; The 'Set Playback Speed' entry of the same menu writes this value.
+MoviePlaybackSpeed=5
+
+; Scroll mode: how fast the image glides down, in screen pixels per second.
+; The 'Set Scroll Speed' entry of the Slideshow submenu writes this value.
+ScrollSpeed=100
+
+; Scroll mode: how long to stand still at the top and at the bottom of each image,
+; in seconds. Zero means no pause.
+; The 'Set Scroll Time' entry of the Slideshow submenu writes this value.
+ScrollTime=2
+
+; Scroll mode: whether the image is scaled to fill the window before gliding through it.
+; With this off the image keeps the zoom it has, relative zoom mode is switched on for the
+; duration if it is not on already, and scroll mode glides through whatever sticks out.
+; The 'Fill with crop' entry of the Slideshow submenu writes this value.
+ScrollFillWithCrop=true
+
+; Whether one image is cross faded into the next in scroll, slide show and movie mode.
+; The length of the fade is SlideShowEffectTime, which the 'Set Transition Time' entry
+; of the Slideshow submenu writes.
+; The 'Cross fade' entry of the same submenu writes this value.
+CrossFade=true
+
+; A preview pane showing the whole image beside it while scroll, slide show or movie mode
+; is playing. It has nothing to do with the zoom navigator JPEGView shows on its own, and
+; it appears in no other mode.
+; The 'Preview' entry of the Slideshow submenu writes this value.
+Preview=false
+
+; How much of the window width the preview pane takes, in percent, from 10 to 100.
+PreviewSize=25
+
+; Which side the preview pane is on: Right or Left.
+PreviewSide=Right
+
+; true draws the preview pane over the image, false makes the image step aside so the two
+; split the window between them.
+; The 'Set Preview Settings' entry of the Slideshow submenu writes these three values.
+PreviewOnTop=true
 
 
 

@@ -70,6 +70,41 @@ public:
 	int MaxSlideShowFileListSize() { return m_nMaxSlideShowFileListSize; }
 	Helpers::ETransitionEffect SlideShowTransitionEffect() { return m_eSlideShowTransitionEffect; }
 	int SlideShowEffectTimeMs() { return m_nSlideShowEffectTimeMs; }
+	// Waiting time in seconds used by the Slideshow menu entry, and playback speed in
+	// frames per second used by the Movie entry. Both are asked for in a dialog and
+	// written back to the INI file, so they survive a restart.
+	int SlideShowWaitTime() { return m_nSlideShowWaitTime; }
+	int MoviePlaybackSpeed() { return m_nMoviePlaybackSpeed; }
+	// Scroll mode: how fast the image glides, in screen pixels per second, and how long
+	// it stands still at each end, in seconds. Both are asked for in a dialog.
+	int ScrollSpeed() { return m_nScrollSpeed; }
+	int ScrollTime() { return m_nScrollTime; }
+	// Whether scroll mode fills the window with the image before gliding through it.
+	// With it off the image keeps the zoom it has and scroll mode glides through
+	// whatever sticks out at that zoom.
+	bool ScrollFillWithCrop() { return m_bScrollFillWithCrop; }
+	// Whether images are cross faded into each other in scroll, slide show and movie
+	// mode. The length of the fade is SlideShowEffectTime.
+	bool CrossFade() { return m_bCrossFade; }
+	// The preview pane beside the image while scroll, slide show or movie mode is
+	// playing. It is unrelated to the zoom navigator JPEGView shows on its own.
+	bool Preview() { return m_bPreview; }
+	int PreviewSize() { return m_nPreviewSize; }
+	bool PreviewOnLeft() { return m_bPreviewOnLeft; }
+	bool PreviewOnTop() { return m_bPreviewOnTop; }
+
+	// Bounds shared by the INI clamp and by the dialogs asking for these two values
+	static const int MIN_SLIDESHOW_WAIT_TIME = 1;
+	static const int MAX_SLIDESHOW_WAIT_TIME = 3600;
+	static const int MIN_MOVIE_PLAYBACK_SPEED = 1;
+	static const int MAX_MOVIE_PLAYBACK_SPEED = 200;
+	static const int MIN_SCROLL_SPEED = 1;
+	static const int MAX_SCROLL_SPEED = 5000;
+	static const int MIN_SCROLL_TIME = 0; // zero means no pause at the ends
+	static const int MAX_SCROLL_TIME = 600;
+	static const int MIN_TRANSITION_TIME = 100;
+	static const int MAX_TRANSITION_TIME = 5000;
+
 	bool ForceGDIPlus() { return m_bForceGDIPlus; }
 	bool SingleInstance() { return m_bSingleInstance; }
 	bool SingleFullScreenInstance() { return m_bSingleFullScreenInstance; }
@@ -108,6 +143,16 @@ public:
 	COLORREF ColorSlider() { return m_colorSlider; }
 	COLORREF ColorFileName() { return m_colorFileName; }
 	COLORREF ColorTransparency() { return m_colorTransparency; }
+	// Annotation defaults. Sizes are in screen pixels; CAnnotationCtl converts them
+	// to image pixels using the current zoom when an element is created.
+	COLORREF AnnotationColor() { return m_colorAnnotation; }
+	int AnnotationOpacity() { return m_nAnnotationOpacity; } // percent, 0 .. 100
+	int AnnotationPenWidth() { return m_nAnnotationPenWidth; }
+	int AnnotationFontSize() { return m_nAnnotationFontSize; }
+	COLORREF AnnotationTextBackColor() { return m_colorAnnotationTextBack; }
+
+	// Remembers the style the user last picked, so it survives a restart.
+	void SaveAnnotationStyle(COLORREF color, int nOpacityPercent, int nPenWidth, int nFontSize, COLORREF backColor);
 	LPCTSTR DefaultGUIFont() { return m_defaultGUIFont; }
 	LPCTSTR FileNameFont() { return m_fileNameFont; }
 	const CUnsharpMaskParams& UnsharpMaskParams() { return m_unsharpMaskParms; }
@@ -131,9 +176,15 @@ public:
 	bool FlashWindowAlert() { return m_bFlashWindowAlert; }
 	bool BeepSoundAlert() { return m_bBeepSoundAlert; }
 	bool WindowBorderlessOnStartup() { return m_bWindowBorderlessOnStartup; }
+	bool TransparentTitleBarOnStartup() { return m_bTransparentTitleBarOnStartup; }
 	bool WindowAlwaysOnTopOnStartup() { return m_bWindowAlwaysOnTopOnStartup; }
 
 	double ZoomPauseFactor() { return m_zoomPauseFactor; }  // while internally this is represented in doubles, using a whole number percent simplifies it for the user... configuring doubles is not user friendly at all
+
+	// Relative zoom mode: the image fitted to the window counts as 100%, so every zoom
+	// command is expressed against that instead of against the image's own pixel size.
+	// The Zoom submenu toggles it and writes it back to the INI file.
+	bool RelativeZoomMode() { return m_bRelativeZoomMode; }
 
 	// Returns if a user INI file exists
 	bool ExistsUserINI();
@@ -157,6 +208,24 @@ public:
 
 	// Saves the sticky window size to the INI file
 	void SaveStickyWindowRect(CRect rect);
+
+	// Saves the slide show waiting time / the movie playback speed to the INI file
+	void SaveSlideShowWaitTime(int nSeconds);
+	void SaveMoviePlaybackSpeed(int nFPS);
+
+	// Saves the relative zoom mode flag to the INI file
+	void SaveRelativeZoomMode(bool bRelativeZoomMode);
+
+	// Saves the scroll speed / the time scroll mode holds at each end to the INI file
+	void SaveScrollSpeed(int nPixelsPerSecond);
+	void SaveScrollTime(int nSeconds);
+	void SaveScrollFillWithCrop(bool bFillWithCrop);
+	void SaveCrossFade(bool bCrossFade);
+	void SavePreview(bool bPreview);
+	void SavePreviewSettings(int nSizePercent, bool bOnLeft);
+	void SavePreviewOnTop(bool bOnTop);
+	// Saves the length of the transition between two images to the INI file
+	void SaveSlideShowEffectTime(int nMilliseconds);
 	
 	// Update user settings with settings from INI file template
 	void UpdateUserSettings();
@@ -241,6 +310,17 @@ private:
 	int m_nMaxSlideShowFileListSize;
 	Helpers::ETransitionEffect m_eSlideShowTransitionEffect;
 	int m_nSlideShowEffectTimeMs;
+	int m_nSlideShowWaitTime;
+	int m_nMoviePlaybackSpeed;
+	bool m_bRelativeZoomMode;
+	int m_nScrollSpeed;
+	int m_nScrollTime;
+	bool m_bScrollFillWithCrop;
+	bool m_bCrossFade;
+	bool m_bPreview;
+	int m_nPreviewSize;
+	bool m_bPreviewOnLeft;
+	bool m_bPreviewOnTop;
 	bool m_bForceGDIPlus;
 	bool m_bSingleInstance;
 	bool m_bSingleFullScreenInstance;
@@ -278,6 +358,11 @@ private:
 	COLORREF m_colorSlider;
 	COLORREF m_colorFileName;
 	COLORREF m_colorTransparency;
+	COLORREF m_colorAnnotation;
+	int m_nAnnotationOpacity;
+	int m_nAnnotationPenWidth;
+	int m_nAnnotationFontSize;
+	COLORREF m_colorAnnotationTextBack;
 	CString m_defaultGUIFont;
 	CString m_fileNameFont;
 	CUnsharpMaskParams m_unsharpMaskParms;
@@ -302,6 +387,7 @@ private:
 	bool m_bBeepSoundAlert;
 	int m_zoomPauseFactor;
 	bool m_bWindowBorderlessOnStartup;
+	bool m_bTransparentTitleBarOnStartup;
 	bool m_bWindowAlwaysOnTopOnStartup;
 
 	std::list<CUserCommand*> m_userCommands;

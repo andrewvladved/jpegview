@@ -177,6 +177,46 @@ BEGIN
     LTEXT           "Pixel",IDC_RS_PIXELS2,184,42,69,12
 END
 
+IDD_SAVE_ANNOTATIONS DIALOGEX 0, 0, 284, 88
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "JPEGView"
+FONT 8, "MS Shell Dlg", 0, 0, 0x1
+BEGIN
+    LTEXT           "",IDC_ANNOT_TITLE,10,10,264,18
+    LTEXT           "",IDC_ANNOT_FILENAME,10,30,264,12
+    PUSHBUTTON      "Overwrite",IDC_ANNOT_OVERWRITE,10,60,62,16
+    PUSHBUTTON      "Save as...",IDC_ANNOT_SAVEAS,78,60,62,16
+    PUSHBUTTON      "Do not save",IDC_ANNOT_DISCARD,146,60,62,16
+    PUSHBUTTON      "Cancel",IDCANCEL,214,60,60,16
+END
+
+IDD_PREVIEW_SETTINGS DIALOGEX 8, 7, 200, 86
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_TOOLWINDOW
+FONT 8, "MS Shell Dlg", 0, 0, 0x1
+BEGIN
+    LTEXT           "",IDC_PV_LBL_SIZE,10,13,70,10,NOT WS_GROUP
+    COMBOBOX        IDC_PV_SIZE,84,11,44,120,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "%",IDC_PV_LBL_PERCENT,134,13,16,10,NOT WS_GROUP
+    LTEXT           "",IDC_PV_LBL_SIDE,10,36,70,10,NOT WS_GROUP
+    CONTROL         "",IDC_PV_RB_LEFT,"Button",BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,84,35,52,10
+    CONTROL         "",IDC_PV_RB_RIGHT,"Button",BS_AUTORADIOBUTTON,140,35,52,10
+    DEFPUSHBUTTON   "",IDOK,76,58,56,16
+    PUSHBUTTON      "",IDCANCEL,138,58,54,16
+END
+
+IDD_SET_VALUE DIALOGEX 8, 7, 178, 62
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_TOOLWINDOW
+FONT 8, "MS Shell Dlg", 0, 0, 0x1
+BEGIN
+    LTEXT           "",IDC_SETVAL_LABEL,10,12,84,10,NOT WS_GROUP
+    EDITTEXT        IDC_SETVAL_EDIT,98,10,40,12,ES_NUMBER | NOT WS_BORDER,WS_EX_CLIENTEDGE
+    LTEXT           "",IDC_SETVAL_UNIT,142,12,30,10,NOT WS_GROUP
+    DEFPUSHBUTTON   "",IDOK,58,38,56,16
+    PUSHBUTTON      "",IDCANCEL,120,38,50,16
+END
+
 IDD_PRINT DIALOGEX 0, 0, 521, 350
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 FONT 8, "MS Shell Dlg", 0, 0, 0x1
@@ -307,6 +347,7 @@ BEGIN
         MENUITEM "Show picture info (EXIF)",    IDM_SHOW_FILEINFO
         MENUITEM "Show filename",               IDM_SHOW_FILENAME
         MENUITEM "Show navigation panel",       IDM_SHOW_NAVPANEL
+        MENUITEM "Transparent window title bar", IDM_TRANSPARENT_TITLE_BAR
         MENUITEM SEPARATOR
         MENUITEM "Next image",                  IDM_NEXT
         MENUITEM "Previous image",              IDM_PREV
@@ -315,6 +356,8 @@ BEGIN
             MENUITEM "Loop folder",                 IDM_LOOP_FOLDER
             MENUITEM "Loop recursively",            IDM_LOOP_RECURSIVELY
             MENUITEM "Loop siblings",               IDM_LOOP_SIBLINGS
+            MENUITEM SEPARATOR
+            MENUITEM "Wrap around folder",          IDM_WRAP_AROUND_FOLDER
         END
         POPUP "Display order"
         BEGIN
@@ -327,17 +370,25 @@ BEGIN
             MENUITEM "Ascending",                   IDM_SORT_ASCENDING
             MENUITEM "Descending",                  IDM_SORT_DESCENDING
         END
-        POPUP "Play folder as slideshow/movie"
+        POPUP "Slideshow"
         BEGIN
+            POPUP "Settings"
+            BEGIN
+                MENUITEM "Preview",                     IDM_PREVIEW
+                MENUITEM "On Top",                      IDM_PREVIEW_ON_TOP
+                MENUITEM "Set Preview Settings...",     IDM_SET_PREVIEW_SETTINGS
+                MENUITEM SEPARATOR
+                MENUITEM "Cross fade",                  IDM_CROSS_FADE
+                MENUITEM "Set Transition Time...",      IDM_SET_TRANSITION_TIME
+            END
+            MENUITEM SEPARATOR
+            MENUITEM "Scroll",                      IDM_SCROLL_START
+            MENUITEM "Fill with crop",              IDM_SCROLL_FILL_WITH_CROP
+            MENUITEM "Set Scroll Speed...",         IDM_SCROLL_SET_SPEED
+            MENUITEM "Set Scroll Time...",          IDM_SCROLL_SET_TIME
+            MENUITEM SEPARATOR
             MENUITEM "Slideshow",                   IDM_SLIDESHOW_START
-            MENUITEM "Waiting time\t1 sec",         IDM_SLIDESHOW_1
-            MENUITEM "Waiting time\t2 sec",         IDM_SLIDESHOW_2
-            MENUITEM "Waiting time\t3 sec",         IDM_SLIDESHOW_3
-            MENUITEM "Waiting time\t4 sec",         IDM_SLIDESHOW_4
-            MENUITEM "Waiting time\t5 sec",         IDM_SLIDESHOW_5
-            MENUITEM "Waiting time\t7 sec",         IDM_SLIDESHOW_7
-            MENUITEM "Waiting time\t10 sec",        IDM_SLIDESHOW_10
-            MENUITEM "Waiting time\t20 sec",        IDM_SLIDESHOW_20
+            MENUITEM "Set Waiting Time...",         IDM_SLIDESHOW_SET_TIME
             POPUP "Transition Effect"
             BEGIN
                 MENUITEM "None",                        IDM_EFFECT_NONE
@@ -368,13 +419,8 @@ BEGIN
                 MENUITEM "Very slow",                   IDM_EFFECTTIME_VERY_SLOW
             END
             MENUITEM SEPARATOR
-            MENUITEM "Movie",                           IDM_MOVIE_START_FPS
-            MENUITEM "Playback speed\t5 fps",           IDM_MOVIE_5_FPS
-            MENUITEM "Playback speed\t10 fps",          IDM_MOVIE_10_FPS
-            MENUITEM "Playback speed\t25 fps",          IDM_MOVIE_25_FPS
-            MENUITEM "Playback speed\t30 fps",          IDM_MOVIE_30_FPS
-            MENUITEM "Playback speed\t50 fps",          IDM_MOVIE_50_FPS
-            MENUITEM "Playback speed\t100 fps",         IDM_MOVIE_100_FPS
+            MENUITEM "Movie",                       IDM_MOVIE_START_FPS
+            MENUITEM "Set Playback Speed...",       IDM_MOVIE_SET_SPEED
         END
         MENUITEM SEPARATOR
         POPUP "Transform image"
@@ -387,6 +433,19 @@ BEGIN
             MENUITEM SEPARATOR
             MENUITEM "Mirror horizontally",         IDM_MIRROR_H
             MENUITEM "Mirror vertically",           IDM_MIRROR_V
+        END
+        POPUP "Annotations"
+        BEGIN
+            MENUITEM "Freehand",                    IDM_ANNOTATE_FREEHAND
+            MENUITEM "Text (press again for a background)", IDM_ANNOTATE_TEXT
+            MENUITEM "Shape (rectangle, ellipse, triangle)", IDM_ANNOTATE_RECT
+            MENUITEM "Fill shapes",                 IDM_ANNOTATE_FILL
+            MENUITEM SEPARATOR
+            MENUITEM "Undo annotation",             IDM_ANNOTATE_UNDO
+            MENUITEM "Redo annotation",             IDM_ANNOTATE_REDO
+            MENUITEM "Clear annotations",           IDM_ANNOTATE_CLEAR
+            MENUITEM SEPARATOR
+            MENUITEM "Save image with annotations", IDM_ANNOTATE_APPLY_SAVE
         END
         POPUP "Lossless JPEG transformations"
         BEGIN
@@ -406,6 +465,15 @@ BEGIN
         MENUITEM SEPARATOR
         POPUP "Zoom"
         BEGIN
+            POPUP "Auto zoom mode"
+            BEGIN
+                MENUITEM "Fit to screen (no zoom)",     IDM_AUTO_ZOOM_FIT_NO_ZOOM
+                MENUITEM "Fill with crop (no zoom)",    IDM_AUTO_ZOOM_FILL_NO_ZOOM
+                MENUITEM "Fit to screen",               IDM_AUTO_ZOOM_FIT
+                MENUITEM "Fill with crop",              IDM_AUTO_ZOOM_FILL
+            END
+            MENUITEM "Relative zoom mode",          IDM_RELATIVE_ZOOM_MODE
+            MENUITEM SEPARATOR
             MENUITEM "Fit to screen",               IDM_FIT_TO_SCREEN
             MENUITEM "Fill with crop",              IDM_FILL_WITH_CROP
             MENUITEM "Span all screens",            IDM_SPAN_SCREENS
@@ -420,13 +488,6 @@ BEGIN
             MENUITEM "100 %\t0x3a98",               IDM_ZOOM_100
             MENUITEM "50 %",                        IDM_ZOOM_50
             MENUITEM "25 %",                        IDM_ZOOM_25
-        END
-        POPUP "Auto zoom mode"
-        BEGIN
-            MENUITEM "Fit to screen (no zoom)",     IDM_AUTO_ZOOM_FIT_NO_ZOOM
-            MENUITEM "Fill with crop (no zoom)",    IDM_AUTO_ZOOM_FILL_NO_ZOOM
-            MENUITEM "Fit to screen",               IDM_AUTO_ZOOM_FIT
-            MENUITEM "Fill with crop",              IDM_AUTO_ZOOM_FILL
         END
         MENUITEM SEPARATOR
         POPUP "Settings/Admin"

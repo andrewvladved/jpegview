@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "PanelController.h"
 
@@ -15,9 +15,14 @@ public:
 	// Current blending factor with background, 1 -> fully visible, 0 -> invisible
 	float CurrentBlendingFactor() { return m_fCurrentBlendingFactorNavPanel; }
 
-	virtual bool BlendPanel() { return !m_bMouseInNavPanel; }
+	// While the annotation style strip is open, or a drawing tool is active, the panel
+	// stays fully opaque instead of blending into the image: those are exactly the
+	// moments when its buttons have to be readable and clickable.
+	virtual bool BlendPanel() { return !m_bMouseInNavPanel && !IsAnnotationStyleOpen() && !IsAnnotating(); }
 	virtual float DimFactor() { return 0.0f; }
 
+	bool IsAnnotationStyleOpen();
+	bool IsAnnotating();
 	void AdjustMaximalWidth(int nMaxWidth);
 
 	virtual bool IsVisible();
@@ -25,6 +30,11 @@ public:
 
 	virtual void SetVisible(bool bVisible) {} // not possible
 	virtual void SetActive(bool bActive);
+
+	// Redraws the annotation buttons so the active tool is shown pressed.
+	void UpdateAnnotationButtons();
+
+	static void OnToggleAnnotationStyle(void* pContext, int nParameter, CButtonCtrl& sender);
 
 	virtual bool OnMouseLButton(EMouseEvent eMouseEvent, int nX, int nY);
 	virtual bool OnMouseMove(int nX, int nY);

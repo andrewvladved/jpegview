@@ -362,6 +362,7 @@ Title:	Название:
 Toggle between screens (only for multi-monitor systems)	Переключиться между экранами (в мультимониторных системах)
 Toggle window always on top mode	Вкл./выкл. режим вывода поверх всех окон
 Toggle window title bar hidden mode	Вкл./выкл. режим скрытия заголовка окна
+Toggle transparent window title bar mode	Вкл./выкл. режим прозрачного заголовка окна
 Top	Сверху
 Transition Effect	Эффект смены изображений
 Unregistering not possible	Отмена регистрации невозможна
@@ -453,6 +454,9 @@ Zoom	Масштабирование
 Span all screens	На все экраны
 Fit window to image	Подгонка окна по изображению
 Hide window title bar	Скрыть заголовок окна
+Transparent window title bar	Прозрачный заголовок окна
+Minimize	Свернуть
+Maximize/Restore	Развернуть/восстановить
 Set window always on top	Закрепить окно поверх других окон
 Settings/Admin	Настройки
 Edit global settings...	Глобальные настройки...

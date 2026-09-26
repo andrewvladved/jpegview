@@ -1,4 +1,4 @@
-// MainDlg.cpp : implementation of the CMainDlg class
+﻿// MainDlg.cpp : implementation of the CMainDlg class
 //
 /////////////////////////////////////////////////////////////////////////////
 
@@ -8,6 +8,9 @@
 #include <limits.h>
 
 #include "MainDlg.h"
+#include "AnnotationRenderer.h"
+#include "AnnotationStylePanelCtl.h"
+#include "SaveAnnotationsDlg.h"
 #include "HelpDlg.h"
 #include "FileList.h"
 #include "JPEGProvider.h"
@@ -30,6 +33,10 @@
 #include "ManageOpenWithDlg.h"
 #include "AboutDlg.h"
 #include "CropSizeDlg.h"
+#include "SetValueDlg.h"
+#include "PreviewSettingsDlg.h"
+#include "ZoomMath.h"
+#include "ScrollMath.h"
 #include "ResizeDlg.h"
 #include "ResizeFilter.h"
 #include "EXIFReader.h"
@@ -42,6 +49,7 @@
 #include "ImageProcPanelCtl.h"
 #include "WndButtonPanelCtl.h"
 #include "InfoButtonPanelCtl.h"
+#include "TitleBarPanelCtl.h"
 #include "RotationPanelCtl.h"
 #include "TiltCorrectionPanelCtl.h"
 #include "UnsharpMaskPanelCtl.h"
@@ -74,9 +82,11 @@ static const int DARKEN_HIGHLIGHTS = 0; // used in AdjustLDC() call
 static const int BRIGHTEN_SHADOWS = 1; // used in AdjustLDC() call
 
 static const int ZOOM_TEXT_RECT_WIDTH = 70; // zoom label width
+static const int ZOOM_TEXT_RECT_WIDTH_RELATIVE = 150; // wider: relative zoom mode shows two percentages
 static const int ZOOM_TEXT_RECT_HEIGHT = 25; // zoom label height
 static const int ZOOM_TEXT_RECT_OFFSET = 35; // zoom label offset from right border
 static const int PAN_STEP = 48; // number of pixels to pan if pan with cursor keys (SHIFT+up/down/left/right)
+static const int SCROLL_TIMER_INTERVAL_MS = 30; // how often scroll mode moves the image, about 33 times a second
 
 static const bool SHOW_TIMING_INFO = false; // Set to true for debugging
 
@@ -241,6 +251,18 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_nCapturedX = m_nCapturedY = 0;
 	m_nMouseX = m_nMouseY = 0;
 	m_bAutoFitWndToImage = sp.DefaultWndToImage();
+	m_bRelativeZoom = sp.RelativeZoomMode();
+	m_dRelativeZoomFactor = 1.0;
+	m_bScrollMode = false;
+	m_bScrollFillWithCrop = sp.ScrollFillWithCrop();
+	m_bCrossFade = sp.CrossFade();
+	m_bPreview = sp.Preview();
+	m_nPreviewSize = sp.PreviewSize();
+	m_bPreviewOnLeft = sp.PreviewOnLeft();
+	m_bPreviewOnTop = sp.PreviewOnTop();
+	m_bRelativeZoomTemporary = false;
+	m_nScrollLastTick = 0;
+	ScrollMath::Reset(m_scrollState, 0);
 	m_bFullScreenMode = bForceFullScreen || (sp.ShowFullScreen() && !sp.AutoFullScreen());
 	m_bLockPaint = true;
 	m_nCurrentTimeout = 0;
@@ -266,6 +288,8 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_isUserFitToScreen = false;
 	m_autoZoomFitToScreen = Helpers::ZM_FillScreen;
 	m_bWindowBorderless = sp.WindowBorderlessOnStartup();  // unlike AlwaysOnTop, this is set early on initialize as it affects calculations of the window size, position, etc
+	m_bTransparentTitleBar = sp.TransparentTitleBarOnStartup();
+	if (m_bTransparentTitleBar) m_bWindowBorderless = true; // the transparent title bar takes the place of the system title bar
 	m_bAlwaysOnTop = false;  // default normal window.  this will be set to true when AlwaysOnTop is toggled if set to startup in INI
 	m_bSelectZoom = false;  // this value is set when LButtonDown happens, to be read by LButtonUp
 
@@ -274,12 +298,31 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_pEXIFDisplayCtl = NULL;
 	m_pWndButtonPanelCtl = NULL;
 	m_pInfoButtonPanelCtl = NULL;
+	m_pTitleBarPanelCtl = NULL;
 	m_pRotationPanelCtl = NULL;
 	m_pTiltCorrectionPanelCtl = NULL;
 	m_pUnsharpMaskPanelCtl = NULL;
 	m_pImageProcPanelCtl = NULL;
 	m_pNavPanelCtl = NULL;
 	m_pCropCtl = new CCropCtl(this);
+	m_pAnnotationCtl = new CAnnotationCtl(this);
+	m_pAnnotationStylePanelCtl = NULL;
+	m_bAnnotationEditActive = false;
+	m_bAnnotationValueEditActive = false;
+	m_nAnnotationValueEditWhich = 0;
+	m_nAnnotationValueEditMin = 0;
+	m_nAnnotationValueEditMax = 100;
+	m_bAnnotationsBurnedIn = false;
+	m_bInSaveAnnotationsPrompt = false;
+	m_ptImageOrigin = CPoint(0, 0);
+	{
+		// Opacity is a percentage in the INI but an alpha byte in an annotation.
+		CSettingsProvider& spAnnot = CSettingsProvider::This();
+		m_pAnnotationCtl->InitStyle(spAnnot.AnnotationColor(),
+			spAnnot.AnnotationOpacity() * 255 / 100,
+			spAnnot.AnnotationPenWidth(), spAnnot.AnnotationFontSize());
+		m_pAnnotationCtl->SetTextBackColor(spAnnot.AnnotationTextBackColor());
+	}
 	m_pKeyMap = new CKeyMap(); // routine to load the keymap, it's not as simple as just loading one file anymore, but all logic handled by CKeyMap
 	m_pPrintImage = new CPrintImage(CSettingsProvider::This().PrintMargin(), CSettingsProvider::This().DefaultPrintWidth());
 	m_pHelpDlg = NULL;
@@ -293,6 +336,7 @@ CMainDlg::~CMainDlg() {
 	delete m_pImageProcParamsKept;
 	delete m_pZoomNavigatorCtl;
 	delete m_pCropCtl;
+	delete m_pAnnotationCtl;
 	delete m_pPanelMgr; // this will delete all panel controllers and all panels
 	delete m_pKeyMap;
 }
@@ -357,6 +401,14 @@ LRESULT CMainDlg::OnInitDialog(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam
 	// Create info button panel (on top, left)
 	m_pInfoButtonPanelCtl = new CInfoButtonPanelCtl(this, m_pImageProcPanelCtl->GetPanel());
 	m_pPanelMgr->AddPanelController(m_pInfoButtonPanelCtl);
+
+	// Create title bar panel (file path on top, left and window buttons on top, right)
+	m_pTitleBarPanelCtl = new CTitleBarPanelCtl(this);
+	m_pPanelMgr->AddPanelController(m_pTitleBarPanelCtl);
+
+	// Create the annotation style strip, which sits above the navigation panel
+	m_pAnnotationStylePanelCtl = new CAnnotationStylePanelCtl(this, m_pNavPanelCtl->GetPanel());
+	m_pPanelMgr->AddPanelController(m_pAnnotationStylePanelCtl);
 
 	// Create zoom navigator
 	m_pZoomNavigatorCtl = new CZoomNavigatorCtl(this, m_pImageProcPanelCtl->GetPanel(), m_pNavPanelCtl->GetPanel());
@@ -455,7 +507,7 @@ LRESULT CMainDlg::OnPaint(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 	CPaintDC dc(m_hWnd);
 	m_dRealizedZoom = 1.0;
 
-	this->GetClientRect(&m_clientRect);
+	UpdateClientRect();
 	CRect imageProcessingArea = m_pImageProcPanelCtl->PanelRect();
 	CRectF visRectZoomNavigator(0.0f, 0.0f, 1.0f, 1.0f);
 	CBrush backBrush;
@@ -531,6 +583,13 @@ LRESULT CMainDlg::OnPaint(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 			CPoint ptDIBStart = HelpersGUI::DrawDIB32bppWithBlackBorders(dc, bmInfo, pDIBData, backBrush, m_clientRect, clippedSize, m_DIBOffsets);
 			// The DIB is also blitted into the memory DCs of the panels
 			memDCMgr.BlitImageToMemDC(pDIBData, &bmInfo, ptDIBStart, m_pNavPanelCtl->CurrentBlendingFactor());
+
+			// Annotations sit on the image and under the panels, which paint afterwards.
+			// ptDIBStart only centres the *clipped* DIB; offsetsInImage says which part of the
+			// zoomed image that DIB shows, and is non-zero whenever the image is larger than
+			// the window or has been panned. The origin is where image pixel (0,0) would land.
+			m_ptImageOrigin = ptDIBStart - offsetsInImage;
+			PaintAnnotations(dc, ptDIBStart, clippedSize, pDIBData, &bmInfo);
 		}
 		if (m_bZoomMode) m_offsets = unlimitedOffsets;
 	}
@@ -567,12 +626,14 @@ LRESULT CMainDlg::OnPaint(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 
 	// Show current zoom factor
 	if (m_bInZooming || m_bShowZoomFactor) {
-		TCHAR buff[32];
-		_stprintf_s(buff, 32, _T("%d %%"), int(m_dZoom*100 + 0.5));
+		CString sZoom = ZoomMath::FormatZoom(m_dZoom, RelativeZoomBase());
 		dc.SetTextColor(CSettingsProvider::This().ColorGUI());
 		HelpersGUI::SelectDefaultFileNameFont(dc);
-		HelpersGUI::DrawTextBordered(dc, buff, GetZoomTextRect(imageProcessingArea), DT_RIGHT);
+		HelpersGUI::DrawTextBordered(dc, sZoom, GetZoomTextRect(imageProcessingArea), DT_RIGHT);
 	}
+
+	// The preview pane sits over the image and under the panels
+	PaintPreviewPane(dc);
 
 	// let crop controller and panels paint its stuff
 	m_pCropCtl->OnPaint(dc);
@@ -599,8 +660,13 @@ void CMainDlg::PaintToDC(CDC& dc) {
 		pCurrentImage->VerifyRotation(CRotationParams(pCurrentImage->GetRotationParams(), GetRotation()));
 
 		// find out the new virtual image size and the size of the bitmap to request
+		// The same choice OnPaint makes, so a frame painted for a crossfade shows the image
+		// the way the window does - fitted by hand with Fit to screen, not only as the auto
+		// zoom mode would have it.
 		double dZoom = m_dZoom;
-		CSize newSize = Helpers::GetVirtualImageSize(pCurrentImage->OrigSize(), m_clientRect.Size(), GetAutoZoomMode(), dZoom);
+		Helpers::EAutoZoomMode eAutoZoomMode = IsAdjustWindowToImage() ? Helpers::ZM_FitToScreenNoZoom :
+			(m_isUserFitToScreen ? m_autoZoomFitToScreen : GetAutoZoomMode());
+		CSize newSize = Helpers::GetVirtualImageSize(pCurrentImage->OrigSize(), m_clientRect.Size(), eAutoZoomMode, dZoom);
 		CPoint offsets = Helpers::LimitOffsets(GetOffsets(), m_clientRect.Size(), newSize);
 		m_dRealizedZoom = (double)newSize.cx / m_pCurrentImage->OrigSize().cx;
 
@@ -627,6 +693,7 @@ void CMainDlg::PaintToDC(CDC& dc) {
 		DisplayFileName(imageProcessingArea, dc, m_dRealizedZoom);
 		DisplayErrors(pCurrentImage, m_clientRect, dc);
 	}
+	PaintPreviewPane(dc);
 }
 
 void CMainDlg::BlendBlackRect(CDC & targetDC, CPanel& panel, float fBlendFactor) {
@@ -672,14 +739,14 @@ void CMainDlg::DisplayFileName(const CRect& imageProcessingArea, CDC& dc, double
 
 	if (m_bShowFileName) {
 		HelpersGUI::SelectDefaultFileNameFont(dc);
-		CString sFileName = Helpers::GetFileInfoString(CSettingsProvider::This().FileNameFormat(), m_pCurrentImage, m_pFileList, realizedZoom);
+		CString sFileName = Helpers::GetFileInfoString(CSettingsProvider::This().FileNameFormat(), m_pCurrentImage, m_pFileList, realizedZoom, RelativeZoomBase());
 		HelpersGUI::DrawTextBordered(dc, sFileName, CRect(HelpersGUI::ScaleToScreen(2) + imageProcessingArea.left, 0, imageProcessingArea.right, HelpersGUI::ScaleToScreen(30)), DT_LEFT); 
 	}
 }
 
 LRESULT CMainDlg::OnSize(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/) {
 	bool bKeepFitToScreen = !m_bResizeForNewImage && fabs(m_dZoom - GetZoomFactorForFitToScreen(false, false)) < 0.01;
-	this->GetClientRect(&m_clientRect);
+	UpdateClientRect();
 	this->Invalidate(FALSE);
 	if (m_clientRect.Width() < HelpersGUI::ScaleToScreen(800)) {
 		if (m_pImageProcPanelCtl != NULL) m_pImageProcPanelCtl->SetVisible(false);
@@ -741,12 +808,21 @@ LRESULT CMainDlg::OnLoadFileAsynch(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lPar
 }
 
 LRESULT CMainDlg::OnClose(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL& bHandled) {
-	GetWindowRect(m_windowRectOnClose);
+	if (!PromptSaveAnnotations()) {
+		bHandled = TRUE; // the user cancelled, so the window stays open
+		return 0;
+	}
 	bHandled = FALSE;
 	return 0;
 }
 
 LRESULT CMainDlg::OnLButtonDown(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL& /*bHandled*/) {
+	if (m_bAnnotationValueEditActive) {
+		CommitAnnotationValueEdit(); // clicking elsewhere confirms the number
+	}
+	if (m_bAnnotationEditActive) {
+		OnAnnotationTextCommitted(); // clicking elsewhere confirms the text
+	}
 	this->SetCapture();
 	bool isCropping = m_pCropCtl->IsCropping();
 	CPoint pointClicked(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
@@ -755,6 +831,22 @@ LRESULT CMainDlg::OnLButtonDown(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	if (!bEatenByPanel) {
 		bool bCtrl = (::GetKeyState(VK_CONTROL) & 0x8000) != 0;
 		bool bShift = (::GetKeyState(VK_SHIFT) & 0x8000) != 0;
+
+		// A selected annotation tool owns the drag: no panning, cropping or select-to-zoom.
+		// Shift with the freehand tool draws a straight segment from the previous point,
+		// so it must be offered the click before the Shift+drag zoom gesture below.
+		if (m_pAnnotationCtl != NULL && bShift && m_pAnnotationCtl->GetTool() == ATOOL_Freehand) {
+			if (m_pAnnotationCtl->OnLButtonDownShift(pointClicked.x, pointClicked.y)) {
+				Invalidate(FALSE);
+				return 0;
+			}
+		}
+		if (m_pAnnotationCtl != NULL && m_pAnnotationCtl->OnLButtonDown(pointClicked.x, pointClicked.y)) {
+			if (m_pAnnotationCtl->HasPendingText()) {
+				StartAnnotationTextEdit();
+			}
+			return 0;
+		}
 
 		bool bDraggingRequired = m_virtualImageSize.cx > m_clientRect.Width() || m_virtualImageSize.cy > m_clientRect.Height();
 		bool bHandleByCropping = isCropping || m_pCropCtl->HitHandle(pointClicked.x, pointClicked.y) != CCropCtl::HH_None;
@@ -784,6 +876,11 @@ LRESULT CMainDlg::OnLButtonDown(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 }
 
 LRESULT CMainDlg::OnLButtonUp(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL& /*bHandled*/) {
+	if (m_pAnnotationCtl != NULL && m_pAnnotationCtl->OnLButtonUp(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam))) {
+		Invalidate(FALSE);
+		::ReleaseCapture();
+		return 0;
+	}
 	if (m_bZoomMode) {
 		m_bZoomMode = false;
 		AdjustWindowToImage(false);
@@ -820,7 +917,83 @@ LRESULT CMainDlg::OnNCHitTest(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 		return HTCAPTION;
 	}
 
+	if (m_bTransparentTitleBar && !m_bFullScreenMode) {
+		// There is no system title bar in this mode: the painted title bar drags the window and
+		// the window borders resize it. Without this, both would be lost.
+		const int SM_CXP_ADDEDBORDER = 92;  // in MSDN this is SM_CXPADDEDBORDER, but for some reason it's not always available depending on configuration
+		CPoint pt(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)); // screen coordinates
+		CPoint ptClient(pt);
+		this->ScreenToClient(&ptClient);
+
+		// the window buttons are left out of the resize border, they would be hard to hit if their topmost pixels resized the window
+		bool bOnWindowButton = m_pTitleBarPanelCtl != NULL && m_pTitleBarPanelCtl->IsPointInButtonArea(ptClient);
+		if (!::IsZoomed(m_hWnd) && !bOnWindowButton) {
+			CRect windowRect;
+			this->GetWindowRect(&windowRect);
+			int nFrame = ::GetSystemMetrics(SM_CXSIZEFRAME) + ::GetSystemMetrics(SM_CXP_ADDEDBORDER);
+			bool bLeft = pt.x < windowRect.left + nFrame;
+			bool bRight = pt.x >= windowRect.right - nFrame;
+			bool bTop = pt.y < windowRect.top + nFrame;
+			bool bBottom = pt.y >= windowRect.bottom - nFrame;
+			if (bTop) return bLeft ? HTTOPLEFT : bRight ? HTTOPRIGHT : HTTOP;
+			if (bBottom) return bLeft ? HTBOTTOMLEFT : bRight ? HTBOTTOMRIGHT : HTBOTTOM;
+			if (bLeft) return HTLEFT;
+			if (bRight) return HTRIGHT;
+		}
+		if (m_pTitleBarPanelCtl != NULL && m_pTitleBarPanelCtl->IsPointInDragArea(ptClient)) {
+			return HTCAPTION;
+		}
+	}
+
 	bHandled = FALSE;  // if not moving window, considered unhandled, or else all the mouse button code stops working
+	return 0;
+}
+
+// In transparent title bar mode the window keeps WS_THICKFRAME so that it stays resizable, but the
+// frame that would be drawn for it is removed here so that the image fills the whole window.
+// With WS_CAPTION cleared but WS_THICKFRAME kept, the non client area still exists as far as
+// Windows is concerned. When the window is deactivated DefWindowProc paints the sizing border
+// into it itself, without going through WM_NCPAINT, which is where the bright border around the
+// image came from after switching to another application. So DefWindowProc is not called for this
+// message at all; returning TRUE accepts the activation change. OnNCCalcSize has made the client
+// area cover the whole window, so invalidating it repaints the image over anything already drawn
+// there by an earlier Windows version of this message.
+LRESULT CMainDlg::OnNCActivate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& bHandled) {
+	if (!m_bTransparentTitleBar || m_bFullScreenMode) {
+		bHandled = FALSE;
+		return 0;
+	}
+	this->Invalidate(FALSE);
+	return TRUE;
+}
+
+LRESULT CMainDlg::OnNCPaint(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& bHandled) {
+	if (!m_bTransparentTitleBar || m_bFullScreenMode) {
+		bHandled = FALSE;
+		return 0;
+	}
+	return 0; // the client area covers the window, so there is no frame to draw
+}
+
+LRESULT CMainDlg::OnNCCalcSize(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled) {
+	if (!m_bTransparentTitleBar || m_bFullScreenMode || wParam == FALSE) {
+		bHandled = FALSE;
+		return 0;
+	}
+
+	NCCALCSIZE_PARAMS* pParams = (NCCALCSIZE_PARAMS*)lParam;
+	if (::IsZoomed(m_hWnd)) {
+		// a maximized window with WS_THICKFRAME extends beyond the monitor borders by the frame size,
+		// so here the frame has to be kept to not push the image off screen
+		const int SM_CXP_ADDEDBORDER = 92;  // in MSDN this is SM_CXPADDEDBORDER, but for some reason it's not always available depending on configuration
+		int nFrameX = ::GetSystemMetrics(SM_CXSIZEFRAME) + ::GetSystemMetrics(SM_CXP_ADDEDBORDER);
+		int nFrameY = ::GetSystemMetrics(SM_CYSIZEFRAME) + ::GetSystemMetrics(SM_CXP_ADDEDBORDER);
+		pParams->rgrc[0].left += nFrameX;
+		pParams->rgrc[0].right -= nFrameX;
+		pParams->rgrc[0].top += nFrameY;
+		pParams->rgrc[0].bottom -= nFrameY;
+	}
+	// for a non maximized window the client area covers the whole window, nothing to adjust
 	return 0;
 }
 
@@ -856,6 +1029,10 @@ LRESULT CMainDlg::OnMButtonUp(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*
 }
 
 LRESULT CMainDlg::OnLButtonDblClk(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL& /*bHandled*/) {
+	if (IsAnnotating()) {
+		// The second click of two quick dots must not toggle the zoom mode.
+		return 0;
+	}
 	if (!m_bDragging && !m_pCropCtl->IsCropping()) {
 		if (m_pPanelMgr->OnMouseLButton(MouseEvent_BtnDblClk, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam))) {
 			return 0;
@@ -918,6 +1095,8 @@ LRESULT CMainDlg::OnMouseMove(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, B
 		PerformZoom(m_dStartZoom * dFactor, false, true, false);
 	} else if (m_bDragging) {
 		DoDragging();
+	} else if (m_pAnnotationCtl != NULL && m_pAnnotationCtl->OnMouseMove(m_nMouseX, m_nMouseY)) {
+		bMouseCursorSet = true;
 	} else if (m_pCropCtl->IsCropping()) {
 		bMouseCursorSet = m_pCropCtl->DoCropping(m_nMouseX, m_nMouseY);
 	} else if (!m_pPanelMgr->OnMouseMove(m_nMouseX, m_nMouseY)) {
@@ -960,6 +1139,24 @@ LRESULT CMainDlg::OnKeyDown(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOO
 	} else if (wParam == VK_ESCAPE && m_pCropCtl->IsCropping()) {
 		bHandled = true;
 		m_pCropCtl->AbortCropping();
+	} else if (bCtrl && !bShift && !bAlt && (wParam == 'Z' || wParam == 'Y') &&
+		m_pAnnotationCtl != NULL && !m_pAnnotationCtl->Model().IsEmpty()) {
+		// Undo and redo of annotations are handled here as well as through the keymap,
+		// so they work even when the user's own KeyMap.txt predates this feature.
+		bHandled = true;
+		if (wParam == 'Z') {
+			m_pAnnotationCtl->Undo();
+		} else {
+			m_pAnnotationCtl->Redo();
+		}
+		Invalidate(FALSE);
+	} else if (wParam == VK_ESCAPE && m_pAnnotationCtl != NULL && m_pAnnotationCtl->IsAnnotating()) {
+		// After the crop case, so cropping keeps priority over leaving annotation mode.
+		bHandled = true;
+		m_pAnnotationCtl->SetTool(ATOOL_None);
+		if (m_pNavPanelCtl != NULL) m_pNavPanelCtl->UpdateAnnotationButtons();
+		SetCursorForMoveSection();
+		Invalidate(FALSE);
 	} else if (!bCtrl && wParam != VK_ESCAPE && m_nLastLoadError == HelpersGUI::FileLoad_NoFilesInDirectory && !m_sStartupFile.IsEmpty()) {
 		// search in subfolders if initial directory has no images
 		bHandled = true;
@@ -1085,12 +1282,37 @@ LRESULT CMainDlg::OnTimer(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOOL&
 					::SetTimer(this->m_hWnd, SLIDESHOW_TIMER_EVENT_ID, m_nCurrentTimeout, NULL);
 				}
 			}
-			GotoImage((wParam == ANIMATION_TIMER_EVENT_ID) ? POS_NextAnimation : POS_NextSlideShow, NO_REMOVE_KEY_MSG);
-			if (wParam == SLIDESHOW_TIMER_EVENT_ID && UseSlideShowTransitionEffect()) {
-				AnimateTransition();
+			EImagePosition eNextPos = (wParam == ANIMATION_TIMER_EVENT_ID) ? POS_NextAnimation : POS_NextSlideShow;
+			if (wParam == SLIDESHOW_TIMER_EVENT_ID && UseCrossFade()) {
+				// The frames of an animated GIF are not images being handed over, so they
+				// are never faded - only the step from one file to the next is.
+				GotoImageWithTransition(eNextPos, NO_REMOVE_KEY_MSG);
+			} else {
+				GotoImage(eNextPos, NO_REMOVE_KEY_MSG);
+				if (wParam == SLIDESHOW_TIMER_EVENT_ID && UseSlideShowTransitionEffect()) {
+					AnimateTransition();
+				}
 			}
 			if (wParam != ANIMATION_TIMER_EVENT_ID) {
 				m_nLastSlideShowImageTickCount = ::GetTickCount();
+			}
+		}
+	} else if (wParam == SCROLL_TIMER_EVENT_ID) {
+		if (m_bScrollMode) {
+			CSettingsProvider& sp = CSettingsProvider::This();
+			DWORD nNow = ::GetTickCount();
+			int nElapsedMs = (int)(nNow - m_nScrollLastTick);
+			m_nScrollLastTick = nNow;
+			ScrollMath::Advance(m_scrollState, GetScrollMaxOffsetY(), sp.ScrollSpeed(), sp.ScrollTime() * 1000, nElapsedMs);
+			if (m_scrollState.bAdvanceToNextImage) {
+				GotoImageWithTransition(POS_Next, 0);
+			} else {
+				CPoint newOffsets(0, Helpers::RoundToInt(m_scrollState.dOffsetY));
+				if (newOffsets != m_offsets) {
+					m_offsets = newOffsets;
+					m_bUserPan = true;
+					this->Invalidate(FALSE);
+				}
 			}
 		}
 	} else if (wParam == ZOOM_TIMER_EVENT_ID) {
@@ -1146,6 +1368,7 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	if (m_bKeepParams) ::CheckMenuItem(hMenuTrackPopup, IDM_KEEP_PARAMETERS, MF_CHECKED);
 	HMENU hMenuNavigation = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_NAVIGATION);
 	::CheckMenuItem(hMenuNavigation,  m_pFileList->GetNavigationMode()*10 + IDM_LOOP_FOLDER, MF_CHECKED);
+	if (m_pFileList->IsWrapAroundFolder()) ::CheckMenuItem(hMenuNavigation, IDM_WRAP_AROUND_FOLDER, MF_CHECKED);
 	HMENU hMenuOrdering = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_DISPLAY_ORDER);
 	::CheckMenuItem(hMenuOrdering,  
 		(m_pFileList->GetSorting() == Helpers::FS_LastModTime) ? IDM_SORT_MOD_DATE :
@@ -1159,14 +1382,22 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 		::EnableMenuItem(hMenuOrdering, IDM_SORT_DESCENDING, MF_BYCOMMAND | MF_GRAYED);
 	}
 	HMENU hMenuMovie = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_MOVIE);
-	if (!m_bMovieMode) ::EnableMenuItem(hMenuMovie, IDM_STOP_MOVIE, MF_BYCOMMAND | MF_GRAYED);
+	if (!m_bMovieMode && !m_bScrollMode) ::EnableMenuItem(hMenuMovie, IDM_STOP_MOVIE, MF_BYCOMMAND | MF_GRAYED);
+	if (m_bScrollFillWithCrop) ::CheckMenuItem(hMenuMovie, IDM_SCROLL_FILL_WITH_CROP, MF_CHECKED);
+	if (m_bCrossFade) ::CheckMenuItem(hMenuMovie, IDM_CROSS_FADE, MF_CHECKED);
+	if (m_bPreview) ::CheckMenuItem(hMenuMovie, IDM_PREVIEW, MF_CHECKED);
+	if (m_bPreviewOnTop) ::CheckMenuItem(hMenuMovie, IDM_PREVIEW_ON_TOP, MF_CHECKED);
 	HMENU hMenuZoom = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_ZOOM);
 	if (m_bSpanVirtualDesktop) ::CheckMenuItem(hMenuZoom,  IDM_SPAN_SCREENS, MF_CHECKED);
 	if (m_bFullScreenMode) ::CheckMenuItem(hMenuZoom,  IDM_FULL_SCREEN_MODE, MF_CHECKED);
 	if (m_bWindowBorderless) ::CheckMenuItem(hMenuZoom, IDM_HIDE_TITLE_BAR, MF_CHECKED);
+	// Moved out of the Zoom submenu to the top level, so the check mark moves with it.
+	if (m_bTransparentTitleBar) ::CheckMenuItem(hMenuTrackPopup, IDM_TRANSPARENT_TITLE_BAR, MF_CHECKED);
 	if (m_bAlwaysOnTop) ::CheckMenuItem(hMenuZoom, IDM_ALWAYS_ON_TOP, MF_CHECKED);
 	if (IsAdjustWindowToImage() && IsImageExactlyFittingWindow()) ::CheckMenuItem(hMenuZoom, IDM_FIT_WINDOW_TO_IMAGE, MF_CHECKED);
-	HMENU hMenuAutoZoomMode = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_AUTOZOOMMODE);
+	if (m_bRelativeZoom) ::CheckMenuItem(hMenuZoom, IDM_RELATIVE_ZOOM_MODE, MF_CHECKED);
+	// Auto zoom mode moved into the zoom submenu, so it is looked up there now
+	HMENU hMenuAutoZoomMode = ::GetSubMenu(hMenuZoom, SUBMENU_POS_AUTOZOOMMODE);
 	::CheckMenuItem(hMenuAutoZoomMode, GetAutoZoomMode() * 10 + IDM_AUTO_ZOOM_FIT_NO_ZOOM, MF_CHECKED);
 	HMENU hMenuSettings = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_SETTINGS);
 	HMENU hMenuModDate = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_MODDATE);
@@ -1180,7 +1411,10 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 		::DeleteMenu(hMenuTrackPopup, SUBMENU_POS_USER_COMMANDS - 1, MF_BYPOSITION);
 	}
 	if (!m_bFullScreenMode) {
-		// Transition effect and speed only available in full screen mode
+		// Transition effect and speed only available in full screen mode. They are the
+		// Transition effect and speed only available in full screen mode. They are the
+		// tenth and eleventh entries of the submenu: the Settings submenu, a separator, the
+		// four scroll entries, a separator, Slideshow, Set Waiting Time, and then these two.
 		::DeleteMenu(hMenuMovie, 9, MF_BYPOSITION);
 		::DeleteMenu(hMenuMovie, 9, MF_BYPOSITION);
 	} else {
@@ -1194,9 +1428,7 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	if (m_bFullScreenMode) ::EnableMenuItem(hMenuZoom, IDM_FIT_WINDOW_TO_IMAGE, MF_BYCOMMAND | MF_GRAYED);
 	if (!m_bFullScreenMode) ::EnableMenuItem(hMenuZoom, IDM_SPAN_SCREENS, MF_BYCOMMAND | MF_GRAYED);
 	if (m_bFullScreenMode) ::EnableMenuItem(hMenuZoom, IDM_HIDE_TITLE_BAR, MF_BYCOMMAND | MF_GRAYED);
-
-	::EnableMenuItem(hMenuMovie, IDM_SLIDESHOW_START, MF_BYCOMMAND | MF_GRAYED);
-	::EnableMenuItem(hMenuMovie, IDM_MOVIE_START_FPS, MF_BYCOMMAND | MF_GRAYED);
+	if (m_bFullScreenMode) ::EnableMenuItem(hMenuTrackPopup, IDM_TRANSPARENT_TITLE_BAR, MF_BYCOMMAND | MF_GRAYED);
 
 	if (!CSettingsProvider::This().AllowEditGlobalSettings()) {
 		::DeleteMenu(hMenuSettings, 0, MF_BYPOSITION);
@@ -1256,8 +1488,8 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 		::EnableMenuItem(hMenuTrackPopup, IDM_SAVE_PARAMETERS, MF_BYCOMMAND | MF_GRAYED);
 		::EnableMenuItem(hMenuTrackPopup, IDM_SAVE_PARAM_DB, MF_BYCOMMAND | MF_GRAYED);
 		::EnableMenuItem(hMenuTrackPopup, IDM_CLEAR_PARAM_DB, MF_BYCOMMAND | MF_GRAYED);
-	} else {
-		// Delete the 'Stop movie' menu entry if no movie is playing
+	} else if (!m_bScrollMode) {
+		// Delete the 'Stop movie' menu entry if nothing is playing
 		::DeleteMenu(hMenuTrackPopup, 0, MF_BYPOSITION);
 		::DeleteMenu(hMenuTrackPopup, 0, MF_BYPOSITION);
 	}
@@ -1270,8 +1502,20 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 }
 
 // Make the text edit control for renaming image colored black/white
-LRESULT CMainDlg::OnCtlColorEdit(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOOL& /*bHandled*/) {
+LRESULT CMainDlg::OnCtlColorEdit(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL& /*bHandled*/) {
 	HDC hDC = (HDC) wParam;
+	if (m_bAnnotationValueEditActive && (HWND)lParam == m_annotationValueEdit.m_hWnd) {
+		::SetTextColor(hDC, CSettingsProvider::This().ColorHighlight());
+		::SetBkColor(hDC, RGB(0, 0, 0));
+		return (LRESULT)::GetStockObject(BLACK_BRUSH);
+	}
+	if (m_bAnnotationEditActive && (HWND)lParam == m_annotationEdit.m_hWnd && m_pAnnotationCtl != NULL) {
+		// A CEdit cannot paint a transparent background, so the text sits on a dark
+		// backing while it is typed; the renderer draws it over the image once committed.
+		::SetTextColor(hDC, m_pAnnotationCtl->GetColor());
+		::SetBkColor(hDC, RGB(0, 0, 0));
+		return (LRESULT)::GetStockObject(BLACK_BRUSH);
+	}
 	::SetTextColor(hDC, RGB(255, 255, 255));
 	::SetBkColor(hDC, RGB(0, 0, 0));
 	return (LRESULT)::GetStockObject(BLACK_BRUSH);
@@ -1284,11 +1528,27 @@ LRESULT CMainDlg::OnEraseBackground(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lPara
 }
 
 LRESULT CMainDlg::OnOK(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
-	// NOP
+	// The main window is a dialog, so the dialog manager turns Enter into IDOK before
+	// any child edit control sees the key. That is how the annotation text is confirmed.
+	if (m_bAnnotationValueEditActive) {
+		CommitAnnotationValueEdit();
+	} else if (m_bAnnotationEditActive) {
+		OnAnnotationTextCommitted();
+	}
 	return 0;
 }
 
 LRESULT CMainDlg::OnCancel(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
+	// Likewise Esc arrives as IDCANCEL. Without this, pressing Esc while typing an
+	// annotation would fall through to CleanupAndTerminate and close JPEGView.
+	if (m_bAnnotationValueEditActive) {
+		CancelAnnotationValueEdit();
+		return 0;
+	}
+	if (m_bAnnotationEditActive) {
+		OnAnnotationTextCancelled();
+		return 0;
+	}
 	CleanupAndTerminate();
 	return 0;
 }
@@ -1328,6 +1588,25 @@ bool CMainDlg::CloseHelpDlg() {
 
 void CMainDlg::ExecuteCommand(int nCommand) {
 	CSettingsProvider& sp = CSettingsProvider::This();
+	// These change the image geometry, so annotations stored in image coordinates would
+	// end up in the wrong place. One rule instead of a special case in each command.
+	switch (nCommand) {
+		case IDM_ROTATE_90: case IDM_ROTATE_270:
+		case IDM_MIRROR_H: case IDM_MIRROR_V:
+		case IDM_ROTATE_90_LOSSLESS: case IDM_ROTATE_90_LOSSLESS_CONFIRM:
+		case IDM_ROTATE_270_LOSSLESS: case IDM_ROTATE_270_LOSSLESS_CONFIRM:
+		case IDM_ROTATE_180_LOSSLESS:
+		case IDM_MIRROR_H_LOSSLESS: case IDM_MIRROR_V_LOSSLESS:
+		case IDM_ROTATE: case IDM_PERSPECTIVE: case IDM_CHANGESIZE:
+		case IDM_CROP_SEL: case IDM_LOSSLESS_CROP_SEL:
+		case IDM_OPEN: case IDM_RELOAD:
+			if (!PromptSaveAnnotations()) {
+				return;
+			}
+			break;
+		default:
+			break;
+	}
 	InvalidateHelpDlg();
 	switch (nCommand) {
 		case IDM_HELP:
@@ -1452,9 +1731,21 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			m_pNavPanelCtl->SetActive(!m_pNavPanelCtl->IsActive());
 			break;
 		case IDM_NEXT:
+			if (m_bScrollMode) {
+				// While scrolling these two steer the glide instead of changing the image: down
+				// for next, up for previous, and without waiting out the hold.
+				ScrollMath::StartMovingDown(m_scrollState);
+				m_nScrollLastTick = ::GetTickCount();
+				break;
+			}
 			GotoImage(POS_Next);
 			break;
 		case IDM_PREV:
+			if (m_bScrollMode) {
+				ScrollMath::StartMovingUp(m_scrollState);
+				m_nScrollLastTick = ::GetTickCount();
+				break;
+			}
 			GotoImage(POS_Previous);
 			break;
 		case IDM_FIRST:
@@ -1470,6 +1761,9 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 				(nCommand == IDM_LOOP_FOLDER) ? Helpers::NM_LoopDirectory :
 				(nCommand == IDM_LOOP_RECURSIVELY) ? Helpers::NM_LoopSubDirectories : 
 				Helpers::NM_LoopSameDirectoryLevel);
+			break;
+		case IDM_WRAP_AROUND_FOLDER:
+			m_pFileList->SetWrapAroundFolder(!m_pFileList->IsWrapAroundFolder());
 			break;
 		case IDM_SORT_MOD_DATE:
 		case IDM_SORT_CREATION_DATE:
@@ -1493,20 +1787,90 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			}
 			break;
 		case IDM_STOP_MOVIE:
+			StopScrollMode();
 			StopMovieMode();
 			break;
 		case IDM_SLIDESHOW_RESUME:
 			StartMovieMode(m_dMovieFPS);
 			break;
-		case IDM_SLIDESHOW_1:
-		case IDM_SLIDESHOW_2:
-		case IDM_SLIDESHOW_3:
-		case IDM_SLIDESHOW_4:
-		case IDM_SLIDESHOW_5:
-		case IDM_SLIDESHOW_7:
-		case IDM_SLIDESHOW_10:
-		case IDM_SLIDESHOW_20:
-			StartMovieMode(1.0/(nCommand - IDM_SLIDESHOW_START));
+		case IDM_SCROLL_START:
+			StartScrollMode();
+			break;
+		case IDM_SCROLL_FILL_WITH_CROP:
+			m_bScrollFillWithCrop = !m_bScrollFillWithCrop;
+			sp.SaveScrollFillWithCrop(m_bScrollFillWithCrop);
+			break;
+		case IDM_PREVIEW:
+			m_bPreview = !m_bPreview;
+			sp.SavePreview(m_bPreview);
+			UpdateClientRect();
+			this->Invalidate(FALSE);
+			break;
+		case IDM_PREVIEW_ON_TOP:
+			m_bPreviewOnTop = !m_bPreviewOnTop;
+			sp.SavePreviewOnTop(m_bPreviewOnTop);
+			UpdateClientRect();
+			this->Invalidate(FALSE);
+			break;
+		case IDM_SET_PREVIEW_SETTINGS:
+			{
+				CPreviewSettingsDlg dlgPreview(m_nPreviewSize, m_bPreviewOnLeft);
+				if (dlgPreview.DoModal(m_hWnd) == IDOK) {
+					m_nPreviewSize = dlgPreview.GetSizePercent();
+					m_bPreviewOnLeft = dlgPreview.IsOnLeft();
+					sp.SavePreviewSettings(m_nPreviewSize, m_bPreviewOnLeft);
+					UpdateClientRect();
+					this->Invalidate(FALSE);
+				}
+			}
+			break;
+		case IDM_CROSS_FADE:
+			m_bCrossFade = !m_bCrossFade;
+			sp.SaveCrossFade(m_bCrossFade);
+			break;
+		case IDM_SET_TRANSITION_TIME:
+			{
+				CSetValueDlg dlgFadeTime(CNLS::GetString(_T("Set Transition Time")), CNLS::GetString(_T("Transition")),
+					CNLS::GetString(_T("ms")), m_nTransitionTime,
+					CSettingsProvider::MIN_TRANSITION_TIME, CSettingsProvider::MAX_TRANSITION_TIME);
+				if (dlgFadeTime.DoModal(m_hWnd) == IDOK) {
+					m_nTransitionTime = dlgFadeTime.GetValue();
+					sp.SaveSlideShowEffectTime(m_nTransitionTime);
+				}
+			}
+			break;
+		case IDM_SCROLL_SET_SPEED:
+			{
+				CSetValueDlg dlgScrollSpeed(CNLS::GetString(_T("Set Scroll Speed")), CNLS::GetString(_T("Scroll speed")),
+					CNLS::GetString(_T("px/s")), sp.ScrollSpeed(),
+					CSettingsProvider::MIN_SCROLL_SPEED, CSettingsProvider::MAX_SCROLL_SPEED);
+				if (dlgScrollSpeed.DoModal(m_hWnd) == IDOK) {
+					sp.SaveScrollSpeed(dlgScrollSpeed.GetValue());
+				}
+			}
+			break;
+		case IDM_SCROLL_SET_TIME:
+			{
+				CSetValueDlg dlgScrollTime(CNLS::GetString(_T("Set Scroll Time")), CNLS::GetString(_T("Hold at each end")),
+					CNLS::GetString(_T("sec")), sp.ScrollTime(),
+					CSettingsProvider::MIN_SCROLL_TIME, CSettingsProvider::MAX_SCROLL_TIME);
+				if (dlgScrollTime.DoModal(m_hWnd) == IDOK) {
+					sp.SaveScrollTime(dlgScrollTime.GetValue());
+				}
+			}
+			break;
+		case IDM_SLIDESHOW_START:
+			StartMovieMode(1.0 / sp.SlideShowWaitTime());
+			break;
+		case IDM_SLIDESHOW_SET_TIME:
+			{
+				CSetValueDlg dlgWaitTime(CNLS::GetString(_T("Set Waiting Time")), CNLS::GetString(_T("Waiting time")),
+					CNLS::GetString(_T("sec")), sp.SlideShowWaitTime(),
+					CSettingsProvider::MIN_SLIDESHOW_WAIT_TIME, CSettingsProvider::MAX_SLIDESHOW_WAIT_TIME);
+				if (dlgWaitTime.DoModal(m_hWnd) == IDOK) {
+					sp.SaveSlideShowWaitTime(dlgWaitTime.GetValue());
+				}
+			}
 			break;
 		case IDM_EFFECT_NONE:
 		case IDM_EFFECT_BLEND:
@@ -1531,13 +1895,18 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 		case IDM_EFFECTTIME_VERY_SLOW:
 			m_nTransitionTime = 125 * (1 << (nCommand - IDM_EFFECTTIME_VERY_FAST));
 			break;
-		case IDM_MOVIE_5_FPS:
-		case IDM_MOVIE_10_FPS:
-		case IDM_MOVIE_25_FPS:
-		case IDM_MOVIE_30_FPS:
-		case IDM_MOVIE_50_FPS:
-		case IDM_MOVIE_100_FPS:
-			StartMovieMode(nCommand - IDM_MOVIE_START_FPS);
+		case IDM_MOVIE_START_FPS:
+			StartMovieMode(sp.MoviePlaybackSpeed());
+			break;
+		case IDM_MOVIE_SET_SPEED:
+			{
+				CSetValueDlg dlgFPS(CNLS::GetString(_T("Set Playback Speed")), CNLS::GetString(_T("Playback speed")),
+					CNLS::GetString(_T("fps")), sp.MoviePlaybackSpeed(),
+					CSettingsProvider::MIN_MOVIE_PLAYBACK_SPEED, CSettingsProvider::MAX_MOVIE_PLAYBACK_SPEED);
+				if (dlgFPS.DoModal(m_hWnd) == IDOK) {
+					sp.SaveMoviePlaybackSpeed(dlgFPS.GetValue());
+				}
+			}
 			break;
 		case IDM_SAVE_PARAM_DB:
 			if (m_pCurrentImage != NULL && !m_bMovieMode && !m_bKeepParams) {
@@ -1724,10 +2093,14 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			break;
 		case IDM_TOGGLE_FIT_TO_SCREEN_100_PERCENTS:
 		case IDM_TOGGLE_FILL_WITH_CROP_100_PERCENTS:
+			// This one toggles between the fitted image and the image at its own pixel size, so
+			// it goes to 1.0 rather than to whatever 100% currently means. In relative zoom mode
+			// 100% is the fitted image, and calling the same thing for both ends of a toggle left
+			// it with nothing to switch to.
 			if (fabs(m_dZoom - 1) < 0.01) {
 				ResetZoomToFitScreen(nCommand == IDM_TOGGLE_FILL_WITH_CROP_100_PERCENTS, true, true);
-			} else {
-				ResetZoomTo100Percents(m_bMouseOn);
+			} else if (m_pCurrentImage != NULL) {
+				PerformZoom(1.0, false, m_bMouseOn || !m_bFullScreenMode, true);
 			}
 			break;
 		case IDM_SPAN_SCREENS:
@@ -1742,7 +2115,7 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 					this->SetWindowPos(HWND_TOP, &rectAllScreens, SWP_NOZORDER);
 				}
 				m_bSpanVirtualDesktop = !m_bSpanVirtualDesktop;
-				this->GetClientRect(&m_clientRect);
+				UpdateClientRect();
 			}
 			break;
 		case IDM_FULL_SCREEN_MODE:
@@ -1791,52 +2164,89 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			this->SetWindowPos(NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOCOPYBITS | SWP_FRAMECHANGED);
 			break;
 		case IDM_HIDE_TITLE_BAR:
+			SetWindowBorderless(!m_bWindowBorderless);
+			break;
+		case IDM_ANNOTATE_FREEHAND:
+			if (m_pAnnotationCtl != NULL) {
+				m_pAnnotationCtl->SetTool(ATOOL_Freehand);
+				if (m_pNavPanelCtl != NULL) m_pNavPanelCtl->UpdateAnnotationButtons();
+				SetCursorForMoveSection();
+				this->Invalidate(FALSE);
+			}
+			break;
+		case IDM_ANNOTATE_TEXT:
+			if (m_pAnnotationCtl != NULL) {
+				m_pAnnotationCtl->SetTool(ATOOL_Text);
+				if (m_pNavPanelCtl != NULL) m_pNavPanelCtl->UpdateAnnotationButtons();
+				SetCursorForMoveSection();
+				this->Invalidate(FALSE);
+			}
+			break;
+		case IDM_ANNOTATE_RECT:
+			if (m_pAnnotationCtl != NULL) {
+				m_pAnnotationCtl->SetTool(ATOOL_Shape);
+				if (m_pNavPanelCtl != NULL) m_pNavPanelCtl->UpdateAnnotationButtons();
+				SetCursorForMoveSection();
+				this->Invalidate(FALSE);
+			}
+			break;
+		case IDM_ANNOTATE_FILL:
+			// A style toggle, not a tool: it does not enter or leave annotation mode.
+			if (m_pAnnotationCtl != NULL) {
+				m_pAnnotationCtl->ToggleFill();
+				if (m_pNavPanelCtl != NULL) m_pNavPanelCtl->UpdateAnnotationButtons();
+				this->Invalidate(FALSE);
+			}
+			break;
+		case IDM_ANNOTATE_OFF:
+			if (m_pAnnotationCtl != NULL) {
+				m_pAnnotationCtl->SetTool(ATOOL_None);
+				if (m_pNavPanelCtl != NULL) m_pNavPanelCtl->UpdateAnnotationButtons();
+				SetCursorForMoveSection();
+				this->Invalidate(FALSE);
+			}
+			break;
+		case IDM_ANNOTATE_UNDO:
+			if (m_pAnnotationCtl != NULL) {
+				m_pAnnotationCtl->Undo();
+				this->Invalidate(FALSE);
+			}
+			break;
+		case IDM_ANNOTATE_REDO:
+			if (m_pAnnotationCtl != NULL) {
+				m_pAnnotationCtl->Redo();
+				this->Invalidate(FALSE);
+			}
+			break;
+		case IDM_ANNOTATE_APPLY_SAVE:
+			PromptSaveAnnotations();
+			break;
+		case IDM_ANNOTATE_CLEAR:
+			if (m_pAnnotationCtl != NULL) {
+				m_pAnnotationCtl->Clear();
+				this->Invalidate(FALSE);
+			}
+			break;
+		case IDM_TRANSPARENT_TITLE_BAR:
 			if (!m_bFullScreenMode) {
 				// only available when full screen mode is not active
-
-				m_bWindowBorderless = !m_bWindowBorderless;
-				SetCurrentWindowStyle();
-
-				// get the size of the border to shift the window pos downwards
-				int windowCaptionHeight = Helpers::GetWindowCaptionSize();
-				double dZoom = -1;
-				CRect windowRect = Helpers::GetWindowRectMatchingImageSize(
-					m_hWnd, CSize(MIN_WND_WIDTH, MIN_WND_HEIGHT), HUGE_SIZE, dZoom, m_pCurrentImage, false, true, m_bWindowBorderless);
-
-				// don't try to adjust for an image that isn't loaded!
-				if (m_pCurrentImage != NULL)
-				{
-					// this is the new top to move it to so that the experience seems seamless
-					int newTop;
-					int t = m_pCurrentImage->OrigHeight();
-
-					// these are experimental values figured out through trial and error
-					// it appears if the caption size is odd, and just using /2,
-					// it causes the window to shift up one pixel at a time when going between borderless and not borderless repeatedly
-					// in other cases, it shifts downwards depending on rounding errors resizing the window and image... hard to hunt down but it's as good as it can get right now
-					if (windowCaptionHeight % 2 == 0) {
-						newTop = m_bWindowBorderless ?
-							windowRect.top + (windowCaptionHeight / 2) :
-							windowRect.top - (windowCaptionHeight / 2);
-					} else {
-						newTop = m_bWindowBorderless ?
-							windowRect.top + (windowCaptionHeight / 2) :
-							windowRect.top - (windowCaptionHeight / 2) + 1;
-					}
-
-					// tell the window the Frame has changed, not sure if it makes a difference
-					this->SetWindowPos(HWND_TOP, windowRect.left, newTop, windowRect.Width(), windowRect.Height(), SWP_NOZORDER | SWP_NOCOPYBITS | SWP_FRAMECHANGED);
-
-					// don't auto adjust unless auto is selected in options
-					if (IsAdjustWindowToImage() && !(m_bAutoFitWndToImage && !IsImageExactlyFittingWindow())) {
-						AdjustWindowToImage(false);
-						this->Invalidate(FALSE);
-					}
-
-					StartLowQTimer(ZOOM_TIMEOUT);  // trigger a redraw as if zoom changed (might not be necessary)
+				m_bTransparentTitleBar = !m_bTransparentTitleBar;
+				if (m_bWindowBorderless == m_bTransparentTitleBar) {
+					// the window is already borderless (or already has its title bar back),
+					// only the window style flags have to be updated
+					SetCurrentWindowStyle();
+					this->SetWindowPos(NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOCOPYBITS | SWP_FRAMECHANGED);
+				} else {
+					SetWindowBorderless(m_bTransparentTitleBar);
 				}
+				if (m_pTitleBarPanelCtl != NULL) m_pTitleBarPanelCtl->UpdateFilePath();
+				this->Invalidate(FALSE);
 			}
-
+			break;
+		case IDM_MAXIMIZE_RESTORE:
+			if (!m_bFullScreenMode) {
+				this->ShowWindow(::IsZoomed(m_hWnd) ? SW_RESTORE : SW_MAXIMIZE);
+			}
 			break;
 		case IDM_ALWAYS_ON_TOP:
 			ToggleAlwaysOnTop();
@@ -1849,23 +2259,31 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			AdjustWindowToImage(false);
 			break;
 		case IDM_ZOOM_400:
-			PerformZoom(4.0, false, m_bMouseOn, true);
+			PerformZoom(ZoomMath::AbsoluteZoom(4.0, RelativeZoomBase()), false, m_bMouseOn, true);
 			break;
 		case IDM_ZOOM_200:
-			PerformZoom(2.0, false, m_bMouseOn, true);
+			PerformZoom(ZoomMath::AbsoluteZoom(2.0, RelativeZoomBase()), false, m_bMouseOn, true);
 			break;
 		case IDM_ZOOM_100:
 			ResetZoomTo100Percents(m_bMouseOn);
 			break;
 		case IDM_ZOOM_50:
-			PerformZoom(0.5, false, m_bMouseOn, true);
+			PerformZoom(ZoomMath::AbsoluteZoom(0.5, RelativeZoomBase()), false, m_bMouseOn, true);
 			break;
 		case IDM_ZOOM_25:
-			PerformZoom(0.25, false, m_bMouseOn, true);
+			PerformZoom(ZoomMath::AbsoluteZoom(0.25, RelativeZoomBase()), false, m_bMouseOn, true);
 			break;
 		case IDM_ZOOM_INC:
 		case IDM_ZOOM_DEC:
 			PerformZoom((nCommand == IDM_ZOOM_INC) ? 1 : -1, true, m_bMouseOn, true);
+			break;
+		case IDM_RELATIVE_ZOOM_MODE:
+			m_bRelativeZoom = !m_bRelativeZoom;
+			m_bRelativeZoomTemporary = false; // an explicit choice, not the one scroll mode makes
+			m_dRelativeZoomFactor = 1.0; // the mode starts from the fitted image
+			sp.SaveRelativeZoomMode(m_bRelativeZoom);
+			m_dZoomMult = -1.0; // the step depends on the mode, recompute it for this image
+			this->Invalidate(FALSE); // the zoom read-out changes meaning
 			break;
 		case IDM_ZOOM_MODE:
 			m_bZoomModeOnLeftMouse = !m_bZoomModeOnLeftMouse;
@@ -1927,7 +2345,12 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			CleanupAndTerminate();
 			break;
 		case IDM_DEFAULT_ESC:
-			if (m_bMovieMode) {
+			if (m_bScrollMode) {
+				if (m_bAutoExit)
+					CleanupAndTerminate();
+				else
+					StopScrollMode();
+			} else if (m_bMovieMode) {
 				if (m_bAutoExit)
 					CleanupAndTerminate();
 				else
@@ -2114,14 +2537,72 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 // Setting window styles have gotten out of hand with the addition of no title bar
 // instead of each call trying to figure out the logic, consolidate it to one function
 LONG CMainDlg::SetCurrentWindowStyle() {
+	LONG nStyle = this->GetWindowLongW(GWL_STYLE);
 	if (!m_bWindowBorderless) {
-		return this->SetWindowLongW(GWL_STYLE, this->GetWindowLongW(GWL_STYLE) | WS_OVERLAPPEDWINDOW | WS_VISIBLE);
+		return this->SetWindowLongW(GWL_STYLE, nStyle | WS_OVERLAPPEDWINDOW | WS_VISIBLE);
+	} else if (m_bTransparentTitleBar) {
+		// The title bar is painted over the image. WS_THICKFRAME is kept so that the window can still be
+		// resized by dragging its borders - OnNCCalcSize removes the frame that would be drawn for it.
+		return this->SetWindowLongW(GWL_STYLE, (nStyle & ~WS_CAPTION) | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_VISIBLE);
 	} else {
 		return this->SetWindowLongW(GWL_STYLE, this->GetWindowLongW(GWL_STYLE) & ~WS_OVERLAPPEDWINDOW | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_VISIBLE);  // lose resizing
 		// just doing (& ~WS_CAPTION) leads to having a sliver of white bar on top but allows for resizing
 	}
 }
 
+
+// Switches the window between showing a system title bar and being borderless.
+// The window position is compensated so that the displayed image does not jump.
+void CMainDlg::SetWindowBorderless(bool bBorderless) {
+	if (m_bFullScreenMode || m_bWindowBorderless == bBorderless) {
+		return; // only available when full screen mode is not active, and nothing to do when unchanged
+	}
+
+	m_bWindowBorderless = bBorderless;
+	SetCurrentWindowStyle();
+
+	// get the size of the border to shift the window pos downwards
+	int windowCaptionHeight = Helpers::GetWindowCaptionSize();
+	double dZoom = -1;
+	CRect windowRect = Helpers::GetWindowRectMatchingImageSize(
+		m_hWnd, CSize(MIN_WND_WIDTH, MIN_WND_HEIGHT), HUGE_SIZE, dZoom, m_pCurrentImage, false, true, m_bWindowBorderless);
+
+	// don't try to adjust for an image that isn't loaded!
+	if (m_pCurrentImage != NULL)
+	{
+		// this is the new top to move it to so that the experience seems seamless
+		int newTop;
+
+		// these are experimental values figured out through trial and error
+		// it appears if the caption size is odd, and just using /2,
+		// it causes the window to shift up one pixel at a time when going between borderless and not borderless repeatedly
+		// in other cases, it shifts downwards depending on rounding errors resizing the window and image... hard to hunt down but it's as good as it can get right now
+		if (windowCaptionHeight % 2 == 0) {
+			newTop = m_bWindowBorderless ?
+				windowRect.top + (windowCaptionHeight / 2) :
+				windowRect.top - (windowCaptionHeight / 2);
+		} else {
+			newTop = m_bWindowBorderless ?
+				windowRect.top + (windowCaptionHeight / 2) :
+				windowRect.top - (windowCaptionHeight / 2) + 1;
+		}
+
+		// tell the window the Frame has changed, not sure if it makes a difference
+		this->SetWindowPos(HWND_TOP, windowRect.left, newTop, windowRect.Width(), windowRect.Height(), SWP_NOZORDER | SWP_NOCOPYBITS | SWP_FRAMECHANGED);
+
+		// don't auto adjust unless auto is selected in options
+		if (IsAdjustWindowToImage() && !(m_bAutoFitWndToImage && !IsImageExactlyFittingWindow())) {
+			AdjustWindowToImage(false);
+			this->Invalidate(FALSE);
+		}
+
+		StartLowQTimer(ZOOM_TIMEOUT);  // trigger a redraw as if zoom changed (might not be necessary)
+	} else {
+		// no image to adjust to, but the frame changed and the window still has to be told about it
+		this->SetWindowPos(NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOCOPYBITS | SWP_FRAMECHANGED);
+		this->Invalidate(FALSE);
+	}
+}
 
 void CMainDlg::ExploreFile() {
 	ITEMIDLIST* pidl = ILCreateFromPath(CurrentFileName(false));
@@ -2147,14 +2628,27 @@ bool CMainDlg::OpenFileWithDialog(bool bFullScreen, bool bAfterStartup) {
 }
 
 void CMainDlg::OpenFile(LPCTSTR sFileName, bool bAfterStartup) {
+	// Not routed through GotoImage, so without this a dropped file would inherit the
+	// previous image's annotations - and a later save would burn them into a file the
+	// user never annotated.
+	if (!PromptSaveAnnotations()) {
+		return;
+	}
+	if (m_pAnnotationCtl != NULL) {
+		m_pAnnotationCtl->Clear();
+		m_pAnnotationCtl->SetTool(ATOOL_None);
+	}
 	StopMovieMode();
 	StopAnimation();
 	// recreate file list based on image opened
 	Helpers::ESorting eOldSorting = m_pFileList->GetSorting();
 	bool oOldAscending = m_pFileList->IsSortedAscending();
+	// Carried over like the sorting: it can have been toggled in the Navigation menu, and
+	// reading it from the settings again would silently undo that on every file opened.
+	bool bOldWrapAround = m_pFileList->IsWrapAroundFolder();
 	delete m_pFileList;
 	m_sStartupFile = sFileName;
-	m_pFileList = new CFileList(m_sStartupFile, *m_pDirectoryWatcher, eOldSorting, oOldAscending, CSettingsProvider::This().WrapAroundFolder());
+	m_pFileList = new CFileList(m_sStartupFile, *m_pDirectoryWatcher, eOldSorting, oOldAscending, bOldWrapAround);
 	// free current image and all read ahead images
 	InitParametersForNewImage();
 	m_pJPEGProvider->NotifyNotUsed(m_pCurrentImage);
@@ -2409,6 +2903,17 @@ void CMainDlg::GotoImage(EImagePosition ePos) {
 }
 
 void CMainDlg::GotoImage(EImagePosition ePos, int nFlags) {
+	// An animation frame is the same image being re-decoded, not a move away from it:
+	// prompting there would open a dialog per frame and wipe the annotations each tick.
+	bool bSameImage = (ePos == POS_NextAnimation);
+	if (!bSameImage) {
+		// Leaving this image is where annotations would be lost, so ask here. Cancelling
+		// during a slideshow also stops it, or the timer would reopen the prompt forever.
+		if (!PromptSaveAnnotations()) {
+			StopSlideShowTimer();
+			return;
+		}
+	}
 	// Timer handling for slideshows
 	if (ePos == POS_Next || ePos == POS_NextSlideShow) {
 		if (m_nCurrentTimeout > 0) {
@@ -2514,6 +3019,13 @@ void CMainDlg::GotoImage(EImagePosition ePos, int nFlags) {
 		m_pJPEGProvider->ClearRequest(m_pCurrentImage, ePos == POS_AwayFromCurrent);
 	}
 	m_pCurrentImage = NULL;
+	if (m_pAnnotationCtl != NULL && !bSameImage) {
+		// The prompt has already been answered by now; a different image must not inherit
+		// annotations drawn on the previous one.
+		m_pAnnotationCtl->Clear();
+		m_pAnnotationCtl->SetTool(ATOOL_None);
+		m_bAnnotationsBurnedIn = false;
+	}
 
 	// do not perform a new image request if flagged
 	if (nFlags & NO_REQUEST) {
@@ -2628,23 +3140,35 @@ bool CMainDlg::PerformZoom(double dValue, bool bExponent, bool bZoomToMouse, boo
 	double dZoomMin = max(0.0001, min(Helpers::ZoomMin, GetZoomFactorForFitToScreen(false, false) * 0.5));
 	m_dZoom = max(dZoomMin, min(Helpers::ZoomMax, m_dZoom));
 
-	// always try to snap to 100%... aka if within 1% of 100%, snap exactly to it
-	if (abs(m_dZoom - 1.0) < 0.01) {
-		m_dZoom = 1.0;
+	// always try to snap to 100%... aka if within 1% of 100%, snap exactly to it.
+	// In relative zoom mode 100% is the fitted image, so both the target and the tolerance
+	// are scaled by the anchor; outside the mode dBase is 1.0 and nothing changes.
+	double dBase = RelativeZoomBase();
+	if (abs(m_dZoom - dBase) < 0.01 * dBase) {
+		m_dZoom = dBase;
 	}
 
 	// only pause on some percent if enabled
-	double pauseAtZoom = CSettingsProvider::This().ZoomPauseFactor();
+	double pauseAtZoom = CSettingsProvider::This().ZoomPauseFactor() * dBase;
 	if (pauseAtZoom != 0) {
 		// snap to zoom factor... aka if within 1% of the set zoom factor, snap exactly to it
 		// skip it if the zoom factor is 100% since it's already checked above - save one expensive calculation of abs()
-		if (pauseAtZoom != 1 && abs(m_dZoom - pauseAtZoom) < 0.01) {
+		if (pauseAtZoom != dBase && abs(m_dZoom - pauseAtZoom) < 0.01 * dBase) {
 			m_dZoom = pauseAtZoom;
 		}
 
 		if ((dOldZoom - pauseAtZoom) * (m_dZoom - pauseAtZoom) <= 0 && m_bInZooming && !m_bZoomMode) {
 			// make a stop at 100 % (or whatever % is configured)
 			m_dZoom = pauseAtZoom;
+		}
+	}
+
+	// Remember where this zoom sits relative to the fitted image, so the next image can be
+	// opened at the same percentage of its own fitted size.
+	if (m_bRelativeZoom) {
+		double dBaseForFactor = RelativeZoomBase();
+		if (dBaseForFactor > 0) {
+			m_dRelativeZoomFactor = m_dZoom / dBaseForFactor;
 		}
 	}
 
@@ -2747,6 +3271,17 @@ void CMainDlg::ZoomToSelection() {
 	}
 }
 
+double CMainDlg::RelativeZoomBase() {
+	// In relative zoom mode the image fitted to the window is what 100% means, so every
+	// zoom factor below is multiplied by this. Fitting here always enlarges a small image,
+	// independently of the auto zoom mode, so the anchor is the same for every image.
+	// Outside the mode this is 1.0 and all the arithmetic collapses to what it always was.
+	if (!m_bRelativeZoom || m_pCurrentImage == NULL) {
+		return 1.0;
+	}
+	return GetZoomFactorForFitToScreen(false, true);
+}
+
 double CMainDlg::GetZoomFactorForFitToScreen(bool bFillWithCrop, bool bAllowEnlarge) {
 	if (m_pCurrentImage != NULL) {
 		double dZoom;
@@ -2761,6 +3296,10 @@ double CMainDlg::GetZoomFactorForFitToScreen(bool bFillWithCrop, bool bAllowEnla
 
 void CMainDlg::ResetZoomToFitScreen(bool bFillWithCrop, bool bAllowEnlarge, bool bAdjustWindowSize) {
 	m_isUserFitToScreen = false;
+	if (m_bRelativeZoom && m_pCurrentImage != NULL) {
+		double dFitZoom = GetZoomFactorForFitToScreen(false, true);
+		m_dRelativeZoomFactor = (bFillWithCrop && dFitZoom > 0) ? GetZoomFactorForFitToScreen(true, bAllowEnlarge) / dFitZoom : 1.0;
+	}
 	if (m_pCurrentImage != NULL) {
 		if (bAdjustWindowSize && !m_bFullScreenMode && !IsZoomed() && m_bAutoFitWndToImage) {
 			m_dZoom = bAllowEnlarge ? Helpers::ZoomMax : 1;
@@ -2770,7 +3309,7 @@ void CMainDlg::ResetZoomToFitScreen(bool bFillWithCrop, bool bAllowEnlarge, bool
 			}
 			m_bResizeForNewImage = true;
 			this->SetWindowPos(HWND_TOP, wndRect.left, wndRect.top, wndRect.Width(), wndRect.Height(), SWP_NOZORDER | SWP_NOCOPYBITS);
-			this->GetClientRect(&m_clientRect);
+			UpdateClientRect();
 			m_bResizeForNewImage = false;
 			this->Invalidate(FALSE);
 		} else {
@@ -2791,9 +3330,10 @@ void CMainDlg::ResetZoomToFitScreen(bool bFillWithCrop, bool bAllowEnlarge, bool
 }
 
 void CMainDlg::ResetZoomTo100Percents(bool bZoomToMouse) {
-	if (m_pCurrentImage != NULL && fabs(m_dZoom - 1) > 0.01) {
+	double dTarget = RelativeZoomBase();
+	if (m_pCurrentImage != NULL && fabs(m_dZoom - dTarget) > 0.01 * dTarget) {
 		// the current design (unless changed) cursor always shows in windowed mode, so always zoom to cursor when not fullscreen
-		PerformZoom(1.0, false, bZoomToMouse || !m_bFullScreenMode, true);
+		PerformZoom(dTarget, false, bZoomToMouse || !m_bFullScreenMode, true);
 	}
 }
 
@@ -2834,7 +3374,15 @@ CProcessParams CMainDlg::CreateProcessParams(bool bNoProcessingAfterLoad) {
 			_SetLandscapeModeParams(m_bLandscapeMode, *m_pImageProcParamsKept), 
 			SetProcessingFlag(_SetLandscapeModeFlags(m_eProcessingFlagsKept), PFLAG_NoProcessingAfterLoad, bNoProcessingAfterLoad));
 	} else {
-		m_isUserFitToScreen = false;
+		if (m_isUserFitToScreen && !IsAdjustWindowToImage() && (m_bScrollMode || m_bMovieMode)) {
+			// A Fit to screen applied by hand lasts for the image it was applied to and is
+			// dropped when the next one is requested. While a folder is playing that means
+			// every image after the first falls back to the auto zoom mode, so here it is
+			// carried on for the whole run instead.
+			eAutoZoomMode = m_autoZoomFitToScreen;
+		} else {
+			m_isUserFitToScreen = false;
+		}
 		CSettingsProvider& sp = CSettingsProvider::This();
 		return CProcessParams(nClientWidth, nClientHeight, 
 			CMultiMonitorSupport::GetMonitorRect(m_hWnd).Size(),
@@ -2870,9 +3418,290 @@ void CMainDlg::StopSlideShowTimer(void) {
 	}
 }
 
+double CMainDlg::GetScrollZoom() {
+	if (m_bScrollFillWithCrop) {
+		return GetZoomFactorForFitToScreen(true, true);
+	}
+	// Without filling the window the image keeps the zoom it already has, and relative zoom
+	// mode is what carries that zoom from one image to the next.
+	if (m_dZoom > 0) {
+		return m_dZoom;
+	}
+	if (m_dRealizedZoom > 0) {
+		return m_dRealizedZoom;
+	}
+	return GetZoomFactorForFitToScreen(false, true);
+}
+
+int CMainDlg::GetScrollMaxOffsetY() {
+	if (m_pCurrentImage == NULL) {
+		return 0;
+	}
+	// What sticks out above and below the window is what there is to scroll through.
+	// Offsets are measured from the centre, which is why this is half the overflow - the
+	// same arithmetic Helpers::LimitOffsets uses.
+	int nVirtualHeight = Helpers::RoundToInt(m_pCurrentImage->OrigHeight() * GetScrollZoom());
+	return max(0, (nVirtualHeight - m_clientRect.Height()) / 2);
+}
+
+void CMainDlg::SetupScrollForCurrentImage() {
+	if (m_pCurrentImage == NULL) {
+		return;
+	}
+	if (m_bScrollFillWithCrop) {
+		// Fill the window the way the 'Fill with crop' command does.
+		m_dZoom = GetZoomFactorForFitToScreen(true, true);
+		m_isUserFitToScreen = false;
+		m_bUserZoom = true;
+	}
+	// Otherwise the zoom the image arrived with is kept, and relative zoom mode has already
+	// set it to the same percentage of the fitted size the previous image was showing.
+	m_bUserPan = true;
+	ScrollMath::Reset(m_scrollState, GetScrollMaxOffsetY());
+	m_offsets = CPoint(0, Helpers::RoundToInt(m_scrollState.dOffsetY));
+	m_nScrollLastTick = ::GetTickCount();
+	this->Invalidate(FALSE);
+}
+
+void CMainDlg::StartScrollMode() {
+	StopMovieMode();
+	StopAnimation();
+	m_bScrollMode = true;
+	UpdateClientRect();
+	if (!m_bScrollFillWithCrop) {
+		// Gliding through the image at its current zoom only makes sense if that zoom is
+		// carried to the next image, which is exactly what relative zoom mode does - so it
+		// is switched on for the duration if the user has not switched it on already.
+		if (!m_bRelativeZoom) {
+			m_bRelativeZoom = true;
+			m_bRelativeZoomTemporary = true;
+		}
+		if (m_pCurrentImage != NULL) {
+			double dCurrentZoom = GetScrollZoom();
+			double dFitZoom = GetZoomFactorForFitToScreen(false, true);
+			if (dFitZoom > 0) {
+				m_dRelativeZoomFactor = dCurrentZoom / dFitZoom;
+			}
+			m_dZoom = dCurrentZoom; // pin it, so it cannot fall back to the auto zoom mode
+			m_isUserFitToScreen = false;
+			m_bUserZoom = true;
+		}
+	}
+	SetupScrollForCurrentImage();
+	::SetTimer(this->m_hWnd, SCROLL_TIMER_EVENT_ID, SCROLL_TIMER_INTERVAL_MS, NULL);
+}
+
+bool CMainDlg::IsPreviewPaneActive() {
+	// Only while a folder is playing. Every other time the image gets the whole window and
+	// the zoom navigator JPEGView shows on its own is the overview, untouched by any of this.
+	return m_bPreview && (m_bScrollMode || m_bMovieMode);
+}
+
+CRect CMainDlg::GetPreviewPaneRect() {
+	CRect fullRect;
+	this->GetClientRect(&fullRect);
+	int nPaneWidth = MulDiv(fullRect.Width(), m_nPreviewSize, 100);
+	nPaneWidth = max(1, min(fullRect.Width(), nPaneWidth));
+	if (!m_bPreviewOnTop) {
+		// A column of its own, which the image makes room for.
+		return m_bPreviewOnLeft ?
+			CRect(fullRect.left, fullRect.top, fullRect.left + nPaneWidth, fullRect.bottom) :
+			CRect(fullRect.right - nPaneWidth, fullRect.top, fullRect.right, fullRect.bottom);
+	}
+	// Over the image it sits in a bottom corner the way the zoom navigator does, and it is
+	// always as wide as Preview Size asks for rather than the fixed size the navigator uses.
+	// Its height is whatever the image needs at that width, so nothing is cut off; a picture
+	// too tall to fit that way is limited by the height instead and gets a margin left and
+	// right inside the pane.
+	CRect panelRect = m_pImageProcPanelCtl->PanelRect();
+	int nBottom = panelRect.top - 1;
+	int nMaxHeight = max(1, nBottom - fullRect.top - 1);
+	int nPaneHeight = min(nPaneWidth, nMaxHeight);
+	if (m_pCurrentImage != NULL) {
+		double dZoom;
+		CSize sizeImage = Helpers::GetImageRect(m_pCurrentImage->OrigWidth(), m_pCurrentImage->OrigHeight(),
+			nPaneWidth, nMaxHeight, Helpers::ZM_FitToScreen, dZoom);
+		nPaneHeight = max(1, min(nMaxHeight, (int)sizeImage.cy));
+	}
+	int nLeft = m_bPreviewOnLeft ? fullRect.left + 1 : fullRect.right - nPaneWidth - 1;
+	int nTop = nBottom - nPaneHeight;
+	return CRect(nLeft, nTop, nLeft + nPaneWidth, nBottom);
+}
+
+void CMainDlg::UpdateClientRect() {
+	this->GetClientRect(&m_clientRect);
+	if (IsPreviewPaneActive() && !m_bPreviewOnTop) {
+		// The pane takes its share of the window and the image gets what is left, so the two
+		// split the screen instead of one covering the other. Everything measured against the
+		// client rectangle - the zoom that fits, the offsets, the panels - follows from here.
+		CRect paneRect = GetPreviewPaneRect();
+		if (m_bPreviewOnLeft) {
+			m_clientRect.left = paneRect.right;
+		} else {
+			m_clientRect.right = paneRect.left;
+		}
+		if (m_clientRect.Width() < 1) {
+			m_clientRect.right = m_clientRect.left + 1;
+		}
+	}
+}
+
+void CMainDlg::PaintPreviewPane(CDC& dc) {
+	if (!IsPreviewPaneActive()) {
+		return;
+	}
+	CRect paneRect = GetPreviewPaneRect();
+	// The pane is its own space in both shapes, so it carries its own background: the image
+	// inside keeps its proportions and any margin left over shows the background.
+	COLORREF backColor = CSettingsProvider::This().ColorBackground();
+	if (backColor == 0) {
+		backColor = RGB(0, 0, 1); // the same nVidia blending workaround the rest of the painting uses
+	}
+	CBrush backBrush;
+	backBrush.CreateSolidBrush(backColor);
+	dc.FillRect(&paneRect, backBrush);
+	if (m_pCurrentImage == NULL) {
+		return;
+	}
+
+	// The whole image, scaled into the pane and kept in proportion, so nothing is cut off.
+	double dZoom;
+	CSize sizeThumb = Helpers::GetImageRect(m_pCurrentImage->OrigWidth(), m_pCurrentImage->OrigHeight(),
+		paneRect.Width(), paneRect.Height(), Helpers::ZM_FitToScreen, dZoom);
+	sizeThumb = CSize(max(1, sizeThumb.cx), max(1, sizeThumb.cy));
+	void* pDIBData = m_pCurrentImage->GetThumbnailDIB(sizeThumb, *m_pImageProcParams,
+		CreateProcessingFlags(false, m_bAutoContrast, false, m_bLDC, false, m_bLandscapeMode));
+	if (pDIBData == NULL) {
+		return;
+	}
+	int xDest = paneRect.left + (paneRect.Width() - sizeThumb.cx) / 2;
+	int yDest = paneRect.top + (paneRect.Height() - sizeThumb.cy) / 2;
+	BITMAPINFO bmInfo = { 0 };
+	bmInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	bmInfo.bmiHeader.biWidth = sizeThumb.cx;
+	bmInfo.bmiHeader.biHeight = -sizeThumb.cy;
+	bmInfo.bmiHeader.biPlanes = 1;
+	bmInfo.bmiHeader.biBitCount = 32;
+	bmInfo.bmiHeader.biCompression = BI_RGB;
+	dc.SetDIBitsToDevice(xDest, yDest, sizeThumb.cx, sizeThumb.cy, 0, 0, 0, sizeThumb.cy, pDIBData,
+		&bmInfo, DIB_RGB_COLORS);
+	if (m_bPreviewOnTop) {
+		// A thin frame, so the pane reads as a window over the image - the zoom navigator
+		// draws the same one around itself.
+		dc.SelectStockBrush(HOLLOW_BRUSH);
+		dc.SelectStockPen(WHITE_PEN);
+		HelpersGUI::DrawRectangle(dc, CRect(paneRect.left - 1, paneRect.top - 1, paneRect.right + 1, paneRect.bottom + 1));
+	}
+}
+
+bool CMainDlg::UseCrossFade() {
+	return m_bCrossFade && m_nTransitionTime > 0;
+}
+
+int CMainDlg::CrossFadeDurationMs() {
+	// A movie at twenty frames a second cannot afford a quarter second fade between them,
+	// so the fade never takes more than half the time an image is on screen for. Below the
+	// length of three screen refreshes there is nothing to see anyway, and the fade would
+	// only cost the movie its speed, so it is dropped.
+	const int nShortestVisibleFadeMs = 50;
+	int nDurationMs = m_nTransitionTime;
+	if (m_bMovieMode && m_nCurrentTimeout > 0) {
+		nDurationMs = min(nDurationMs, m_nCurrentTimeout / 2);
+	}
+	return (nDurationMs < nShortestVisibleFadeMs) ? 0 : nDurationMs;
+}
+
+void CMainDlg::GotoImageWithTransition(EImagePosition ePos, int nFlags) {
+	// Paint the image that is being left, switch without letting the window repaint, then
+	// paint the one that takes over - and fade between the two finished frames. Blending
+	// two snapshots means every frame is computed from scratch, so the fade is even; the
+	// slideshow transition blends onto whatever is already on screen, which compounds.
+	// The frames cover the whole window, not only the part the image gets: with the preview
+	// pane beside it the rest of the window belongs to the fade as well.
+	CRect fullRect;
+	this->GetClientRect(&fullRect);
+	int nW = fullRect.Width(), nH = fullRect.Height();
+	int nDurationMs = UseCrossFade() ? CrossFadeDurationMs() : 0;
+	if (nW <= 0 || nH <= 0 || nDurationMs <= 0) {
+		GotoImage(ePos, nFlags);
+		if (m_bScrollMode) {
+			SetupScrollForCurrentImage();
+		}
+		return;
+	}
+
+	CClientDC screenDC(m_hWnd);
+	CDC oldDC, newDC, frameDC;
+	oldDC.CreateCompatibleDC(screenDC);
+	newDC.CreateCompatibleDC(screenDC);
+	frameDC.CreateCompatibleDC(screenDC);
+	CBitmap oldBitmap, newBitmap, frameBitmap;
+	oldBitmap.CreateCompatibleBitmap(screenDC, nW, nH);
+	newBitmap.CreateCompatibleBitmap(screenDC, nW, nH);
+	frameBitmap.CreateCompatibleBitmap(screenDC, nW, nH);
+	oldDC.SelectBitmap(oldBitmap);
+	newDC.SelectBitmap(newBitmap);
+	frameDC.SelectBitmap(frameBitmap);
+
+	PaintToDC(oldDC);
+	GotoImage(ePos, nFlags | NO_UPDATE_WINDOW);
+	if (m_bScrollMode) {
+		SetupScrollForCurrentImage();
+	}
+	PaintToDC(newDC);
+
+	const int nFrameTimeMs = 20;
+	int nSteps = max(2, (nDurationMs + nFrameTimeMs / 2) / nFrameTimeMs);
+	BLENDFUNCTION blendFunc = { 0 };
+	blendFunc.BlendOp = AC_SRC_OVER;
+	blendFunc.AlphaFormat = 0;
+	DWORD lastTime = ::GetTickCount();
+	for (int i = 1; i <= nSteps; i++) {
+		if (i == nSteps) {
+			screenDC.BitBlt(0, 0, nW, nH, newDC, 0, 0, SRCCOPY);
+		} else {
+			frameDC.BitBlt(0, 0, nW, nH, oldDC, 0, 0, SRCCOPY);
+			blendFunc.SourceConstantAlpha = (BYTE)min(255, (int)(255.0 * i / nSteps + 0.5));
+			frameDC.AlphaBlend(0, 0, nW, nH, newDC, 0, 0, nW, nH, blendFunc);
+			screenDC.BitBlt(0, 0, nW, nH, frameDC, 0, 0, SRCCOPY);
+		}
+		DWORD time = ::GetTickCount();
+		if ((int)(time - lastTime) < nFrameTimeMs) {
+			::Sleep(nFrameTimeMs - (time - lastTime));
+		}
+		lastTime = ::GetTickCount();
+		// let a key press or the context menu cut the fade short
+		MSG msg;
+		if (::PeekMessage(&msg, m_hWnd, WM_KEYFIRST, WM_KEYLAST, PM_NOREMOVE)) break;
+		if (::PeekMessage(&msg, m_hWnd, WM_CONTEXTMENU, WM_CONTEXTMENU, PM_NOREMOVE)) break;
+	}
+	// the fade ate the time the hold at the top was supposed to start with
+	m_nScrollLastTick = ::GetTickCount();
+	m_nLastSlideShowImageTickCount = ::GetTickCount();
+	// The window has not been told about any of this, so ask for a proper repaint: the frame
+	// left on screen was painted into a memory DC and nothing would refresh it otherwise.
+	this->Invalidate(FALSE);
+}
+
+void CMainDlg::StopScrollMode() {
+	if (!m_bScrollMode) {
+		return;
+	}
+	m_bScrollMode = false;
+	UpdateClientRect();
+	this->Invalidate(FALSE);
+	if (m_bRelativeZoomTemporary) {
+		m_bRelativeZoom = false;
+		m_bRelativeZoomTemporary = false;
+	}
+	::KillTimer(this->m_hWnd, SCROLL_TIMER_EVENT_ID);
+}
+
 void CMainDlg::StartMovieMode(double dFPS) {
 	// if more than this number of frames are requested per seconds, it is considered to be a movie
 	const double cdFPSMovie = 4.9;
+
+	StopScrollMode(); // the two modes drive the same window, only one of them at a time
 
 	m_dMovieFPS = dFPS;
 
@@ -2894,6 +3723,7 @@ void CMainDlg::StartMovieMode(double dFPS) {
 		m_bLandscapeMode = false;
 	}
 	m_bMovieMode = true;
+	UpdateClientRect();
 	StartSlideShowTimer(Helpers::RoundToInt(1000.0/dFPS));
 	AfterNewImageLoaded(false, false, false);
 	Invalidate(FALSE);
@@ -2923,6 +3753,7 @@ void CMainDlg::StopMovieMode() {
 		}
 		m_bMovieMode = false;
 		m_bProcFlagsTouched = false;
+		UpdateClientRect(); // the preview pane goes away with the mode
 		StopSlideShowTimer();
 		AfterNewImageLoaded(false, false, false);
 		this->Invalidate(FALSE);
@@ -3032,6 +3863,18 @@ void CMainDlg::AfterNewImageLoaded(bool bSynchronize, bool bAfterStartup, bool n
 			if (m_bKeepParams) {
 				m_nRotation = m_pCurrentImage->GetInitialRotation() + m_nUserRotation;
 			}
+			if (m_bRelativeZoom && !m_pCurrentImage->HasZoomStoredInParamDB()) {
+				// The whole point of relative zoom mode: the fitted image is 100%, so a new
+				// image opens at the same percentage of its own fitted size as the last one
+				// was showing. Without this the zoom fell back to the auto zoom mode on every
+				// image and the same command magnified each of them differently.
+				double dBase = GetZoomFactorForFitToScreen(false, true);
+				if (dBase > 0) {
+					m_dZoom = dBase * m_dRelativeZoomFactor;
+					m_isUserFitToScreen = false;
+					m_bUserZoom = true;
+				}
+			}
 		}
 		if (!bAfterStartup && !m_bIsAnimationPlaying && !noAdjustWindow) {
 			AdjustWindowToImage(false);
@@ -3059,7 +3902,7 @@ void CMainDlg::AdjustWindowToImage(bool bAfterStartup) {
 		m_bResizeForNewImage = true;
 		this->Invalidate(FALSE);
 		this->SetWindowPos(HWND_TOP, windowRect.left, windowRect.top, windowRect.Width(), windowRect.Height(), SWP_NOZORDER | SWP_NOCOPYBITS);
-		this->GetClientRect(&m_clientRect);
+		UpdateClientRect();
 		m_bResizeForNewImage = false;
 	}
 }
@@ -3153,7 +3996,260 @@ LPCTSTR CMainDlg::CurrentFileName(bool bFileTitle) {
 	}
 }
 
+// IAnnotationHost. OnPaint calls CJPEGImage::VerifyRotation before anything else,
+// so OrigSize() already reports the dimensions of the image as it is displayed,
+// including any 90 degree rotation the user applied.
+// Ends an in-place edit by destroying its window rather than hiding it; see
+// StartAnnotationTextEdit for why. Focus returns to the dialog, which then has no child
+// control left to hand it on to.
+void CMainDlg::DestroyAnnotationEdit(CEdit& edit, bool& bActive) {
+	bActive = false;
+	if (edit.IsWindow()) {
+		edit.DestroyWindow();
+	}
+	this->SetFocus();
+}
+
+// Draws the annotations onto the image, under the panels, which paint afterwards.
+//
+// While a shape is dragged its whole area is invalidated on every mouse move. Blitting
+// the image there and then drawing the shape on top of it leaves the bare image on
+// screen in between, which is the flicker. So whenever something is being drawn, the
+// dirty part of the image is assembled in a memory DC - image first, annotations on top -
+// and put on screen in one blit. A freehand stroke only ever dirties the segment just
+// added, too small to notice, but it costs nothing to route it the same way.
+void CMainDlg::PaintAnnotations(CPaintDC& dc, const CPoint& ptDIBStart, const CSize& clippedSize,
+		void* pDIBData, BITMAPINFO* pBitmapInfo) {
+	if (m_pAnnotationCtl == NULL) {
+		return;
+	}
+	const CAnnotation* pPending = m_pAnnotationCtl->PendingAnnotation();
+	bool bHasCommitted = !m_pAnnotationCtl->Model().IsEmpty();
+	if (!bHasCommitted && pPending == NULL) {
+		return;
+	}
+	Gdiplus::PointF ptOrigin((float)m_ptImageOrigin.x, (float)m_ptImageOrigin.y);
+	float fScale = (float)m_dRealizedZoom;
+	CRect rcImageOnScreen(ptDIBStart, clippedSize);
+
+	CRect rcBuffer(0, 0, 0, 0);
+	if (pPending != NULL) {
+		// The clip box is the area this paint has to fill, which during a drag is just
+		// the shape's old and new outlines.
+		dc.GetClipBox(&rcBuffer);
+		rcBuffer.IntersectRect(&rcBuffer, &rcImageOnScreen);
+	}
+	if (rcBuffer.IsRectEmpty()) {
+		// Nothing is being drawn: no old pixels to replace, so no flicker to avoid.
+		Gdiplus::Graphics graphics(dc);
+		graphics.SetClip(Gdiplus::Rect(rcImageOnScreen.left, rcImageOnScreen.top,
+			rcImageOnScreen.Width(), rcImageOnScreen.Height()));
+		CAnnotationRenderer::Render(graphics, m_pAnnotationCtl->Model().Annotations(), fScale, ptOrigin);
+		return;
+	}
+
+	HBITMAP hOffscreenBitmap = NULL;
+	{
+		CDC memDC;
+		hOffscreenBitmap = CPaintMemDCMgr::PrepareRectForMemDCPainting(memDC, dc, rcBuffer);
+		if (memDC.m_hDC == NULL) {
+			return;
+		}
+		CSize dibSize(abs(pBitmapInfo->bmiHeader.biWidth), abs(pBitmapInfo->bmiHeader.biHeight));
+		memDC.SetDIBitsToDevice(ptDIBStart.x - rcBuffer.left, ptDIBStart.y - rcBuffer.top,
+			dibSize.cx, dibSize.cy, 0, 0, 0, dibSize.cy, pDIBData, pBitmapInfo, DIB_RGB_COLORS);
+		{
+			Gdiplus::Graphics graphics(memDC);
+			// Everything below is written in screen coordinates; the transform moves it
+			// into the memory bitmap, and SetClip is applied through that transform.
+			graphics.TranslateTransform(-(float)rcBuffer.left, -(float)rcBuffer.top);
+			graphics.SetClip(Gdiplus::Rect(rcImageOnScreen.left, rcImageOnScreen.top,
+				rcImageOnScreen.Width(), rcImageOnScreen.Height()));
+			CAnnotationRenderer::Render(graphics, m_pAnnotationCtl->Model().Annotations(), fScale, ptOrigin);
+			CAnnotationRenderer::RenderOne(graphics, *pPending, fScale, ptOrigin);
+		}
+		dc.BitBlt(rcBuffer.left, rcBuffer.top, rcBuffer.Width(), rcBuffer.Height(), memDC, 0, 0, SRCCOPY);
+	}
+	// Deleted only once the memory DC is gone: a bitmap selected into a DC cannot be.
+	if (hOffscreenBitmap != NULL) {
+		::DeleteObject(hOffscreenBitmap);
+	}
+}
+
+void CMainDlg::StartAnnotationTextEdit() {
+	CPoint pt = m_pAnnotationCtl->GetPendingTextPosition();
+	int nHeight = m_pAnnotationCtl->GetFontSizeScreen();
+	CRect rect(pt, CSize(max(120, nHeight * 20), (int)(nHeight * 1.5)));
+	// Created fresh each time and destroyed when finished. Hiding it instead left it as
+	// the control the dialog manager remembers as focused, and it handed focus straight
+	// back to that hidden edit whenever the window was focused again - where it swallowed
+	// Ctrl+Z as its own undo-typing, so annotation undo stopped working once a piece of
+	// text had been placed.
+	DestroyAnnotationEdit(m_annotationEdit, m_bAnnotationEditActive);
+	m_annotationEdit.Create(m_hWnd, rect, NULL, WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, 0, IDC_ANNOTATION_EDIT);
+	if (!m_annotationEditFont.IsNull()) {
+		m_annotationEditFont.DeleteObject();
+	}
+	m_annotationEditFont.CreateFont(-nHeight, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+		DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY,
+		DEFAULT_PITCH, _T("Segoe UI"));
+	m_annotationEdit.SetFont(m_annotationEditFont);
+	m_annotationEdit.SetWindowText(_T(""));
+	m_annotationEdit.SetFocus();
+	m_bAnnotationEditActive = true;
+}
+
+void CMainDlg::StartAnnotationValueEdit(int nWhich, const CRect& rcField, int nCurrentValue, int nMin, int nMax) {
+	m_nAnnotationValueEditWhich = nWhich;
+	m_nAnnotationValueEditMin = nMin;
+	m_nAnnotationValueEditMax = nMax;
+	int nHeight = max(14, rcField.Height());
+	CRect rect(rcField.left, rcField.top, rcField.right, rcField.top + nHeight);
+	DestroyAnnotationEdit(m_annotationValueEdit, m_bAnnotationValueEditActive);
+	m_annotationValueEdit.Create(m_hWnd, rect, NULL,
+		WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | ES_RIGHT | ES_NUMBER, 0, IDC_ANNOTATION_VALUE_EDIT);
+	if (!m_annotationValueEditFont.IsNull()) {
+		m_annotationValueEditFont.DeleteObject();
+	}
+	m_annotationValueEditFont.CreateFont(-(nHeight - 4), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+		DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY,
+		DEFAULT_PITCH, _T("Segoe UI"));
+	m_annotationValueEdit.SetFont(m_annotationValueEditFont);
+	CString sValue; sValue.Format(_T("%d"), nCurrentValue);
+	m_annotationValueEdit.SetWindowText(sValue);
+	m_annotationValueEdit.SetSel(0, -1); // typing replaces the old value
+	m_annotationValueEdit.SetFocus();
+	m_bAnnotationValueEditActive = true;
+}
+
+void CMainDlg::CommitAnnotationValueEdit() {
+	if (!m_bAnnotationValueEditActive) {
+		return;
+	}
+	CString sText;
+	m_annotationValueEdit.GetWindowText(sText);
+	DestroyAnnotationEdit(m_annotationValueEdit, m_bAnnotationValueEditActive);
+	if (!sText.IsEmpty() && m_pAnnotationStylePanelCtl != NULL) {
+		int nValue = _ttoi(sText);
+		nValue = max(m_nAnnotationValueEditMin, min(m_nAnnotationValueEditMax, nValue));
+		m_pAnnotationStylePanelCtl->SetValueFromEntry(m_nAnnotationValueEditWhich, nValue);
+	}
+	Invalidate(FALSE);
+}
+
+void CMainDlg::CancelAnnotationValueEdit() {
+	if (!m_bAnnotationValueEditActive) {
+		return;
+	}
+	DestroyAnnotationEdit(m_annotationValueEdit, m_bAnnotationValueEditActive);
+	Invalidate(FALSE);
+}
+
+void CMainDlg::OnAnnotationTextCommitted() {
+	if (!m_bAnnotationEditActive) {
+		return;
+	}
+	CString sText;
+	m_annotationEdit.GetWindowText(sText);
+	DestroyAnnotationEdit(m_annotationEdit, m_bAnnotationEditActive);
+	if (m_pAnnotationCtl != NULL) {
+		m_pAnnotationCtl->CommitText(sText); // empty text is dropped by the model
+	}
+	Invalidate(FALSE);
+}
+
+void CMainDlg::OnAnnotationTextCancelled() {
+	if (!m_bAnnotationEditActive) {
+		return;
+	}
+	DestroyAnnotationEdit(m_annotationEdit, m_bAnnotationEditActive);
+	if (m_pAnnotationCtl != NULL) {
+		m_pAnnotationCtl->CancelText();
+	}
+	Invalidate(FALSE);
+}
+
+// Returns false when the caller must abandon whatever it was about to do, because the
+// user cancelled or the save failed and the annotations are still unsaved.
+bool CMainDlg::PromptSaveAnnotations() {
+	// The dialog below runs a message loop, so WM_TIMER keeps arriving and can call us
+	// again through GotoImage. Without this guard an animated image stacks one prompt
+	// per frame.
+	if (m_bInSaveAnnotationsPrompt) {
+		return false;
+	}
+	if (m_pCurrentImage == NULL || m_pAnnotationCtl == NULL) {
+		return true;
+	}
+	if (m_bAnnotationEditActive) {
+		OnAnnotationTextCommitted(); // whatever is being typed counts as work
+	}
+	if (!m_pAnnotationCtl->HasUnsavedAnnotations() && !m_bAnnotationsBurnedIn) {
+		return true;
+	}
+
+	m_bInSaveAnnotationsPrompt = true;
+	StopAnimation();
+	StopSlideShowTimer();
+	int nButton = IDCANCEL;
+	{
+		CSaveAnnotationsDlg dlg(CurrentFileName(false));
+		nButton = (int)dlg.DoModal(m_hWnd);
+	}
+	m_bInSaveAnnotationsPrompt = false;
+
+	if (nButton == IDCANCEL) {
+		return false;
+	}
+	if (nButton == IDC_ANNOT_DISCARD) {
+		m_pAnnotationCtl->Clear();
+		m_bAnnotationsBurnedIn = false;
+		Invalidate(FALSE);
+		return true;
+	}
+
+	// Burn once. A second pass over an already-burned buffer would print the marks
+	// twice, which is what happens if the first save is cancelled and then retried.
+	if (!m_bAnnotationsBurnedIn) {
+		if (!m_pCurrentImage->ApplyAnnotationsToOriginalPixels(m_pAnnotationCtl->Model().Annotations())) {
+			::MessageBox(m_hWnd, CNLS::GetString(_T("Could not apply the annotations to the image")),
+				CNLS::GetString(_T("Error")), MB_ICONSTOP | MB_OK);
+			return false;
+		}
+		m_bAnnotationsBurnedIn = true;
+		// The pixels hold them now, so the model must stop drawing them on top.
+		m_pAnnotationCtl->MarkSaved();
+		m_pAnnotationCtl->Clear();
+		Invalidate(FALSE);
+	}
+
+	bool bSaved;
+	if (nButton == IDC_ANNOT_OVERWRITE && !m_pCurrentImage->IsClipboardImage()) {
+		bSaved = SaveImageNoPrompt(CurrentFileName(false), true);
+	} else {
+		// A pasted image has no file to overwrite; CurrentFileName would return the
+		// placeholder text, so it always goes through the save dialog.
+		bSaved = SaveImage(true);
+	}
+	if (!bSaved) {
+		// The marks are in the displayed pixels but not on disk. Staying here is what
+		// lets the user try again; leaving would lose them like any unsaved edit.
+		return false;
+	}
+	m_bAnnotationsBurnedIn = false;
+	return true;
+}
+
+CSize CMainDlg::GetImageSize() {
+	return (m_pCurrentImage == NULL) ? CSize(0, 0) : m_pCurrentImage->OrigSize();
+}
+
 void CMainDlg::SetCursorForMoveSection() {
+	if (IsAnnotating()) {
+		::SetCursor(::LoadCursor(NULL, IDC_CROSS));
+		m_bPanMouseCursorSet = true; // keeps OnMouseMove from resetting it to the arrow
+		return;
+	}
 	if (!m_pCropCtl->IsCropping()) {
 		if (m_pZoomNavigatorCtl->IsPointInZoomNavigatorThumbnail(CPoint(m_nMouseX, m_nMouseY)) || m_bDragging) {
 			::SetCursor(::LoadCursor(NULL, IDC_SIZEALL));
@@ -3182,17 +4278,18 @@ void CMainDlg::ToggleMonitor() {
 		m_nMonitor = (m_nMonitor + 1) % nMaxMonitorIdx;
 		m_monitorRect = CMultiMonitorSupport::GetMonitorRect(m_nMonitor);
 		SetWindowPos(HWND_TOP, &m_monitorRect, SWP_NOZORDER);
-		this->GetClientRect(&m_clientRect);
+		UpdateClientRect();
 	}
 }
 
 CRect CMainDlg::GetZoomTextRect(CRect imageProcessingArea) {
 	int nZoomTextRectBottomOffset = (m_clientRect.Width() < HelpersGUI::ScaleToScreen(800)) ? 25 : ZOOM_TEXT_RECT_OFFSET;
-	int nStartX = imageProcessingArea.right - HelpersGUI::ScaleToScreen(ZOOM_TEXT_RECT_WIDTH + ZOOM_TEXT_RECT_OFFSET);
+	int nZoomTextRectWidth = m_bRelativeZoom ? ZOOM_TEXT_RECT_WIDTH_RELATIVE : ZOOM_TEXT_RECT_WIDTH;
+	int nStartX = imageProcessingArea.right - HelpersGUI::ScaleToScreen(nZoomTextRectWidth + ZOOM_TEXT_RECT_OFFSET);
 	if (m_pImageProcPanelCtl->IsVisible()) {
 		nStartX = max(nStartX, m_pImageProcPanelCtl->GetUnsharpMaskButtonRect().right);
 	}
-	int nEndX = nStartX + HelpersGUI::ScaleToScreen(ZOOM_TEXT_RECT_WIDTH);
+	int nEndX = nStartX + HelpersGUI::ScaleToScreen(nZoomTextRectWidth);
 	if (m_pImageProcPanelCtl->IsVisible()) {
 		nEndX = min(nEndX, imageProcessingArea.right - 2);
 	}
@@ -3296,12 +4393,9 @@ void CMainDlg::PrefetchDIB(const CRect& clientRect) {
 
 double CMainDlg::GetZoomMultiplier(CJPEGImage* pImage, const CRect& clientRect) {
 	double dZoomToFit;
-	CSize fittedSize = Helpers::GetImageRect(pImage->OrigWidth(), pImage->OrigHeight(), 
+	Helpers::GetImageRect(pImage->OrigWidth(), pImage->OrigHeight(), 
 		clientRect.Width(), clientRect.Height(), true, false, false, dZoomToFit);
-	// Zoom multiplier (zoom step) should be around 1.1 but reach the value 1.0 after an integral number
-	// of zooming steps
-	int n = Helpers::RoundToInt(log(1/dZoomToFit)/log(1.1));
-	return (n == 0) ? 1.1 : exp(log(1/dZoomToFit)/n);
+	return ZoomMath::StepMultiplier(dZoomToFit, m_bRelativeZoom);
 }
 
 EProcessingFlags CMainDlg::CreateDefaultProcessingFlags(bool bKeepParams) {
@@ -3462,6 +4556,16 @@ void CMainDlg::AnimateTransition() {
 }
 
 void CMainDlg::CleanupAndTerminate() {
+	// Every way of quitting lands here - IDM_EXIT from both of JPEGView's own close
+	// buttons, Esc, Alt+F4, the system close button, movie auto-exit - so this is the
+	// only place that catches them all. Only the system routes raise WM_CLOSE.
+	if (!PromptSaveAnnotations()) {
+		return;
+	}
+	// The sticky window rect is read after the dialog ends, so it has to be taken
+	// while the window still exists - EndDialog() below raises no WM_CLOSE.
+	GetWindowRect(m_windowRectOnClose);
+	StopScrollMode();
 	StopMovieMode();
 	StopAnimation();
 	delete m_pJPEGProvider; // delete this early to properly shut down the loading threads

@@ -47,6 +47,7 @@ F8                      IDM_LOOP_RECURSIVELY
 F9                      IDM_LOOP_SIBLINGS
 F11                     IDM_FULL_SCREEN_MODE
 Shift+F11               IDM_HIDE_TITLE_BAR
+Ctrl+Shift+F11          IDM_TRANSPARENT_TITLE_BAR
 Ctrl+F11                IDM_FIT_WINDOW_TO_IMAGE
 F12                     IDM_SPAN_SCREENS
 Ctrl+F12                IDM_TOGGLE_MONITOR
@@ -87,3 +88,11 @@ R                       IDM_ROTATE_90_LOSSLESS_CONFIRM
 T                       IDM_ROTATE_270_LOSSLESS_CONFIRM
 W                       IDM_EXPLORE
 Shift+F12               IDM_ALWAYS_ON_TOP
+Ctrl+Shift+D            IDM_ANNOTATE_FREEHAND
+Ctrl+Shift+T            IDM_ANNOTATE_TEXT
+Ctrl+Shift+R            IDM_ANNOTATE_RECT
+Ctrl+Shift+F            IDM_ANNOTATE_FILL
+Ctrl+Z                  IDM_ANNOTATE_UNDO
+Ctrl+Y                  IDM_ANNOTATE_REDO
+Ctrl+Shift+Del          IDM_ANNOTATE_CLEAR
+Ctrl+Shift+A            IDM_ANNOTATE_APPLY_SAVE

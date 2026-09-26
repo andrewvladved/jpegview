@@ -6,6 +6,7 @@
 #include "JPEGImage.h"
 #include "FileList.h"
 #include "SettingsProvider.h"
+#include "ZoomMath.h"
 #include <math.h>
 
 namespace Helpers {
@@ -906,7 +907,7 @@ CString GetMultiframeIndex(CJPEGImage* pImage) {
 	return CString(_T(""));
 }
 
-CString GetFileInfoString(LPCTSTR sFormat, CJPEGImage* pImage, CFileList* pFilelist, double dZoom) {
+CString GetFileInfoString(LPCTSTR sFormat, CJPEGImage* pImage, CFileList* pFilelist, double dZoom, double dZoomBase) {
 	if (pImage == NULL) {
 		return CString(_T(""));
 	}
@@ -934,9 +935,7 @@ CString GetFileInfoString(LPCTSTR sFormat, CJPEGImage* pImage, CFileList* pFilel
 		sFileInfo.Replace(_T("<i>"), sIndex);
 	}
 	if (_tcsstr(sFormat, _T("<z>")) != NULL) {
-		TCHAR buff[32];
-		_stprintf_s(buff, 32, _T("%d %%"), int(dZoom*100 + 0.5));
-		sFileInfo.Replace(_T("<z>"), buff);
+		sFileInfo.Replace(_T("<z>"), ZoomMath::FormatZoom(dZoom, dZoomBase));
 	}
 	if (_tcsstr(sFormat, _T("<s>")) != NULL) {
 		TCHAR buff[48];

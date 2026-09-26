@@ -170,6 +170,17 @@ CSettingsProvider::CSettingsProvider(void) {
 
 	m_nMaxSlideShowFileListSize = GetInt(_T("MaxSlideShowFileListSizeKB"), 200, 100, 10000);
 	m_nSlideShowEffectTimeMs = GetInt(_T("SlideShowEffectTime"), 200, 100, 5000);
+	m_nSlideShowWaitTime = GetInt(_T("SlideShowWaitTime"), 3, MIN_SLIDESHOW_WAIT_TIME, MAX_SLIDESHOW_WAIT_TIME);
+	m_nMoviePlaybackSpeed = GetInt(_T("MoviePlaybackSpeed"), 5, MIN_MOVIE_PLAYBACK_SPEED, MAX_MOVIE_PLAYBACK_SPEED);
+	m_bRelativeZoomMode = GetBool(_T("RelativeZoomMode"), false);
+	m_nScrollSpeed = GetInt(_T("ScrollSpeed"), 100, MIN_SCROLL_SPEED, MAX_SCROLL_SPEED);
+	m_nScrollTime = GetInt(_T("ScrollTime"), 2, MIN_SCROLL_TIME, MAX_SCROLL_TIME);
+	m_bScrollFillWithCrop = GetBool(_T("ScrollFillWithCrop"), true);
+	m_bCrossFade = GetBool(_T("CrossFade"), true);
+	m_bPreview = GetBool(_T("Preview"), false);
+	m_nPreviewSize = GetInt(_T("PreviewSize"), 25, 10, 100);
+	m_bPreviewOnLeft = GetString(_T("PreviewSide"), _T("Right")).CompareNoCase(_T("Left")) == 0;
+	m_bPreviewOnTop = GetBool(_T("PreviewOnTop"), true);
 	m_bForceGDIPlus = GetBool(_T("ForceGDIPlus"), false);
 	m_bSingleInstance = GetBool(_T("SingleInstance"), false);
 	m_bSingleFullScreenInstance = GetBool(_T("SingleFullScreenInstance"), true);
@@ -184,6 +195,7 @@ CSettingsProvider::CSettingsProvider(void) {
 	m_bFlashWindowAlert = GetBool(_T("FlashWindowAlert"), true);
 	m_bBeepSoundAlert = GetBool(_T("BeepSoundAlert"), false);  // don't make it default on... too much sound feedback is pretty annoying
 	m_bWindowBorderlessOnStartup = GetBool(_T("WindowBorderlessOnStartup"), false);
+	m_bTransparentTitleBarOnStartup = GetBool(_T("TransparentTitleBarOnStartup"), false);
 	m_bWindowAlwaysOnTopOnStartup = GetBool(_T("WindowAlwaysOnTopOnStartup"), false);
 	m_zoomPauseFactor = GetInt(_T("ZoomPausePercent"), 100, 0, 6553500) / 100.0;  // can't have a % larger than the MAX_IMAGE_DIMENSION %, and convert to a scale factor (double/double division) only once
 	m_bSaveWithoutPrompt = GetBool(_T("OverwriteOriginalFileWithoutSaveDialog"), false);
@@ -228,6 +240,11 @@ CSettingsProvider::CSettingsProvider(void) {
 	m_colorSlider = GetColor(_T("SliderColor"), RGB(255, 0, 80));
 	m_colorFileName = GetColor(_T("FileNameColor"), m_colorGUI);
 	m_colorTransparency = GetColor(_T("TransparencyColor"), m_colorBackground);
+	m_colorAnnotation = GetColor(_T("AnnotationColor"), RGB(255, 0, 0));
+	m_nAnnotationOpacity = GetInt(_T("AnnotationOpacity"), 70, 0, 100);
+	m_nAnnotationPenWidth = GetInt(_T("AnnotationPenWidth"), 4, 1, 100);
+	m_nAnnotationFontSize = GetInt(_T("AnnotationFontSize"), 24, 4, 400);
+	m_colorAnnotationTextBack = GetColor(_T("AnnotationTextBackColor"), RGB(0, 0, 0));
 
 	m_defaultGUIFont = GetString(_T("DefaultGUIFont"), _T("Default"));
 	m_fileNameFont = GetString(_T("FileNameFont"), _T("Default"));
@@ -530,6 +547,125 @@ void CSettingsProvider::SaveStickyWindowRect(CRect rect) {
 
 		m_bUserINIExists = true;
 	}
+}
+
+void CSettingsProvider::SaveSlideShowWaitTime(int nSeconds) {
+	MakeSureUserINIExists();
+
+	m_nSlideShowWaitTime = nSeconds;
+	const int BUFF_SIZE = 16;
+	TCHAR buff[BUFF_SIZE];
+	_sntprintf(buff, BUFF_SIZE, _T("%d"), nSeconds);
+	WriteString(_T("SlideShowWaitTime"), buff);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SaveMoviePlaybackSpeed(int nFPS) {
+	MakeSureUserINIExists();
+
+	m_nMoviePlaybackSpeed = nFPS;
+	const int BUFF_SIZE = 16;
+	TCHAR buff[BUFF_SIZE];
+	_sntprintf(buff, BUFF_SIZE, _T("%d"), nFPS);
+	WriteString(_T("MoviePlaybackSpeed"), buff);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SaveRelativeZoomMode(bool bRelativeZoomMode) {
+	MakeSureUserINIExists();
+
+	m_bRelativeZoomMode = bRelativeZoomMode;
+	WriteBool(_T("RelativeZoomMode"), bRelativeZoomMode);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SaveScrollSpeed(int nPixelsPerSecond) {
+	MakeSureUserINIExists();
+
+	m_nScrollSpeed = nPixelsPerSecond;
+	const int BUFF_SIZE = 16;
+	TCHAR buff[BUFF_SIZE];
+	_sntprintf(buff, BUFF_SIZE, _T("%d"), nPixelsPerSecond);
+	WriteString(_T("ScrollSpeed"), buff);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SaveScrollTime(int nSeconds) {
+	MakeSureUserINIExists();
+
+	m_nScrollTime = nSeconds;
+	const int BUFF_SIZE = 16;
+	TCHAR buff[BUFF_SIZE];
+	_sntprintf(buff, BUFF_SIZE, _T("%d"), nSeconds);
+	WriteString(_T("ScrollTime"), buff);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SaveScrollFillWithCrop(bool bFillWithCrop) {
+	MakeSureUserINIExists();
+
+	m_bScrollFillWithCrop = bFillWithCrop;
+	WriteBool(_T("ScrollFillWithCrop"), bFillWithCrop);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SaveCrossFade(bool bCrossFade) {
+	MakeSureUserINIExists();
+
+	m_bCrossFade = bCrossFade;
+	WriteBool(_T("CrossFade"), bCrossFade);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SavePreview(bool bPreview) {
+	MakeSureUserINIExists();
+
+	m_bPreview = bPreview;
+	WriteBool(_T("Preview"), bPreview);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SavePreviewSettings(int nSizePercent, bool bOnLeft) {
+	MakeSureUserINIExists();
+
+	m_nPreviewSize = nSizePercent;
+	m_bPreviewOnLeft = bOnLeft;
+	const int BUFF_SIZE = 16;
+	TCHAR buff[BUFF_SIZE];
+	_sntprintf(buff, BUFF_SIZE, _T("%d"), nSizePercent);
+	WriteString(_T("PreviewSize"), buff);
+	WriteString(_T("PreviewSide"), bOnLeft ? _T("Left") : _T("Right"));
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SavePreviewOnTop(bool bOnTop) {
+	MakeSureUserINIExists();
+
+	m_bPreviewOnTop = bOnTop;
+	WriteBool(_T("PreviewOnTop"), bOnTop);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SaveSlideShowEffectTime(int nMilliseconds) {
+	MakeSureUserINIExists();
+
+	m_nSlideShowEffectTimeMs = nMilliseconds;
+	const int BUFF_SIZE = 16;
+	TCHAR buff[BUFF_SIZE];
+	_sntprintf(buff, BUFF_SIZE, _T("%d"), nMilliseconds);
+	WriteString(_T("SlideShowEffectTime"), buff);
+
+	m_bUserINIExists = true;
 }
 
 bool CSettingsProvider::ExistsUserINI() {
@@ -871,4 +1007,23 @@ void CSettingsProvider::WriteInt(LPCTSTR sKey, int nValue) {
 	TCHAR buff[32];
 	_stprintf_s(buff, 32, _T("%d"), nValue);
 	WriteString(sKey, buff);
+}
+
+void CSettingsProvider::SaveAnnotationStyle(COLORREF color, int nOpacityPercent, int nPenWidth, int nFontSize, COLORREF backColor) {
+	MakeSureUserINIExists();
+	m_bUserINIExists = true; // as every other writer does, or GetString keeps skipping it
+	CString sColor;
+	sColor.Format(_T("%d %d %d"), GetRValue(color), GetGValue(color), GetBValue(color));
+	WriteString(_T("AnnotationColor"), sColor);
+	WriteInt(_T("AnnotationOpacity"), nOpacityPercent);
+	WriteInt(_T("AnnotationPenWidth"), nPenWidth);
+	WriteInt(_T("AnnotationFontSize"), nFontSize);
+	CString sBackColor;
+	sBackColor.Format(_T("%d %d %d"), GetRValue(backColor), GetGValue(backColor), GetBValue(backColor));
+	WriteString(_T("AnnotationTextBackColor"), sBackColor);
+	m_colorAnnotationTextBack = backColor;
+	m_colorAnnotation = color;
+	m_nAnnotationOpacity = nOpacityPercent;
+	m_nAnnotationPenWidth = nPenWidth;
+	m_nAnnotationFontSize = nFontSize;
 }
