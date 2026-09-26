@@ -315,6 +315,7 @@ private:
 	bool m_bFullScreenMode;
 	bool m_bAutoFitWndToImage;
 	bool m_bRelativeZoom;
+	double m_dRelativeZoomFactor; // current zoom as a multiple of the fitted image
 	bool m_bScrollMode;
 	ScrollMath::SState m_scrollState;
 	DWORD m_nScrollLastTick;
@@ -412,6 +413,7 @@ private:
 	void StartScrollMode();
 	void StopScrollMode();
 	void SetupScrollForCurrentImage();
+	void ScrollToNextImage();
 	int GetScrollMaxOffsetY();
 	CProcessParams CreateProcessParams(bool bNoProcessingAfterLoad);
 	void ResetParamsToDefault();

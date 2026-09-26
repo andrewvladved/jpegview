@@ -251,6 +251,7 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_nMouseX = m_nMouseY = 0;
 	m_bAutoFitWndToImage = sp.DefaultWndToImage();
 	m_bRelativeZoom = sp.RelativeZoomMode();
+	m_dRelativeZoomFactor = 1.0;
 	m_bScrollMode = false;
 	m_nScrollLastTick = 0;
 	ScrollMath::Reset(m_scrollState, 0);
@@ -1280,8 +1281,7 @@ LRESULT CMainDlg::OnTimer(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOOL&
 			m_nScrollLastTick = nNow;
 			ScrollMath::Advance(m_scrollState, GetScrollMaxOffsetY(), sp.ScrollSpeed(), sp.ScrollTime() * 1000, nElapsedMs);
 			if (m_scrollState.bAdvanceToNextImage) {
-				GotoImage(POS_Next);
-				SetupScrollForCurrentImage();
+				ScrollToNextImage();
 			} else {
 				CPoint newOffsets(0, Helpers::RoundToInt(m_scrollState.dOffsetY));
 				if (newOffsets != m_offsets) {
@@ -2191,6 +2191,7 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			break;
 		case IDM_RELATIVE_ZOOM_MODE:
 			m_bRelativeZoom = !m_bRelativeZoom;
+			m_dRelativeZoomFactor = 1.0; // the mode starts from the fitted image
 			sp.SaveRelativeZoomMode(m_bRelativeZoom);
 			m_dZoomMult = -1.0; // the step depends on the mode, recompute it for this image
 			this->Invalidate(FALSE); // the zoom read-out changes meaning
@@ -3073,6 +3074,15 @@ bool CMainDlg::PerformZoom(double dValue, bool bExponent, bool bZoomToMouse, boo
 		}
 	}
 
+	// Remember where this zoom sits relative to the fitted image, so the next image can be
+	// opened at the same percentage of its own fitted size.
+	if (m_bRelativeZoom) {
+		double dBaseForFactor = RelativeZoomBase();
+		if (dBaseForFactor > 0) {
+			m_dRelativeZoomFactor = m_dZoom / dBaseForFactor;
+		}
+	}
+
 	// Never create images more than 65535 pixels wide or high - the basic processing cannot handle it
 	int nOldXSize = (int)(m_pCurrentImage->OrigWidth() * dOldZoom + 0.5);
 	int nOldYSize = (int)(m_pCurrentImage->OrigHeight() * dOldZoom + 0.5);
@@ -3197,6 +3207,10 @@ double CMainDlg::GetZoomFactorForFitToScreen(bool bFillWithCrop, bool bAllowEnla
 
 void CMainDlg::ResetZoomToFitScreen(bool bFillWithCrop, bool bAllowEnlarge, bool bAdjustWindowSize) {
 	m_isUserFitToScreen = false;
+	if (m_bRelativeZoom && m_pCurrentImage != NULL) {
+		double dFitZoom = GetZoomFactorForFitToScreen(false, true);
+		m_dRelativeZoomFactor = (bFillWithCrop && dFitZoom > 0) ? GetZoomFactorForFitToScreen(true, bAllowEnlarge) / dFitZoom : 1.0;
+	}
 	if (m_pCurrentImage != NULL) {
 		if (bAdjustWindowSize && !m_bFullScreenMode && !IsZoomed() && m_bAutoFitWndToImage) {
 			m_dZoom = bAllowEnlarge ? Helpers::ZoomMax : 1;
@@ -3340,6 +3354,66 @@ void CMainDlg::StartScrollMode() {
 	m_bScrollMode = true;
 	SetupScrollForCurrentImage();
 	::SetTimer(this->m_hWnd, SCROLL_TIMER_EVENT_ID, SCROLL_TIMER_INTERVAL_MS, NULL);
+}
+
+void CMainDlg::ScrollToNextImage() {
+	// Paint the image that is being left, switch without letting the window repaint, then
+	// paint the one that takes over - and fade between the two finished frames. Blending
+	// two snapshots means every frame is computed from scratch, so the fade is even; the
+	// slideshow transition blends onto whatever is already on screen, which compounds.
+	int nW = m_clientRect.Width(), nH = m_clientRect.Height();
+	int nDurationMs = m_nTransitionTime;
+	if (nW <= 0 || nH <= 0 || nDurationMs <= 0) {
+		GotoImage(POS_Next);
+		SetupScrollForCurrentImage();
+		return;
+	}
+
+	CClientDC screenDC(m_hWnd);
+	CDC oldDC, newDC, frameDC;
+	oldDC.CreateCompatibleDC(screenDC);
+	newDC.CreateCompatibleDC(screenDC);
+	frameDC.CreateCompatibleDC(screenDC);
+	CBitmap oldBitmap, newBitmap, frameBitmap;
+	oldBitmap.CreateCompatibleBitmap(screenDC, nW, nH);
+	newBitmap.CreateCompatibleBitmap(screenDC, nW, nH);
+	frameBitmap.CreateCompatibleBitmap(screenDC, nW, nH);
+	oldDC.SelectBitmap(oldBitmap);
+	newDC.SelectBitmap(newBitmap);
+	frameDC.SelectBitmap(frameBitmap);
+
+	PaintToDC(oldDC);
+	GotoImage(POS_Next, NO_UPDATE_WINDOW);
+	SetupScrollForCurrentImage();
+	PaintToDC(newDC);
+
+	const int nFrameTimeMs = 20;
+	int nSteps = max(2, (nDurationMs + nFrameTimeMs / 2) / nFrameTimeMs);
+	BLENDFUNCTION blendFunc = { 0 };
+	blendFunc.BlendOp = AC_SRC_OVER;
+	blendFunc.AlphaFormat = 0;
+	DWORD lastTime = ::GetTickCount();
+	for (int i = 1; i <= nSteps; i++) {
+		if (i == nSteps) {
+			screenDC.BitBlt(0, 0, nW, nH, newDC, 0, 0, SRCCOPY);
+		} else {
+			frameDC.BitBlt(0, 0, nW, nH, oldDC, 0, 0, SRCCOPY);
+			blendFunc.SourceConstantAlpha = (BYTE)min(255, (int)(255.0 * i / nSteps + 0.5));
+			frameDC.AlphaBlend(0, 0, nW, nH, newDC, 0, 0, nW, nH, blendFunc);
+			screenDC.BitBlt(0, 0, nW, nH, frameDC, 0, 0, SRCCOPY);
+		}
+		DWORD time = ::GetTickCount();
+		if ((int)(time - lastTime) < nFrameTimeMs) {
+			::Sleep(nFrameTimeMs - (time - lastTime));
+		}
+		lastTime = ::GetTickCount();
+		// let a key press or the context menu cut the fade short
+		MSG msg;
+		if (::PeekMessage(&msg, m_hWnd, WM_KEYFIRST, WM_KEYLAST, PM_NOREMOVE)) break;
+		if (::PeekMessage(&msg, m_hWnd, WM_CONTEXTMENU, WM_CONTEXTMENU, PM_NOREMOVE)) break;
+	}
+	// the fade ate the time the top hold was supposed to start with
+	m_nScrollLastTick = ::GetTickCount();
 }
 
 void CMainDlg::StopScrollMode() {
@@ -3513,6 +3587,18 @@ void CMainDlg::AfterNewImageLoaded(bool bSynchronize, bool bAfterStartup, bool n
 			}
 			if (m_bKeepParams) {
 				m_nRotation = m_pCurrentImage->GetInitialRotation() + m_nUserRotation;
+			}
+			if (m_bRelativeZoom && !m_pCurrentImage->HasZoomStoredInParamDB()) {
+				// The whole point of relative zoom mode: the fitted image is 100%, so a new
+				// image opens at the same percentage of its own fitted size as the last one
+				// was showing. Without this the zoom fell back to the auto zoom mode on every
+				// image and the same command magnified each of them differently.
+				double dBase = GetZoomFactorForFitToScreen(false, true);
+				if (dBase > 0) {
+					m_dZoom = dBase * m_dRelativeZoomFactor;
+					m_isUserFitToScreen = false;
+					m_bUserZoom = true;
+				}
 			}
 		}
 		if (!bAfterStartup && !m_bIsAnimationPlaying && !noAdjustWindow) {
