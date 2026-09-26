@@ -3899,13 +3899,7 @@ void CMainDlg::AfterNewImageLoaded(bool bSynchronize, bool bAfterStartup, bool n
 			if (m_bKeepParams) {
 				m_nRotation = m_pCurrentImage->GetInitialRotation() + m_nUserRotation;
 			}
-			if (m_bScrollMode) {
-				// Scroll mode gives the image its own zoom and parks it at the top edge. Every
-				// way of reaching another image passes through here, so the ones that do not
-				// know about scroll mode - the next and previous commands among them - no longer
-				// leave the new image at whatever zoom the auto mode chose.
-				SetupScrollForCurrentImage();
-			} else if (m_bRelativeZoom && !m_pCurrentImage->HasZoomStoredInParamDB()) {
+			if (m_bRelativeZoom && !m_pCurrentImage->HasZoomStoredInParamDB()) {
 				// The whole point of relative zoom mode: the fitted image is 100%, so a new
 				// image opens at the same percentage of its own fitted size as the last one
 				// was showing. Without this the zoom fell back to the auto zoom mode on every
@@ -3916,6 +3910,15 @@ void CMainDlg::AfterNewImageLoaded(bool bSynchronize, bool bAfterStartup, bool n
 					m_isUserFitToScreen = false;
 					m_bUserZoom = true;
 				}
+			}
+			if (m_bScrollMode) {
+				// Scroll mode gives the image its own zoom and parks it at the top edge. Every
+				// way of reaching another image passes through here, so the ones that do not know
+				// about scroll mode - the next and previous commands among them - no longer leave
+				// the new image at whatever zoom the auto mode chose. It runs after the block
+				// above rather than instead of it: without Fill with crop the zoom it keeps is
+				// precisely the one relative zoom mode has just carried over.
+				SetupScrollForCurrentImage();
 			}
 		}
 		if (!bAfterStartup && !m_bIsAnimationPlaying && !noAdjustWindow) {
