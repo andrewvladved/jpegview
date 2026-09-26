@@ -176,7 +176,7 @@ CSettingsProvider::CSettingsProvider(void) {
 	m_nScrollSpeed = GetInt(_T("ScrollSpeed"), 100, MIN_SCROLL_SPEED, MAX_SCROLL_SPEED);
 	m_nScrollTime = GetInt(_T("ScrollTime"), 2, MIN_SCROLL_TIME, MAX_SCROLL_TIME);
 	m_bScrollFillWithCrop = GetBool(_T("ScrollFillWithCrop"), true);
-	m_nScrollTransitionTime = GetInt(_T("ScrollTransitionTime"), 250, MIN_SCROLL_TRANSITION_TIME, MAX_SCROLL_TRANSITION_TIME);
+	m_bCrossFade = GetBool(_T("CrossFade"), true);
 	m_bForceGDIPlus = GetBool(_T("ForceGDIPlus"), false);
 	m_bSingleInstance = GetBool(_T("SingleInstance"), false);
 	m_bSingleFullScreenInstance = GetBool(_T("SingleFullScreenInstance"), true);
@@ -611,14 +611,23 @@ void CSettingsProvider::SaveScrollFillWithCrop(bool bFillWithCrop) {
 	m_bUserINIExists = true;
 }
 
-void CSettingsProvider::SaveScrollTransitionTime(int nMilliseconds) {
+void CSettingsProvider::SaveCrossFade(bool bCrossFade) {
 	MakeSureUserINIExists();
 
-	m_nScrollTransitionTime = nMilliseconds;
+	m_bCrossFade = bCrossFade;
+	WriteBool(_T("CrossFade"), bCrossFade);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SaveSlideShowEffectTime(int nMilliseconds) {
+	MakeSureUserINIExists();
+
+	m_nSlideShowEffectTimeMs = nMilliseconds;
 	const int BUFF_SIZE = 16;
 	TCHAR buff[BUFF_SIZE];
 	_sntprintf(buff, BUFF_SIZE, _T("%d"), nMilliseconds);
-	WriteString(_T("ScrollTransitionTime"), buff);
+	WriteString(_T("SlideShowEffectTime"), buff);
 
 	m_bUserINIExists = true;
 }

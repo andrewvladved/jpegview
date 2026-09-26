@@ -83,8 +83,9 @@ public:
 	// With it off the image keeps the zoom it has and scroll mode glides through
 	// whatever sticks out at that zoom.
 	bool ScrollFillWithCrop() { return m_bScrollFillWithCrop; }
-	// Length of the crossfade between two images in scroll mode, in milliseconds
-	int ScrollTransitionTime() { return m_nScrollTransitionTime; }
+	// Whether images are cross faded into each other in scroll, slide show and movie
+	// mode. The length of the fade is SlideShowEffectTime.
+	bool CrossFade() { return m_bCrossFade; }
 
 	// Bounds shared by the INI clamp and by the dialogs asking for these two values
 	static const int MIN_SLIDESHOW_WAIT_TIME = 1;
@@ -95,8 +96,8 @@ public:
 	static const int MAX_SCROLL_SPEED = 5000;
 	static const int MIN_SCROLL_TIME = 0; // zero means no pause at the ends
 	static const int MAX_SCROLL_TIME = 600;
-	static const int MIN_SCROLL_TRANSITION_TIME = 0; // zero means no crossfade
-	static const int MAX_SCROLL_TRANSITION_TIME = 5000;
+	static const int MIN_TRANSITION_TIME = 100;
+	static const int MAX_TRANSITION_TIME = 5000;
 
 	bool ForceGDIPlus() { return m_bForceGDIPlus; }
 	bool SingleInstance() { return m_bSingleInstance; }
@@ -213,7 +214,9 @@ public:
 	void SaveScrollSpeed(int nPixelsPerSecond);
 	void SaveScrollTime(int nSeconds);
 	void SaveScrollFillWithCrop(bool bFillWithCrop);
-	void SaveScrollTransitionTime(int nMilliseconds);
+	void SaveCrossFade(bool bCrossFade);
+	// Saves the length of the transition between two images to the INI file
+	void SaveSlideShowEffectTime(int nMilliseconds);
 	
 	// Update user settings with settings from INI file template
 	void UpdateUserSettings();
@@ -304,7 +307,7 @@ private:
 	int m_nScrollSpeed;
 	int m_nScrollTime;
 	bool m_bScrollFillWithCrop;
-	int m_nScrollTransitionTime;
+	bool m_bCrossFade;
 	bool m_bForceGDIPlus;
 	bool m_bSingleInstance;
 	bool m_bSingleFullScreenInstance;

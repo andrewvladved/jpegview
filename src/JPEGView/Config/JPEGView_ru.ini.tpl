@@ -651,10 +651,11 @@ ScrollTime=2
 ; Это значение записывает пункт «Fill with crop» подменю Slideshow.
 ScrollFillWithCrop=true
 
-; Режим Scroll: длительность плавного перехода между изображениями, в миллисекундах.
-; Ноль означает без перехода.
-; Это значение записывает пункт «Set Scroll Transition Time» подменю Slideshow.
-ScrollTransitionTime=250
+; Смешивать ли одно изображение со следующим в режимах Scroll, Slideshow и Movie.
+; Длительность перехода задаёт SlideShowEffectTime, который записывает пункт
+; «Set Transition Time» подменю Slideshow.
+; Это значение записывает пункт «Cross fade» того же подменю.
+CrossFade=true
 
 
 

@@ -254,6 +254,7 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_dRelativeZoomFactor = 1.0;
 	m_bScrollMode = false;
 	m_bScrollFillWithCrop = sp.ScrollFillWithCrop();
+	m_bCrossFade = sp.CrossFade();
 	m_bRelativeZoomTemporary = false;
 	m_nScrollLastTick = 0;
 	ScrollMath::Reset(m_scrollState, 0);
@@ -1267,9 +1268,16 @@ LRESULT CMainDlg::OnTimer(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOOL&
 					::SetTimer(this->m_hWnd, SLIDESHOW_TIMER_EVENT_ID, m_nCurrentTimeout, NULL);
 				}
 			}
-			GotoImage((wParam == ANIMATION_TIMER_EVENT_ID) ? POS_NextAnimation : POS_NextSlideShow, NO_REMOVE_KEY_MSG);
-			if (wParam == SLIDESHOW_TIMER_EVENT_ID && UseSlideShowTransitionEffect()) {
-				AnimateTransition();
+			EImagePosition eNextPos = (wParam == ANIMATION_TIMER_EVENT_ID) ? POS_NextAnimation : POS_NextSlideShow;
+			if (wParam == SLIDESHOW_TIMER_EVENT_ID && UseCrossFade()) {
+				// The frames of an animated GIF are not images being handed over, so they
+				// are never faded - only the step from one file to the next is.
+				GotoImageWithTransition(eNextPos, NO_REMOVE_KEY_MSG);
+			} else {
+				GotoImage(eNextPos, NO_REMOVE_KEY_MSG);
+				if (wParam == SLIDESHOW_TIMER_EVENT_ID && UseSlideShowTransitionEffect()) {
+					AnimateTransition();
+				}
 			}
 			if (wParam != ANIMATION_TIMER_EVENT_ID) {
 				m_nLastSlideShowImageTickCount = ::GetTickCount();
@@ -1283,7 +1291,7 @@ LRESULT CMainDlg::OnTimer(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOOL&
 			m_nScrollLastTick = nNow;
 			ScrollMath::Advance(m_scrollState, GetScrollMaxOffsetY(), sp.ScrollSpeed(), sp.ScrollTime() * 1000, nElapsedMs);
 			if (m_scrollState.bAdvanceToNextImage) {
-				ScrollToNextImage();
+				GotoImageWithTransition(POS_Next, 0);
 			} else {
 				CPoint newOffsets(0, Helpers::RoundToInt(m_scrollState.dOffsetY));
 				if (newOffsets != m_offsets) {
@@ -1362,6 +1370,7 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	HMENU hMenuMovie = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_MOVIE);
 	if (!m_bMovieMode && !m_bScrollMode) ::EnableMenuItem(hMenuMovie, IDM_STOP_MOVIE, MF_BYCOMMAND | MF_GRAYED);
 	if (m_bScrollFillWithCrop) ::CheckMenuItem(hMenuMovie, IDM_SCROLL_FILL_WITH_CROP, MF_CHECKED);
+	if (m_bCrossFade) ::CheckMenuItem(hMenuMovie, IDM_CROSS_FADE, MF_CHECKED);
 	HMENU hMenuZoom = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_ZOOM);
 	if (m_bSpanVirtualDesktop) ::CheckMenuItem(hMenuZoom,  IDM_SPAN_SCREENS, MF_CHECKED);
 	if (m_bFullScreenMode) ::CheckMenuItem(hMenuZoom,  IDM_FULL_SCREEN_MODE, MF_CHECKED);
@@ -1387,10 +1396,11 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	}
 	if (!m_bFullScreenMode) {
 		// Transition effect and speed only available in full screen mode. They are the
-		// ninth and tenth entries of the submenu: the five scroll entries, a separator,
-		// Slideshow, Set Waiting Time, and then these two.
-		::DeleteMenu(hMenuMovie, 8, MF_BYPOSITION);
-		::DeleteMenu(hMenuMovie, 8, MF_BYPOSITION);
+		// eleventh and twelfth entries of the submenu: Cross fade, Set Transition Time, a
+		// separator, the four scroll entries, a separator, Slideshow, Set Waiting Time,
+		// and then these two.
+		::DeleteMenu(hMenuMovie, 10, MF_BYPOSITION);
+		::DeleteMenu(hMenuMovie, 10, MF_BYPOSITION);
 	} else {
 		::CheckMenuItem(hMenuMovie, m_eTransitionEffect + IDM_EFFECT_NONE, MF_CHECKED);
 		int nIndex = (m_nTransitionTime < 180) ? 0 : (m_nTransitionTime < 375) ? 1 : (m_nTransitionTime < 750) ? 2 : (m_nTransitionTime < 1500) ? 3 : 4;
@@ -1762,13 +1772,18 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			m_bScrollFillWithCrop = !m_bScrollFillWithCrop;
 			sp.SaveScrollFillWithCrop(m_bScrollFillWithCrop);
 			break;
-		case IDM_SCROLL_SET_TRANSITION_TIME:
+		case IDM_CROSS_FADE:
+			m_bCrossFade = !m_bCrossFade;
+			sp.SaveCrossFade(m_bCrossFade);
+			break;
+		case IDM_SET_TRANSITION_TIME:
 			{
-				CSetValueDlg dlgScrollFade(CNLS::GetString(_T("Set Scroll Transition Time")), CNLS::GetString(_T("Crossfade")),
-					CNLS::GetString(_T("ms")), sp.ScrollTransitionTime(),
-					CSettingsProvider::MIN_SCROLL_TRANSITION_TIME, CSettingsProvider::MAX_SCROLL_TRANSITION_TIME);
-				if (dlgScrollFade.DoModal(m_hWnd) == IDOK) {
-					sp.SaveScrollTransitionTime(dlgScrollFade.GetValue());
+				CSetValueDlg dlgFadeTime(CNLS::GetString(_T("Set Transition Time")), CNLS::GetString(_T("Transition")),
+					CNLS::GetString(_T("ms")), m_nTransitionTime,
+					CSettingsProvider::MIN_TRANSITION_TIME, CSettingsProvider::MAX_TRANSITION_TIME);
+				if (dlgFadeTime.DoModal(m_hWnd) == IDOK) {
+					m_nTransitionTime = dlgFadeTime.GetValue();
+					sp.SaveSlideShowEffectTime(m_nTransitionTime);
 				}
 			}
 			break;
@@ -3411,16 +3426,35 @@ void CMainDlg::StartScrollMode() {
 	::SetTimer(this->m_hWnd, SCROLL_TIMER_EVENT_ID, SCROLL_TIMER_INTERVAL_MS, NULL);
 }
 
-void CMainDlg::ScrollToNextImage() {
+bool CMainDlg::UseCrossFade() {
+	return m_bCrossFade && m_nTransitionTime > 0;
+}
+
+int CMainDlg::CrossFadeDurationMs() {
+	// A movie at twenty frames a second cannot afford a quarter second fade between them,
+	// so the fade never takes more than half the time an image is on screen for. Below the
+	// length of three screen refreshes there is nothing to see anyway, and the fade would
+	// only cost the movie its speed, so it is dropped.
+	const int nShortestVisibleFadeMs = 50;
+	int nDurationMs = m_nTransitionTime;
+	if (m_bMovieMode && m_nCurrentTimeout > 0) {
+		nDurationMs = min(nDurationMs, m_nCurrentTimeout / 2);
+	}
+	return (nDurationMs < nShortestVisibleFadeMs) ? 0 : nDurationMs;
+}
+
+void CMainDlg::GotoImageWithTransition(EImagePosition ePos, int nFlags) {
 	// Paint the image that is being left, switch without letting the window repaint, then
 	// paint the one that takes over - and fade between the two finished frames. Blending
 	// two snapshots means every frame is computed from scratch, so the fade is even; the
 	// slideshow transition blends onto whatever is already on screen, which compounds.
 	int nW = m_clientRect.Width(), nH = m_clientRect.Height();
-	int nDurationMs = CSettingsProvider::This().ScrollTransitionTime();
+	int nDurationMs = UseCrossFade() ? CrossFadeDurationMs() : 0;
 	if (nW <= 0 || nH <= 0 || nDurationMs <= 0) {
-		GotoImage(POS_Next);
-		SetupScrollForCurrentImage();
+		GotoImage(ePos, nFlags);
+		if (m_bScrollMode) {
+			SetupScrollForCurrentImage();
+		}
 		return;
 	}
 
@@ -3438,8 +3472,10 @@ void CMainDlg::ScrollToNextImage() {
 	frameDC.SelectBitmap(frameBitmap);
 
 	PaintToDC(oldDC);
-	GotoImage(POS_Next, NO_UPDATE_WINDOW);
-	SetupScrollForCurrentImage();
+	GotoImage(ePos, nFlags | NO_UPDATE_WINDOW);
+	if (m_bScrollMode) {
+		SetupScrollForCurrentImage();
+	}
 	PaintToDC(newDC);
 
 	const int nFrameTimeMs = 20;
@@ -3467,8 +3503,9 @@ void CMainDlg::ScrollToNextImage() {
 		if (::PeekMessage(&msg, m_hWnd, WM_KEYFIRST, WM_KEYLAST, PM_NOREMOVE)) break;
 		if (::PeekMessage(&msg, m_hWnd, WM_CONTEXTMENU, WM_CONTEXTMENU, PM_NOREMOVE)) break;
 	}
-	// the fade ate the time the top hold was supposed to start with
+	// the fade ate the time the hold at the top was supposed to start with
 	m_nScrollLastTick = ::GetTickCount();
+	m_nLastSlideShowImageTickCount = ::GetTickCount();
 }
 
 void CMainDlg::StopScrollMode() {

@@ -318,6 +318,7 @@ private:
 	double m_dRelativeZoomFactor; // current zoom as a multiple of the fitted image
 	bool m_bScrollMode;
 	bool m_bScrollFillWithCrop;
+	bool m_bCrossFade;
 	bool m_bRelativeZoomTemporary; // relative zoom switched on by scroll mode, not by the user
 	ScrollMath::SState m_scrollState;
 	DWORD m_nScrollLastTick;
@@ -415,7 +416,11 @@ private:
 	void StartScrollMode();
 	void StopScrollMode();
 	void SetupScrollForCurrentImage();
-	void ScrollToNextImage();
+	// Hands over to another image with a crossfade when the mode is on: the two frames
+	// are painted into memory DCs and blended into each other.
+	void GotoImageWithTransition(EImagePosition ePos, int nFlags);
+	bool UseCrossFade();
+	int CrossFadeDurationMs();
 	int GetScrollMaxOffsetY();
 	double GetScrollZoom();
 	CProcessParams CreateProcessParams(bool bNoProcessingAfterLoad);
