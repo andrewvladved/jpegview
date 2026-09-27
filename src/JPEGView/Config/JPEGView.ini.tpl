@@ -535,7 +535,7 @@ SlideShowTransitionEffect=Blend
 SlideShowEffectTime=250
 
 ; Waiting time in milliseconds used by the 'Slideshow' entry of the context menu.
-; The 'Set Waiting Time' entry of the same menu writes this value.
+; The 'Set Slideshow Wait' entry of the same menu writes this value.
 ; (Older versions kept it in seconds under SlideShowWaitTime. An INI that has only that
 ; key is still read in seconds, until this key is written.)
 SlideShowWaitTimeMs=3000
@@ -550,7 +550,7 @@ ScrollSpeed=100
 
 ; Scroll mode: how long to stand still at the top and at the bottom of each image,
 ; in milliseconds. Zero means no pause.
-; The 'Set Scroll Time' entry of the Slideshow submenu writes this value.
+; The 'Set Scroll Wait' entry of the Slideshow submenu writes this value.
 ; (Older versions kept it in seconds under ScrollTime. An INI that has only that key is
 ; still read in seconds, until this key is written.)
 ScrollTimeMs=2000
@@ -585,7 +585,7 @@ ZoomDurationMs=5000
 
 ; Zoom mode: how long to stand still before the zoom starts and after it ends, in
 ; milliseconds. Zero means no pause.
-; The 'Set Zoom Time' entry of the Slideshow submenu writes this value.
+; The 'Set Zoom Wait' entry of the Slideshow submenu writes this value.
 ZoomTimeMs=2000
 
 ; Whether one image is cross faded into the next in scroll, slide show and movie mode.

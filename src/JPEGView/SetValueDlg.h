@@ -5,7 +5,7 @@
 
 #include "resource.h"
 
-// A one field dialog used by the 'Set Waiting Time' and 'Set Playback Speed' menu
+// A one field dialog used by the 'Set Slideshow Wait' and 'Set Playback Speed' menu
 // entries. The caller passes the texts already translated, the value to start from and
 // the range to accept; DoModal returns IDOK or IDCANCEL and GetValue() holds the
 // number the user settled on.

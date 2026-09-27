@@ -1871,7 +1871,7 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			break;
 		case IDM_ZOOMRUN_SET_TIME:
 			{
-				CSetValueDlg dlgZoomTime(CNLS::GetString(_T("Set Zoom Time")), CNLS::GetString(_T("Hold at each end")),
+				CSetValueDlg dlgZoomTime(CNLS::GetString(_T("Set Zoom Wait")), CNLS::GetString(_T("Hold at each end")),
 					CNLS::GetString(_T("ms")), sp.ZoomTimeMs(),
 					CSettingsProvider::MIN_ZOOM_TIME, CSettingsProvider::MAX_ZOOM_TIME);
 				if (dlgZoomTime.DoModal(m_hWnd) == IDOK) {
@@ -1940,7 +1940,7 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			break;
 		case IDM_SCROLL_SET_TIME:
 			{
-				CSetValueDlg dlgScrollTime(CNLS::GetString(_T("Set Scroll Time")), CNLS::GetString(_T("Hold at each end")),
+				CSetValueDlg dlgScrollTime(CNLS::GetString(_T("Set Scroll Wait")), CNLS::GetString(_T("Hold at each end")),
 					CNLS::GetString(_T("ms")), sp.ScrollTimeMs(),
 					CSettingsProvider::MIN_SCROLL_TIME, CSettingsProvider::MAX_SCROLL_TIME);
 				if (dlgScrollTime.DoModal(m_hWnd) == IDOK) {
@@ -1953,7 +1953,7 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			break;
 		case IDM_SLIDESHOW_SET_TIME:
 			{
-				CSetValueDlg dlgWaitTime(CNLS::GetString(_T("Set Waiting Time")), CNLS::GetString(_T("Waiting time")),
+				CSetValueDlg dlgWaitTime(CNLS::GetString(_T("Set Slideshow Wait")), CNLS::GetString(_T("Waiting time")),
 					CNLS::GetString(_T("ms")), sp.SlideShowWaitTimeMs(),
 					CSettingsProvider::MIN_SLIDESHOW_WAIT_TIME, CSettingsProvider::MAX_SLIDESHOW_WAIT_TIME);
 				if (dlgWaitTime.DoModal(m_hWnd) == IDOK) {

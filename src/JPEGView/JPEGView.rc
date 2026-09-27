@@ -390,13 +390,13 @@ BEGIN
             MENUITEM "Fill with crop",              IDM_SCROLL_FILL_WITH_CROP
             MENUITEM "Accent On Center",            IDM_SCROLL_ACCENT_ON_CENTER
             MENUITEM "Set Scroll Speed...",         IDM_SCROLL_SET_SPEED
-            MENUITEM "Set Scroll Time...",          IDM_SCROLL_SET_TIME
+            MENUITEM "Set Scroll Wait...",          IDM_SCROLL_SET_TIME
             MENUITEM SEPARATOR
             MENUITEM "Zoom",                        IDM_ZOOMRUN_START
             MENUITEM "Inverse",                     IDM_ZOOMRUN_INVERSE
             MENUITEM "Set Zoom Speed...",           IDM_ZOOMRUN_SET_SPEED
             MENUITEM "Set Zoom Duration...",        IDM_ZOOMRUN_SET_DURATION
-            MENUITEM "Set Zoom Time...",            IDM_ZOOMRUN_SET_TIME
+            MENUITEM "Set Zoom Wait...",            IDM_ZOOMRUN_SET_TIME
             MENUITEM SEPARATOR
             MENUITEM "Slideshow",                   IDM_SLIDESHOW_START
             POPUP "Transition Effect"
@@ -420,7 +420,7 @@ BEGIN
                 MENUITEM "Scroll from top",             IDM_EFFECT_SCROLL_TB
                 MENUITEM "Scroll from bottom",          IDM_EFFECT_SCROLL_BT
             END
-            MENUITEM "Set Waiting Time...",         IDM_SLIDESHOW_SET_TIME
+            MENUITEM "Set Slideshow Wait...",       IDM_SLIDESHOW_SET_TIME
             MENUITEM SEPARATOR
             MENUITEM "Movie",                       IDM_MOVIE_START_FPS
             MENUITEM "Set Playback Speed...",       IDM_MOVIE_SET_SPEED
