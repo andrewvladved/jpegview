@@ -378,6 +378,8 @@ BEGIN
         BEGIN
             POPUP "Settings"
             BEGIN
+                MENUITEM "Hide Titlebar",               IDM_HIDE_TITLE_BAR_WHILE_PLAYING
+                MENUITEM SEPARATOR
                 MENUITEM "Preview",                     IDM_PREVIEW
                 MENUITEM "On Top",                      IDM_PREVIEW_ON_TOP
                 MENUITEM "Set Preview Settings...",     IDM_SET_PREVIEW_SETTINGS
@@ -394,8 +396,8 @@ BEGIN
             MENUITEM SEPARATOR
             MENUITEM "Zoom",                        IDM_ZOOMRUN_START
             MENUITEM "Inverse",                     IDM_ZOOMRUN_INVERSE
-            MENUITEM "On Face",                     IDM_ZOOMRUN_ON_FACE
-            MENUITEM "Face Center",                 IDM_ZOOMRUN_FACE_CENTER
+            MENUITEM "Zoom To Face",                IDM_ZOOMRUN_ON_FACE
+            MENUITEM "Face Pivot",                  IDM_ZOOMRUN_FACE_CENTER
             MENUITEM "Set Zoom Speed...",           IDM_ZOOMRUN_SET_SPEED
             MENUITEM "Set Zoom Duration...",        IDM_ZOOMRUN_SET_DURATION
             MENUITEM "Set Zoom Wait...",            IDM_ZOOMRUN_SET_TIME

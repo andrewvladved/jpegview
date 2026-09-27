@@ -237,6 +237,7 @@
 #define IDM_ZOOMRUN_SET_DURATION 7479	// asks for how long zoom mode zooms each image, in milliseconds
 #define IDM_ZOOMRUN_ON_FACE 7480	// zoom mode follows a face: the smallest one when inverse, else the largest, menu only (no key mapping)
 #define IDM_ZOOMRUN_FACE_CENTER 7481	// zoom mode on a face brings the face to the centre instead of zooming around it, menu only (no key mapping)
+#define IDM_HIDE_TITLE_BAR_WHILE_PLAYING 7482	// no transparent title bar over the image while slideshow, zoom, scroll or movie mode plays, menu only (no key mapping)
 #define IDM_MOVIE_START_FPS 7500	// starts a movie with the stored playback speed
 #define IDM_MOVIE_SET_SPEED 7610	// asks for the movie playback speed in fps
 #define IDM_ROTATE_90		8000		// :KeyMap: rotate image 90 deg

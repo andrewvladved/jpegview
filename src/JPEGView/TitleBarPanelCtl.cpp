@@ -17,8 +17,9 @@ CTitleBarPanelCtl::~CTitleBarPanelCtl() {
 }
 
 bool CTitleBarPanelCtl::IsVisible() {
-	// the title bar replaces the window caption, thus it makes no sense in full screen mode
-	return m_pMainDlg->IsTransparentTitleBar() && !m_pMainDlg->IsFullScreenMode();
+	// the title bar replaces the window caption, thus it makes no sense in full screen mode,
+	// and it can be asked to stay off the image while a folder plays
+	return m_pMainDlg->IsTransparentTitleBar() && !m_pMainDlg->IsFullScreenMode() && !m_pMainDlg->IsTitleBarHiddenWhilePlaying();
 }
 
 void CTitleBarPanelCtl::AfterNewImageLoaded() {

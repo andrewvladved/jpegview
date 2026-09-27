@@ -675,12 +675,12 @@ ZoomInverse=false
 ; Рисованные лица (аниме, иллюстрации, пиксель-арт) ищет нейросетевой детектор: ему нужны
 ; onnxruntime.dll и face_detect.onnx рядом с JPEGView.exe. Лица на фотографиях ищет ещё и
 ; детектор, встроенный в Windows 10 и новее.
-; Это значение записывает пункт «On Face» подменю Slideshow.
+; Это значение записывает пункт «Zoom To Face» подменю Slideshow.
 ZoomOnFace=false
 
 ; Режим Zoom по лицу: true — лицо выводится в центр окна, насколько позволяют края
 ; изображения; false — зум идёт вокруг лица там, где оно находится на экране.
-; Это значение записывает пункт «Face Center» подменю Slideshow.
+; Это значение записывает пункт «Face Pivot» подменю Slideshow.
 ZoomFaceCenter=true
 
 ; Режим Zoom: скорость изменения масштаба в процентах в секунду. При 5 масштаб каждую
@@ -702,6 +702,11 @@ ZoomTimeMs=2000
 ; «Set Transition Time» подменю Slideshow.
 ; Это значение записывает пункт «Cross fade» того же подменю.
 CrossFade=true
+
+; Не показывать прозрачный заголовок (TransparentTitleBarOnStartup), пока идут режимы
+; Slideshow, Zoom, Scroll или Movie, чтобы ничто не закрывало верх изображения.
+; Это значение записывает пункт «Hide Titlebar» подменю Slideshow\Settings.
+HideTitleBarWhilePlaying=false
 
 ; Окно предпросмотра, показывающее изображение целиком, рядом с ним во время работы
 ; режимов Scroll, Slideshow и Movie. К встроенному навигатору масштаба JPEGView это

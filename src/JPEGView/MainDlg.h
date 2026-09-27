@@ -174,6 +174,8 @@ public:
 	bool IsMouseOn() { return m_bMouseOn; }
 	bool IsWindowBorderless() { return m_bWindowBorderless; }
 	bool IsTransparentTitleBar() { return m_bTransparentTitleBar; }
+	// The transparent title bar is left out while a folder plays, if so set
+	bool IsTitleBarHiddenWhilePlaying() { return m_bHideTitleBarWhilePlaying && (m_bMovieMode || m_bScrollMode); }
 	bool IsAlwaysOnTop() { return m_bAlwaysOnTop; }
 
 	CPoint GetMousePos() { return CPoint(m_nMouseX, m_nMouseY); }
@@ -352,6 +354,7 @@ private:
 	FaceMath::SOffset m_zoomFaceAnchorOffset;
 	bool m_bCrossFade;
 	bool m_bPreview;
+	bool m_bHideTitleBarWhilePlaying;
 	int m_nPreviewSize;
 	bool m_bPreviewOnLeft;
 	bool m_bPreviewOnTop;

@@ -104,6 +104,9 @@ public:
 	// The preview pane beside the image while scroll, slide show or movie mode is
 	// playing. It is unrelated to the zoom navigator JPEGView shows on its own.
 	bool Preview() { return m_bPreview; }
+	// Whether the transparent title bar is left out while a folder plays (slideshow, zoom,
+	// scroll or movie mode).
+	bool HideTitleBarWhilePlaying() { return m_bHideTitleBarWhilePlaying; }
 	int PreviewSize() { return m_nPreviewSize; }
 	bool PreviewOnLeft() { return m_bPreviewOnLeft; }
 	bool PreviewOnTop() { return m_bPreviewOnTop; }
@@ -254,6 +257,7 @@ public:
 	void SaveZoomFaceCenter(bool bFaceCenter);
 	void SaveCrossFade(bool bCrossFade);
 	void SavePreview(bool bPreview);
+	void SaveHideTitleBarWhilePlaying(bool bHide);
 	void SavePreviewSettings(int nSizePercent, bool bOnLeft, Helpers::EPreviewFloor eFloor);
 	void SavePreviewOnTop(bool bOnTop);
 	// Saves the length of the transition between two images to the INI file
@@ -357,6 +361,7 @@ private:
 	bool m_bZoomFaceCenter;
 	bool m_bCrossFade;
 	bool m_bPreview;
+	bool m_bHideTitleBarWhilePlaying;
 	int m_nPreviewSize;
 	bool m_bPreviewOnLeft;
 	bool m_bPreviewOnTop;

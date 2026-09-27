@@ -185,6 +185,7 @@ CSettingsProvider::CSettingsProvider(void) {
 	m_bZoomFaceCenter = GetBool(_T("ZoomFaceCenter"), true);
 	m_bCrossFade = GetBool(_T("CrossFade"), true);
 	m_bPreview = GetBool(_T("Preview"), false);
+	m_bHideTitleBarWhilePlaying = GetBool(_T("HideTitleBarWhilePlaying"), false);
 	m_nPreviewSize = GetInt(_T("PreviewSize"), 25, 10, 100);
 	m_bPreviewOnLeft = GetString(_T("PreviewSide"), _T("Right")).CompareNoCase(_T("Left")) == 0;
 	m_bPreviewOnTop = GetBool(_T("PreviewOnTop"), true);
@@ -702,6 +703,15 @@ void CSettingsProvider::SaveCrossFade(bool bCrossFade) {
 
 	m_bCrossFade = bCrossFade;
 	WriteBool(_T("CrossFade"), bCrossFade);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SaveHideTitleBarWhilePlaying(bool bHide) {
+	MakeSureUserINIExists();
+
+	m_bHideTitleBarWhilePlaying = bHide;
+	WriteBool(_T("HideTitleBarWhilePlaying"), bHide);
 
 	m_bUserINIExists = true;
 }

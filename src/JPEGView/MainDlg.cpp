@@ -273,6 +273,7 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_zoomFaceAnchorOffset.dX = m_zoomFaceAnchorOffset.dY = 0;
 	m_bCrossFade = sp.CrossFade();
 	m_bPreview = sp.Preview();
+	m_bHideTitleBarWhilePlaying = sp.HideTitleBarWhilePlaying();
 	m_nPreviewSize = sp.PreviewSize();
 	m_bPreviewOnLeft = sp.PreviewOnLeft();
 	m_bPreviewOnTop = sp.PreviewOnTop();
@@ -1451,6 +1452,7 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	if (!m_bZoomOnFace) ::EnableMenuItem(hMenuMovie, IDM_ZOOMRUN_FACE_CENTER, MF_BYCOMMAND | MF_GRAYED);
 	if (m_bCrossFade) ::CheckMenuItem(hMenuMovie, IDM_CROSS_FADE, MF_CHECKED);
 	if (m_bPreview) ::CheckMenuItem(hMenuMovie, IDM_PREVIEW, MF_CHECKED);
+	if (m_bHideTitleBarWhilePlaying) ::CheckMenuItem(hMenuMovie, IDM_HIDE_TITLE_BAR_WHILE_PLAYING, MF_CHECKED);
 	if (m_bPreviewOnTop) ::CheckMenuItem(hMenuMovie, IDM_PREVIEW_ON_TOP, MF_CHECKED);
 	HMENU hMenuZoom = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_ZOOM);
 	if (m_bSpanVirtualDesktop) ::CheckMenuItem(hMenuZoom,  IDM_SPAN_SCREENS, MF_CHECKED);
@@ -1931,6 +1933,11 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			// Takes effect on the very next timer tick, even in the middle of a glide.
 			m_bScrollAccentOnCenter = !m_bScrollAccentOnCenter;
 			sp.SaveScrollAccentOnCenter(m_bScrollAccentOnCenter);
+			break;
+		case IDM_HIDE_TITLE_BAR_WHILE_PLAYING:
+			m_bHideTitleBarWhilePlaying = !m_bHideTitleBarWhilePlaying;
+			sp.SaveHideTitleBarWhilePlaying(m_bHideTitleBarWhilePlaying);
+			this->Invalidate(FALSE);
 			break;
 		case IDM_PREVIEW:
 			m_bPreview = !m_bPreview;
