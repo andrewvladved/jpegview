@@ -83,4 +83,13 @@ namespace ScrollMath {
 	// The zoom at dOffset of the cycle: dFitZoom at the start and dCropZoom at the end, or,
 	// with bInverse, dCropZoom at the start and dFitZoom at the end.
 	double ZoomAt(double dOffset, int nMaxOffset, double dFitZoom, double dCropZoom, bool bInverse);
+
+	// Half the way a zoom of dPercentPerSecond covers in nDurationMs, in those units. It does
+	// not depend on the image, so every image zooms for the same time.
+	int ZoomRunMaxOffset(double dPercentPerSecond, int nDurationMs);
+
+	// The zoom at dOffset of the cycle when it starts from dStartZoom and grows from there,
+	// or shrinks with bOut: dStartZoom at +nMaxOffset, and every unit further along the zoom
+	// is e^(1/ZOOM_UNITS_PER_E) times larger (smaller).
+	double ZoomRunZoomAt(double dOffset, int nMaxOffset, double dStartZoom, bool bOut);
 }

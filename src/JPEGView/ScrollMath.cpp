@@ -87,6 +87,14 @@ double ZoomAt(double dOffset, int nMaxOffset, double dFitZoom, double dCropZoom,
 	return dFrom * pow(dTo / dFrom, dProgress);
 }
 
+int ZoomRunMaxOffset(double dPercentPerSecond, int nDurationMs) {
+	return 0;
+}
+
+double ZoomRunZoomAt(double dOffset, int nMaxOffset, double dStartZoom, bool bOut) {
+	return 0.0;
+}
+
 void Advance(SState& state, int nMaxOffsetY, double dSpeedPixelsPerSecond, int nHoldMs, int nElapsedMs,
 	bool bAccentOnCenter) {
 	switch (state.ePhase) {
