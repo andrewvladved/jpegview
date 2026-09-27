@@ -192,3 +192,25 @@ TEST(MergeFacesAddsOnlyFacesNotFoundYet) {
 		CHECK_NEAR(merged[1].dX, 10, 0.001);
 	}
 }
+
+TEST(BlendOffsetStartsAtTheStartAndEndsAtTheEnd) {
+	FaceMath::SOffset from = { 10, -20 }, to = { 110, 80 };
+	FaceMath::SOffset start = FaceMath::BlendOffset(from, to, 0.0);
+	CHECK_NEAR(start.dX, 10, 0.001);
+	CHECK_NEAR(start.dY, -20, 0.001);
+	FaceMath::SOffset end = FaceMath::BlendOffset(from, to, 1.0);
+	CHECK_NEAR(end.dX, 110, 0.001);
+	CHECK_NEAR(end.dY, 80, 0.001);
+	FaceMath::SOffset beyond = FaceMath::BlendOffset(from, to, 3.0);
+	CHECK_NEAR(beyond.dX, 110, 0.001);
+	FaceMath::SOffset before = FaceMath::BlendOffset(from, to, -1.0);
+	CHECK_NEAR(before.dX, 10, 0.001);
+}
+
+TEST(BlendOffsetEasesInAndOut) {
+	FaceMath::SOffset from = { 0, 0 }, to = { 100, 100 };
+	CHECK_NEAR(FaceMath::BlendOffset(from, to, 0.5).dX, 50, 0.001);
+	// Slower than a straight line at the start, and as much faster near the end.
+	CHECK_NEAR(FaceMath::BlendOffset(from, to, 0.25).dX, 15.625, 0.001);
+	CHECK_NEAR(FaceMath::BlendOffset(from, to, 0.75).dY, 84.375, 0.001);
+}

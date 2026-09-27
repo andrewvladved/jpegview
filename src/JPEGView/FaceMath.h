@@ -66,6 +66,10 @@ namespace FaceMath {
 	// edges allow.
 	SOffset CenterOffset(double dPointX, double dPointY, SIZE imageSize, double dZoom, SIZE windowSize);
 
+	// On the way from one offset to another: 0 is the start, 1 (and beyond) the end, and
+	// the move eases in and out so a face found late does not make the image jump.
+	SOffset BlendOffset(SOffset from, SOffset to, double dProgress);
+
 	// The offset that keeps the image point where it was on screen at the start zoom and
 	// start offset, so the zoom grows or shrinks around it - as far as the edges allow.
 	SOffset AnchorOffset(double dPointX, double dPointY, SIZE imageSize, double dStartZoom, SOffset startOffset,
