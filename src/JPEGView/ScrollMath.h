@@ -84,4 +84,8 @@ namespace ScrollMath {
 	// or shrinks with bOut: dStartZoom at +nMaxOffset, and every unit further along the zoom
 	// is e^(1/ZOOM_UNITS_PER_E) times larger (smaller).
 	double ZoomRunZoomAt(double dOffset, int nMaxOffset, double dStartZoom, bool bOut);
+
+	// Zooming out (bOut) stops at dFitZoom, fit to screen, and stays there for the rest of
+	// the duration; zooming in is left as it is.
+	double ZoomRunLimitToFit(double dZoom, double dFitZoom, bool bOut);
 }

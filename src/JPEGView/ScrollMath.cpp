@@ -80,6 +80,10 @@ double ZoomRunZoomAt(double dOffset, int nMaxOffset, double dStartZoom, bool bOu
 	return bOut ? dStartZoom / dFactor : dStartZoom * dFactor;
 }
 
+double ZoomRunLimitToFit(double dZoom, double dFitZoom, bool bOut) {
+	return dZoom;
+}
+
 void Advance(SState& state, int nMaxOffsetY, double dSpeedPixelsPerSecond, int nHoldMs, int nElapsedMs,
 	bool bAccentOnCenter) {
 	switch (state.ePhase) {

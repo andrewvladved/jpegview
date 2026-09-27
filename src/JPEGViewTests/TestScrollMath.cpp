@@ -337,3 +337,21 @@ TEST(AZeroDurationLeavesNothingToZoomThrough) {
 	CHECK(ZoomRunMaxOffset(10.0, 0) == 0);
 	CHECK_NEAR(ZoomRunZoomAt(0, 0, 0.75, false), 0.75, 0.000001);
 }
+
+// Inverse pulls back from fill with crop, but never further than fit to screen: once there
+// it stays for the rest of the duration.
+TEST(InverseZoomStopsAtFitToScreen) {
+	int nMax = ZoomRunMaxOffset(20.0, 6000);
+	double dStart = 2.0, dFit = 1.5;
+	double dEarly = ZoomRunZoomAt(nMax - 10, nMax, dStart, true);
+	CHECK(dEarly > dFit);
+	CHECK_NEAR(ZoomRunLimitToFit(dEarly, dFit, true), dEarly, 0.000001);
+	double dLate = ZoomRunZoomAt(-nMax, nMax, dStart, true);
+	CHECK(dLate < dFit);
+	CHECK_NEAR(ZoomRunLimitToFit(dLate, dFit, true), dFit, 0.000001);
+}
+
+TEST(ZoomingInIsNotLimitedByFitToScreen) {
+	CHECK_NEAR(ZoomRunLimitToFit(3.0, 1.5, false), 3.0, 0.000001);
+	CHECK_NEAR(ZoomRunLimitToFit(1.0, 1.5, false), 1.0, 0.000001);
+}
