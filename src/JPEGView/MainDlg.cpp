@@ -37,6 +37,7 @@
 #include "PreviewSettingsDlg.h"
 #include "ZoomMath.h"
 #include "ScrollMath.h"
+#include "FaceDetect.h"
 #include "ResizeDlg.h"
 #include "ResizeFilter.h"
 #include "EXIFReader.h"
@@ -260,6 +261,11 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_bScrollAccentOnCenter = sp.ScrollAccentOnCenter();
 	m_bZoomInverse = sp.ZoomInverse();
 	m_dZoomRunStart = 1.0;
+	m_bZoomOnFace = sp.ZoomOnFace();
+	m_bZoomFaceCenter = sp.ZoomFaceCenter();
+	m_bZoomFacesKnown = false;
+	m_dZoomFaceAnchorZoom = 1.0;
+	m_zoomFaceAnchorOffset.dX = m_zoomFaceAnchorOffset.dY = 0;
 	m_bCrossFade = sp.CrossFade();
 	m_bPreview = sp.Preview();
 	m_nPreviewSize = sp.PreviewSize();
@@ -1334,11 +1340,12 @@ LRESULT CMainDlg::OnTimer(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOOL&
 			if (m_scrollState.bAdvanceToNextImage) {
 				GotoImageWithTransition(POS_Next, 0);
 			} else if (m_bScrollZoom) {
-				// The image stays centred and only its zoom changes.
+				// The image stays centred, or follows its face, and only its zoom changes.
 				double dNewZoom = GetZoomRunZoom();
-				if (fabs(dNewZoom - m_dZoom) > 0.000001 || m_offsets != CPoint(0, 0)) {
+				CPoint newOffsets = GetZoomRunOffsets(dNewZoom);
+				if (fabs(dNewZoom - m_dZoom) > 0.000001 || m_offsets != newOffsets) {
 					m_dZoom = dNewZoom;
-					m_offsets = CPoint(0, 0);
+					m_offsets = newOffsets;
 					m_bUserZoom = true;
 					m_bUserPan = true;
 					this->InvalidateRect(&m_clientRect, FALSE);
@@ -1425,6 +1432,9 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	if (m_bScrollFillWithCrop) ::CheckMenuItem(hMenuMovie, IDM_SCROLL_FILL_WITH_CROP, MF_CHECKED);
 	if (m_bScrollAccentOnCenter) ::CheckMenuItem(hMenuMovie, IDM_SCROLL_ACCENT_ON_CENTER, MF_CHECKED);
 	if (m_bZoomInverse) ::CheckMenuItem(hMenuMovie, IDM_ZOOMRUN_INVERSE, MF_CHECKED);
+	if (m_bZoomOnFace) ::CheckMenuItem(hMenuMovie, IDM_ZOOMRUN_ON_FACE, MF_CHECKED);
+	if (m_bZoomFaceCenter) ::CheckMenuItem(hMenuMovie, IDM_ZOOMRUN_FACE_CENTER, MF_CHECKED);
+	if (!m_bZoomOnFace) ::EnableMenuItem(hMenuMovie, IDM_ZOOMRUN_FACE_CENTER, MF_BYCOMMAND | MF_GRAYED);
 	if (m_bCrossFade) ::CheckMenuItem(hMenuMovie, IDM_CROSS_FADE, MF_CHECKED);
 	if (m_bPreview) ::CheckMenuItem(hMenuMovie, IDM_PREVIEW, MF_CHECKED);
 	if (m_bPreviewOnTop) ::CheckMenuItem(hMenuMovie, IDM_PREVIEW_ON_TOP, MF_CHECKED);
@@ -1847,6 +1857,22 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 				if (dNow > 0 && dFactor > 0) {
 					m_dZoomRunStart = dNow / dFactor;
 				}
+				// The other face now: the smallest instead of the largest or back.
+				AnchorZoomRunFace(false);
+			}
+			break;
+		case IDM_ZOOMRUN_ON_FACE:
+			m_bZoomOnFace = !m_bZoomOnFace;
+			sp.SaveZoomOnFace(m_bZoomOnFace);
+			if (m_bScrollMode && m_bScrollZoom) {
+				AnchorZoomRunFace(false);
+			}
+			break;
+		case IDM_ZOOMRUN_FACE_CENTER:
+			m_bZoomFaceCenter = !m_bZoomFaceCenter;
+			sp.SaveZoomFaceCenter(m_bZoomFaceCenter);
+			if (m_bScrollMode && m_bScrollZoom) {
+				AnchorZoomRunFace(false);
 			}
 			break;
 		case IDM_ZOOMRUN_SET_SPEED:
@@ -3559,6 +3585,52 @@ double CMainDlg::GetZoomRunZoom() {
 	return dZoom;
 }
 
+bool CMainDlg::GetZoomRunFace(double& dPointX, double& dPointY) {
+	if (!m_bZoomOnFace || m_pCurrentImage == NULL) {
+		return false;
+	}
+	if (!m_bZoomFacesKnown) {
+		m_bZoomFacesKnown = true;
+		m_zoomFaces = FaceDetect::Detect(m_pCurrentImage->OriginalPixels(), m_pCurrentImage->OrigWidth(),
+			m_pCurrentImage->OrigHeight(), m_pCurrentImage->OriginalChannels(),
+			Helpers::DoPadding(m_pCurrentImage->OrigWidth() * m_pCurrentImage->OriginalChannels(), 4));
+	}
+	// Inverse starts close and pulls back, so it starts on the smallest face; zooming in
+	// goes towards the largest.
+	int nFace = FaceMath::PickFace(m_zoomFaces, m_bZoomInverse);
+	if (nFace < 0) {
+		return false;
+	}
+	dPointX = m_zoomFaces[nFace].dX + m_zoomFaces[nFace].dWidth / 2;
+	dPointY = m_zoomFaces[nFace].dY + m_zoomFaces[nFace].dHeight / 2;
+	return true;
+}
+
+CPoint CMainDlg::GetZoomRunOffsets(double dZoom) {
+	double dPointX, dPointY;
+	if (!GetZoomRunFace(dPointX, dPointY)) {
+		return CPoint(0, 0);
+	}
+	SIZE imageSize = m_pCurrentImage->OrigSize();
+	SIZE windowSize = m_clientRect.Size();
+	FaceMath::SOffset offset = m_bZoomFaceCenter ?
+		FaceMath::CenterOffset(dPointX, dPointY, imageSize, dZoom, windowSize) :
+		FaceMath::AnchorOffset(dPointX, dPointY, imageSize, m_dZoomFaceAnchorZoom, m_zoomFaceAnchorOffset, dZoom, windowSize);
+	return CPoint(Helpers::RoundToInt(offset.dX), Helpers::RoundToInt(offset.dY));
+}
+
+void CMainDlg::AnchorZoomRunFace(bool bStartOfImage) {
+	// Zooming around the face holds it from the zoom and offsets on screen now. At the
+	// start of an image that is centred on the face, as far as the edges allow.
+	m_dZoomFaceAnchorZoom = m_dZoom;
+	m_zoomFaceAnchorOffset.dX = m_offsets.x;
+	m_zoomFaceAnchorOffset.dY = m_offsets.y;
+	double dPointX, dPointY;
+	if (bStartOfImage && m_pCurrentImage != NULL && GetZoomRunFace(dPointX, dPointY)) {
+		m_zoomFaceAnchorOffset = FaceMath::CenterOffset(dPointX, dPointY, m_pCurrentImage->OrigSize(), m_dZoom, m_clientRect.Size());
+	}
+}
+
 void CMainDlg::SetupScrollForCurrentImage() {
 	if (m_pCurrentImage == NULL) {
 		return;
@@ -3572,7 +3644,12 @@ void CMainDlg::SetupScrollForCurrentImage() {
 		m_isUserFitToScreen = false;
 		m_bUserZoom = true;
 		m_bUserPan = true;
+		// On a face the start is centred on it as far as the edges allow, which at fit to
+		// screen is not at all.
+		m_bZoomFacesKnown = false;
 		m_offsets = CPoint(0, 0);
+		AnchorZoomRunFace(true);
+		m_offsets = GetZoomRunOffsets(m_dZoom);
 		m_nScrollLastTick = ::GetTickCount();
 		this->Invalidate(FALSE);
 		return;

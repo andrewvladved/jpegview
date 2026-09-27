@@ -9,6 +9,7 @@
 #include "CropCtl.h"
 #include "AnnotationCtl.h"
 #include "ScrollMath.h"
+#include "FaceMath.h"
 
 class CFileList;
 class CJPEGProvider;
@@ -326,6 +327,12 @@ private:
 	bool m_bScrollAccentOnCenter;
 	bool m_bZoomInverse;
 	double m_dZoomRunStart; // zoom mode: the zoom the current image started from
+	bool m_bZoomOnFace; // zoom mode follows a face
+	bool m_bZoomFaceCenter; // ... bringing it to the centre, or else zooming around it
+	bool m_bZoomFacesKnown; // the faces of the current image have been looked for
+	std::vector<FaceMath::SFace> m_zoomFaces;
+	double m_dZoomFaceAnchorZoom; // zooming around a face: the zoom and offset it is held from
+	FaceMath::SOffset m_zoomFaceAnchorOffset;
 	bool m_bCrossFade;
 	bool m_bPreview;
 	int m_nPreviewSize;
@@ -450,6 +457,13 @@ private:
 	double GetScrollZoom();
 	// Zoom mode: the zoom at the current point of the cycle
 	double GetZoomRunZoom();
+	// Zoom mode: the offsets at this zoom - centred, or following the face when on face
+	CPoint GetZoomRunOffsets(double dZoom);
+	// Zoom mode on a face: the centre of the face it follows, false when there is none
+	bool GetZoomRunFace(double& dPointX, double& dPointY);
+	// Zoom mode on a face: the face is held from the zoom and offsets on screen now, or
+	// at the start of an image from the offsets centred on it
+	void AnchorZoomRunFace(bool bStartOfImage);
 	CProcessParams CreateProcessParams(bool bNoProcessingAfterLoad);
 	void ResetParamsToDefault();
 	void StartSlideShowTimer(int nMilliSeconds);

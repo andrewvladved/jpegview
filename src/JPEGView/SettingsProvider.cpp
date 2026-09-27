@@ -181,6 +181,8 @@ CSettingsProvider::CSettingsProvider(void) {
 	m_nZoomDurationMs = GetInt(_T("ZoomDurationMs"), 5000, MIN_ZOOM_DURATION, MAX_ZOOM_DURATION);
 	m_nZoomTimeMs = GetInt(_T("ZoomTimeMs"), 2000, MIN_ZOOM_TIME, MAX_ZOOM_TIME);
 	m_bZoomInverse = GetBool(_T("ZoomInverse"), false);
+	m_bZoomOnFace = GetBool(_T("ZoomOnFace"), false);
+	m_bZoomFaceCenter = GetBool(_T("ZoomFaceCenter"), true);
 	m_bCrossFade = GetBool(_T("CrossFade"), true);
 	m_bPreview = GetBool(_T("Preview"), false);
 	m_nPreviewSize = GetInt(_T("PreviewSize"), 25, 10, 100);
@@ -673,6 +675,24 @@ void CSettingsProvider::SaveZoomInverse(bool bInverse) {
 
 	m_bZoomInverse = bInverse;
 	WriteBool(_T("ZoomInverse"), bInverse);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SaveZoomOnFace(bool bOnFace) {
+	MakeSureUserINIExists();
+
+	m_bZoomOnFace = bOnFace;
+	WriteBool(_T("ZoomOnFace"), bOnFace);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SaveZoomFaceCenter(bool bFaceCenter) {
+	MakeSureUserINIExists();
+
+	m_bZoomFaceCenter = bFaceCenter;
+	WriteBool(_T("ZoomFaceCenter"), bFaceCenter);
 
 	m_bUserINIExists = true;
 }

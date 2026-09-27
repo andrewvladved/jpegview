@@ -87,6 +87,10 @@ public:
 	int ZoomDurationMs() { return m_nZoomDurationMs; }
 	int ZoomTimeMs() { return m_nZoomTimeMs; }
 	bool ZoomInverse() { return m_bZoomInverse; }
+	// Whether zoom mode follows a face, and whether it brings that face to the centre
+	// (or else zooms around it where it is).
+	bool ZoomOnFace() { return m_bZoomOnFace; }
+	bool ZoomFaceCenter() { return m_bZoomFaceCenter; }
 	// Whether scroll mode fills the window with the image before gliding through it.
 	// With it off the image keeps the zoom it has and scroll mode glides through
 	// whatever sticks out at that zoom.
@@ -246,6 +250,8 @@ public:
 	void SaveZoomDuration(int nMilliseconds);
 	void SaveZoomTime(int nMilliseconds);
 	void SaveZoomInverse(bool bInverse);
+	void SaveZoomOnFace(bool bOnFace);
+	void SaveZoomFaceCenter(bool bFaceCenter);
 	void SaveCrossFade(bool bCrossFade);
 	void SavePreview(bool bPreview);
 	void SavePreviewSettings(int nSizePercent, bool bOnLeft, Helpers::EPreviewFloor eFloor);
@@ -347,6 +353,8 @@ private:
 	int m_nZoomDurationMs;
 	int m_nZoomTimeMs;
 	bool m_bZoomInverse;
+	bool m_bZoomOnFace;
+	bool m_bZoomFaceCenter;
 	bool m_bCrossFade;
 	bool m_bPreview;
 	int m_nPreviewSize;

@@ -394,6 +394,8 @@ BEGIN
             MENUITEM SEPARATOR
             MENUITEM "Zoom",                        IDM_ZOOMRUN_START
             MENUITEM "Inverse",                     IDM_ZOOMRUN_INVERSE
+            MENUITEM "On Face",                     IDM_ZOOMRUN_ON_FACE
+            MENUITEM "Face Center",                 IDM_ZOOMRUN_FACE_CENTER
             MENUITEM "Set Zoom Speed...",           IDM_ZOOMRUN_SET_SPEED
             MENUITEM "Set Zoom Duration...",        IDM_ZOOMRUN_SET_DURATION
             MENUITEM "Set Zoom Wait...",            IDM_ZOOMRUN_SET_TIME
