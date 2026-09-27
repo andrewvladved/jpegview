@@ -88,7 +88,7 @@ static const int ZOOM_TEXT_RECT_HEIGHT = 25; // zoom label height
 static const int ZOOM_TEXT_RECT_OFFSET = 35; // zoom label offset from right border
 static const int PAN_STEP = 48; // number of pixels to pan if pan with cursor keys (SHIFT+up/down/left/right)
 static const int SCROLL_TIMER_INTERVAL_MS = 30; // how often scroll mode moves the image, about 33 times a second
-static const int ZOOM_FACE_BLEND_MS = 400; // zoom mode: how long the image glides to a face found after the image appeared
+static const int ZOOM_FACE_BLEND_MS = 400; // zoom mode: how long the image glides when a face setting changes mid-zoom
 
 static const bool SHOW_TIMING_INFO = false; // Set to true for debugging
 
@@ -265,7 +265,6 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_bZoomOnFace = sp.ZoomOnFace();
 	m_bZoomFaceCenter = sp.ZoomFaceCenter();
 	m_bZoomFacesKnown = false;
-	m_bZoomFacesPending = false;
 	m_nZoomFacesRequest = 0;
 	m_bZoomFaceBlending = false;
 	m_nZoomFaceBlendStart = 0;
@@ -1255,6 +1254,8 @@ LRESULT CMainDlg::OnGetDlgCode(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam
 LRESULT CMainDlg::OnImageLoadCompleted(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL& /*bHandled*/) {
 	// route to JPEG provider
 	m_pJPEGProvider->OnImageLoadCompleted((int)lParam);
+	// an image read ahead gets its faces searched for before it is shown
+	PrefetchZoomFaces();
 	return 0;
 }
 
@@ -1871,6 +1872,7 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 					m_dZoomRunStart = dNow / dFactor;
 				}
 				// The other face now: the smallest instead of the largest or back.
+				StartZoomFaceBlend();
 				AnchorZoomRunFace(false);
 			}
 			break;
@@ -1878,13 +1880,16 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			m_bZoomOnFace = !m_bZoomOnFace;
 			sp.SaveZoomOnFace(m_bZoomOnFace);
 			if (m_bScrollMode && m_bScrollZoom) {
+				StartZoomFaceBlend();
 				AnchorZoomRunFace(false);
+				PrefetchZoomFaces();
 			}
 			break;
 		case IDM_ZOOMRUN_FACE_CENTER:
 			m_bZoomFaceCenter = !m_bZoomFaceCenter;
 			sp.SaveZoomFaceCenter(m_bZoomFaceCenter);
 			if (m_bScrollMode && m_bScrollZoom) {
+				StartZoomFaceBlend();
 				AnchorZoomRunFace(false);
 			}
 			break;
@@ -3605,9 +3610,7 @@ bool CMainDlg::GetZoomRunFace(double& dPointX, double& dPointY) {
 		return false;
 	}
 	if (!m_bZoomFacesKnown) {
-		// Until the background search answers there is no face, and the image stays centred.
-		RequestZoomFaces();
-		return false;
+		FindZoomFaces();
 	}
 	// Inverse starts close and pulls back, so it starts on the smallest face; zooming in
 	// goes towards the largest.
@@ -3633,34 +3636,94 @@ CPoint CMainDlg::GetZoomRunOffsets(double dZoom) {
 	return CPoint(Helpers::RoundToInt(offset.dX), Helpers::RoundToInt(offset.dY));
 }
 
-void CMainDlg::RequestZoomFaces() {
-	if (!m_bZoomOnFace || m_pCurrentImage == NULL || m_bZoomFacesKnown || m_bZoomFacesPending) {
+void CMainDlg::FindZoomFaces() {
+	m_bZoomFacesKnown = true;
+	m_zoomFaces.clear();
+	if (m_pCurrentImage == NULL) {
 		return;
 	}
-	m_bZoomFacesPending = true;
-	FaceDetect::DetectAsync(m_hWnd, WM_FACES_DETECTED, (WPARAM)m_nZoomFacesRequest, m_pCurrentImage->OriginalPixels(),
-		m_pCurrentImage->OrigWidth(), m_pCurrentImage->OrigHeight(), m_pCurrentImage->OriginalChannels(),
-		Helpers::DoPadding(m_pCurrentImage->OrigWidth() * m_pCurrentImage->OriginalChannels(), 4));
+	LPCTSTR sCurrent = CurrentFileName(false);
+	CString sFileName = (sCurrent != NULL) ? sCurrent : _T("");
+	int nWidth = m_pCurrentImage->OrigWidth(), nHeight = m_pCurrentImage->OrigHeight();
+	for (std::list<SZoomFaces>::iterator it = m_zoomFaceCache.begin(); it != m_zoomFaceCache.end(); it++) {
+		if (it->sFileName.CompareNoCase(sFileName) == 0 && it->nWidth == nWidth && it->nHeight == nHeight) {
+			m_zoomFaces = it->faces;
+			return;
+		}
+	}
+	// Not searched for ahead of time - the first image, or one jumped to: searched for now,
+	// so the image still starts on its face.
+	SZoomFaces found;
+	found.sFileName = sFileName;
+	found.nWidth = nWidth;
+	found.nHeight = nHeight;
+	found.faces = FaceDetect::Detect(m_pCurrentImage->OriginalPixels(), nWidth, nHeight,
+		m_pCurrentImage->OriginalChannels(), Helpers::DoPadding(nWidth * m_pCurrentImage->OriginalChannels(), 4));
+	m_zoomFaces = found.faces;
+	CacheZoomFaces(found);
+}
+
+void CMainDlg::PrefetchZoomFaces() {
+	if (!m_bZoomOnFace || !m_bScrollMode || !m_bScrollZoom || m_pJPEGProvider == NULL) {
+		return;
+	}
+	std::vector<CJPEGImage*> images;
+	std::vector<CString> fileNames;
+	m_pJPEGProvider->GetReadyImages(images, fileNames);
+	for (size_t i = 0; i < images.size(); i++) {
+		CJPEGImage* pImage = images[i];
+		if (pImage == m_pCurrentImage || pImage->OriginalPixels() == NULL) {
+			continue;
+		}
+		bool bKnown = false;
+		for (std::list<SZoomFaces>::iterator it = m_zoomFaceCache.begin(); it != m_zoomFaceCache.end() && !bKnown; it++) {
+			bKnown = it->sFileName.CompareNoCase(fileNames[i]) == 0 && it->nWidth == pImage->OrigWidth() && it->nHeight == pImage->OrigHeight();
+		}
+		for (std::map<int, SZoomFaces>::iterator it = m_zoomFacePending.begin(); it != m_zoomFacePending.end() && !bKnown; it++) {
+			bKnown = it->second.sFileName.CompareNoCase(fileNames[i]) == 0;
+		}
+		if (bKnown) {
+			continue;
+		}
+		SZoomFaces request;
+		request.sFileName = fileNames[i];
+		request.nWidth = pImage->OrigWidth();
+		request.nHeight = pImage->OrigHeight();
+		int nRequest = ++m_nZoomFacesRequest;
+		m_zoomFacePending[nRequest] = request;
+		FaceDetect::DetectAsync(m_hWnd, WM_FACES_DETECTED, (WPARAM)nRequest, pImage->OriginalPixels(),
+			pImage->OrigWidth(), pImage->OrigHeight(), pImage->OriginalChannels(),
+			Helpers::DoPadding(pImage->OrigWidth() * pImage->OriginalChannels(), 4));
+	}
+}
+
+void CMainDlg::CacheZoomFaces(const SZoomFaces& faces) {
+	for (std::list<SZoomFaces>::iterator it = m_zoomFaceCache.begin(); it != m_zoomFaceCache.end(); ) {
+		it = (it->sFileName.CompareNoCase(faces.sFileName) == 0) ? m_zoomFaceCache.erase(it) : ++it;
+	}
+	m_zoomFaceCache.push_front(faces);
+	while (m_zoomFaceCache.size() > 32) {
+		m_zoomFaceCache.pop_back();
+	}
 }
 
 LRESULT CMainDlg::OnFacesDetected(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL& /*bHandled*/) {
 	std::vector<FaceMath::SFace>* pFaces = (std::vector<FaceMath::SFace>*)lParam;
-	if ((int)wParam == m_nZoomFacesRequest && m_bZoomFacesPending) {
-		m_bZoomFacesPending = false;
-		m_bZoomFacesKnown = true;
-		m_zoomFaces = *pFaces;
-		if (m_bScrollMode && m_bScrollZoom && m_bZoomOnFace && m_pCurrentImage != NULL) {
-			// Anchored as it would have been had the face been known from the start, and
-			// reached by a glide from where the image is now instead of a jump.
-			m_zoomFaceBlendFrom.dX = m_offsets.x;
-			m_zoomFaceBlendFrom.dY = m_offsets.y;
-			AnchorZoomRunFace(true);
-			m_nZoomFaceBlendStart = ::GetTickCount();
-			m_bZoomFaceBlending = true;
-		}
+	std::map<int, SZoomFaces>::iterator it = m_zoomFacePending.find((int)wParam);
+	if (it != m_zoomFacePending.end()) {
+		it->second.faces = *pFaces;
+		CacheZoomFaces(it->second);
+		m_zoomFacePending.erase(it);
 	}
 	delete pFaces;
 	return 0;
+}
+
+void CMainDlg::StartZoomFaceBlend() {
+	m_zoomFaceBlendFrom.dX = m_offsets.x;
+	m_zoomFaceBlendFrom.dY = m_offsets.y;
+	m_nZoomFaceBlendStart = ::GetTickCount();
+	m_bZoomFaceBlending = true;
 }
 
 void CMainDlg::AnchorZoomRunFace(bool bStartOfImage) {
@@ -3688,17 +3751,16 @@ void CMainDlg::SetupScrollForCurrentImage() {
 		m_isUserFitToScreen = false;
 		m_bUserZoom = true;
 		m_bUserPan = true;
-		// On a face the start is centred on it as far as the edges allow, which at fit to
-		// screen is not at all. The faces are searched for in the background, and a search
-		// still running for the image before is dropped when it answers.
-		m_nZoomFacesRequest++;
+		// On a face the image starts centred on it as far as the edges allow (at fit to
+		// screen not at all), with no glide: its faces were searched for while the image
+		// before was zooming. Then the search moves on to the images read ahead of it.
 		m_bZoomFacesKnown = false;
-		m_bZoomFacesPending = false;
 		m_bZoomFaceBlending = false;
 		m_zoomFaces.clear();
 		m_offsets = CPoint(0, 0);
 		AnchorZoomRunFace(true);
 		m_offsets = GetZoomRunOffsets(m_dZoom);
+		PrefetchZoomFaces();
 		m_nScrollLastTick = ::GetTickCount();
 		this->Invalidate(FALSE);
 		return;

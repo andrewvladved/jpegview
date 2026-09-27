@@ -10,6 +10,8 @@
 #include "AnnotationCtl.h"
 #include "ScrollMath.h"
 #include "FaceMath.h"
+#include <list>
+#include <map>
 
 class CFileList;
 class CJPEGProvider;
@@ -332,9 +334,17 @@ private:
 	bool m_bZoomOnFace; // zoom mode follows a face
 	bool m_bZoomFaceCenter; // ... bringing it to the centre, or else zooming around it
 	bool m_bZoomFacesKnown; // the faces of the current image have been looked for
-	bool m_bZoomFacesPending; // ... and are being looked for in the background
-	int m_nZoomFacesRequest; // numbers the searches, so one for an image gone is dropped
-	bool m_bZoomFaceBlending; // a face found late: the image glides to it from here
+	// Faces are searched for in the images read ahead, while the one before is zooming, so
+	// an image starts on its face the moment it is shown.
+	struct SZoomFaces {
+		CString sFileName;
+		int nWidth, nHeight; // to tell a file changed since
+		std::vector<FaceMath::SFace> faces;
+	};
+	std::list<SZoomFaces> m_zoomFaceCache; // most recent first
+	std::map<int, SZoomFaces> m_zoomFacePending; // searches running, by request number
+	int m_nZoomFacesRequest;
+	bool m_bZoomFaceBlending; // a face setting changed mid-zoom: the image glides from here
 	DWORD m_nZoomFaceBlendStart;
 	FaceMath::SOffset m_zoomFaceBlendFrom;
 	std::vector<FaceMath::SFace> m_zoomFaces;
@@ -468,8 +478,14 @@ private:
 	CPoint GetZoomRunOffsets(double dZoom);
 	// Zoom mode on a face: the centre of the face it follows, false when there is none
 	bool GetZoomRunFace(double& dPointX, double& dPointY);
-	// Zoom mode on a face: starts the background search for the faces of the current image
-	void RequestZoomFaces();
+	// Zoom mode on a face: the faces of the current image, from the search done ahead of
+	// time, or else searched for now
+	void FindZoomFaces();
+	// Zoom mode on a face: starts the background search in images read ahead
+	void PrefetchZoomFaces();
+	void CacheZoomFaces(const SZoomFaces& faces);
+	// Zoom mode on a face: a setting changed mid-zoom, so the image glides to the new place
+	void StartZoomFaceBlend();
 	// Zoom mode on a face: the face is held from the zoom and offsets on screen now, or
 	// at the start of an image from the offsets centred on it
 	void AnchorZoomRunFace(bool bStartOfImage);

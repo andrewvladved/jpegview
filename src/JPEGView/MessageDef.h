@@ -14,7 +14,7 @@
 // Posted to main dialog for asynchronously loading the image with file name CMainDlg::m_sStartupFile
 #define WM_LOAD_FILE_ASYNCH (WM_APP + 24)
 
-// Posted to main dialog when the faces of an image have been searched for in the background.
+// Posted to main dialog when the faces of an image read ahead have been searched for in the background.
 // WPARAM is the number of the request, LPARAM a std::vector<FaceMath::SFace>* to delete.
 #define WM_FACES_DETECTED (WM_APP + 25)
 
