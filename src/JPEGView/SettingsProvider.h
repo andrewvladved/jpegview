@@ -429,7 +429,7 @@ private:
 	void ReadWriteableINISettings();
 
 	LPCTSTR ReadUserIniString(LPCTSTR key);
-	// A time in milliseconds under sKeyMs. A user INI written before the time was kept in
+	// A time in milliseconds under sKeyMs. An INI written before the time was kept in
 	// milliseconds still has it in seconds under sKeySeconds, and that is honoured until
 	// the new key is written.
 	int GetMilliseconds(LPCTSTR sKeyMs, LPCTSTR sKeySeconds, int nDefault, int nMin, int nMax);

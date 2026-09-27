@@ -946,14 +946,23 @@ int CSettingsProvider::GetInt(LPCTSTR sKey, int nDefault, int nMin, int nMax) {
 }
 
 int CSettingsProvider::GetMilliseconds(LPCTSTR sKeyMs, LPCTSTR sKeySeconds, int nDefault, int nMin, int nMax) {
-	if (m_bUserINIExists && ReadUserIniString(sKeyMs) == NULL) {
-		LPCTSTR sSeconds = ReadUserIniString(sKeySeconds);
+	// Each INI in turn, the user one first: the new key if it is there, and otherwise the
+	// old one in seconds. So an old user INI wins over the new global one, and an old INI
+	// kept beside the EXE (StoreToEXEPath) is honoured as well.
+	for (int nIni = 0; nIni < 2; nIni++) {
+		if (nIni == 0 && !m_bUserINIExists) {
+			continue;
+		}
+		LPCTSTR sMs = (nIni == 0) ? ReadUserIniString(sKeyMs) : ReadGlobalIniString(sKeyMs);
+		if (sMs != NULL && *sMs != 0) {
+			return min(nMax, max(nMin, (int)_wtof(sMs)));
+		}
+		LPCTSTR sSeconds = (nIni == 0) ? ReadUserIniString(sKeySeconds) : ReadGlobalIniString(sKeySeconds);
 		if (sSeconds != NULL && *sSeconds != 0) {
-			int nValue = (int)(_wtof(sSeconds) * 1000.0 + 0.5);
-			return min(nMax, max(nMin, nValue));
+			return min(nMax, max(nMin, (int)(_wtof(sSeconds) * 1000.0 + 0.5)));
 		}
 	}
-	return GetInt(sKeyMs, nDefault, nMin, nMax);
+	return nDefault;
 }
 
 double CSettingsProvider::GetDouble(LPCTSTR sKey, double dDefault, double dMin, double dMax) {
