@@ -66,23 +66,15 @@ namespace ScrollMath {
 	double AccentSpeedFactor(double dOffsetY, int nMaxOffsetY);
 
 	// Zoom mode runs the very same cycle - hold, move, hold, next image - but what moves is
-	// the zoom, from the image fitted to the window to the image filling it with crop (or the
-	// other way round with bInverse). The offset of the cycle stands for the logarithm of the
-	// zoom, ZOOM_UNITS_PER_E units to a factor of e, so a constant speed in these units is a
-	// constant rate of magnification: every second multiplies the zoom by the same factor.
-	// +nMaxOffset is where the zoom starts and -nMaxOffset where it ends.
+	// the zoom. It starts from a given zoom and grows (or shrinks) at the zoom speed for the
+	// zoom duration; there is no end point to reach. The offset of the cycle stands for the
+	// logarithm of the zoom, ZOOM_UNITS_PER_E units to a factor of e, so a constant speed in
+	// these units is a constant rate of magnification: every second multiplies the zoom by
+	// the same factor. +nMaxOffset is where the zoom starts and -nMaxOffset where it stops.
 	const double ZOOM_UNITS_PER_E = 10000.0;
-
-	// Half the way from dFitZoom to dCropZoom in those units. Zero when the image has the
-	// shape of the window, so the two zooms are one and there is nothing to zoom through.
-	int ZoomMaxOffset(double dFitZoom, double dCropZoom);
 
 	// The speed in those units for a zoom changing by dPercentPerSecond every second.
 	double ZoomSpeedUnitsPerSecond(double dPercentPerSecond);
-
-	// The zoom at dOffset of the cycle: dFitZoom at the start and dCropZoom at the end, or,
-	// with bInverse, dCropZoom at the start and dFitZoom at the end.
-	double ZoomAt(double dOffset, int nMaxOffset, double dFitZoom, double dCropZoom, bool bInverse);
 
 	// Half the way a zoom of dPercentPerSecond covers in nDurationMs, in those units. It does
 	// not depend on the image, so every image zooms for the same time.

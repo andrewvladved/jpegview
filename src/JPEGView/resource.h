@@ -231,9 +231,10 @@
 #define IDM_EFFECT_SCROLL_TB 7462
 #define IDM_EFFECT_SCROLL_BT 7463
 #define IDM_ZOOMRUN_START 7475		// starts zoom mode, menu only (no key mapping)
-#define IDM_ZOOMRUN_INVERSE 7476	// zoom mode zooms out from fill with crop instead of in from fit, menu only (no key mapping)
+#define IDM_ZOOMRUN_INVERSE 7476	// zoom mode zooms out starting from fill with crop instead of in starting from fit, menu only (no key mapping)
 #define IDM_ZOOMRUN_SET_SPEED 7477	// asks for the zoom speed in percent per second
 #define IDM_ZOOMRUN_SET_TIME 7478	// asks for how long zoom mode holds at each end, in milliseconds
+#define IDM_ZOOMRUN_SET_DURATION 7479	// asks for how long zoom mode zooms each image, in milliseconds
 #define IDM_MOVIE_START_FPS 7500	// starts a movie with the stored playback speed
 #define IDM_MOVIE_SET_SPEED 7610	// asks for the movie playback speed in fps
 #define IDM_ROTATE_90		8000		// :KeyMap: rotate image 90 deg

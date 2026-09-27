@@ -395,6 +395,7 @@ BEGIN
             MENUITEM "Zoom",                        IDM_ZOOMRUN_START
             MENUITEM "Inverse",                     IDM_ZOOMRUN_INVERSE
             MENUITEM "Set Zoom Speed...",           IDM_ZOOMRUN_SET_SPEED
+            MENUITEM "Set Zoom Duration...",        IDM_ZOOMRUN_SET_DURATION
             MENUITEM "Set Zoom Time...",            IDM_ZOOMRUN_SET_TIME
             MENUITEM SEPARATOR
             MENUITEM "Slideshow",                   IDM_SLIDESHOW_START

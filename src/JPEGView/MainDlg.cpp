@@ -259,6 +259,7 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_bScrollFillWithCrop = sp.ScrollFillWithCrop();
 	m_bScrollAccentOnCenter = sp.ScrollAccentOnCenter();
 	m_bZoomInverse = sp.ZoomInverse();
+	m_dZoomRunStart = 1.0;
 	m_bCrossFade = sp.CrossFade();
 	m_bPreview = sp.Preview();
 	m_nPreviewSize = sp.PreviewSize();
@@ -1838,14 +1839,13 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 		case IDM_ZOOMRUN_INVERSE:
 			m_bZoomInverse = !m_bZoomInverse;
 			sp.SaveZoomInverse(m_bZoomInverse);
-			if (m_bScrollMode && m_bScrollZoom) {
-				// Mirror the cycle, so the zoom on screen stays where it is: the start and the
-				// end swap places, and a zoom under way carries on the other way round.
-				m_scrollState.dOffsetY = -m_scrollState.dOffsetY;
-				if (m_scrollState.ePhase == ScrollMath::PHASE_HoldTop) {
-					m_scrollState.ePhase = ScrollMath::PHASE_HoldBottom;
-				} else if (m_scrollState.ePhase == ScrollMath::PHASE_HoldBottom) {
-					m_scrollState.ePhase = ScrollMath::PHASE_HoldTop;
+			if (m_bScrollMode && m_bScrollZoom && m_pCurrentImage != NULL) {
+				// Anchor the cycle anew, so the zoom on screen stays where it is and the rest
+				// of the way runs the other way round.
+				double dNow = m_dZoom;
+				double dFactor = ScrollMath::ZoomRunZoomAt(m_scrollState.dOffsetY, GetScrollMaxOffsetY(), 1.0, m_bZoomInverse);
+				if (dNow > 0 && dFactor > 0) {
+					m_dZoomRunStart = dNow / dFactor;
 				}
 			}
 			break;
@@ -1856,6 +1856,16 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 					CSettingsProvider::MIN_ZOOM_SPEED, CSettingsProvider::MAX_ZOOM_SPEED);
 				if (dlgZoomSpeed.DoModal(m_hWnd) == IDOK) {
 					sp.SaveZoomSpeed(dlgZoomSpeed.GetValue());
+				}
+			}
+			break;
+		case IDM_ZOOMRUN_SET_DURATION:
+			{
+				CSetValueDlg dlgZoomDuration(CNLS::GetString(_T("Set Zoom Duration")), CNLS::GetString(_T("Zoom duration")),
+					CNLS::GetString(_T("ms")), sp.ZoomDurationMs(),
+					CSettingsProvider::MIN_ZOOM_DURATION, CSettingsProvider::MAX_ZOOM_DURATION);
+				if (dlgZoomDuration.DoModal(m_hWnd) == IDOK) {
+					sp.SaveZoomDuration(dlgZoomDuration.GetValue());
 				}
 			}
 			break;
@@ -3525,9 +3535,11 @@ int CMainDlg::GetScrollMaxOffsetY() {
 		return 0;
 	}
 	if (m_bScrollZoom) {
-		// In zoom mode the cycle runs through the zoom, from the fitted image to the image
-		// filling the window, and its offset stands for the logarithm of that zoom.
-		return ScrollMath::ZoomMaxOffset(GetZoomFactorForFitToScreen(false, true), GetZoomFactorForFitToScreen(true, true));
+		// In zoom mode the cycle runs through the zoom and its offset stands for the
+		// logarithm of that zoom. How far it goes depends on the speed and the duration
+		// alone, so every image zooms for the same time.
+		CSettingsProvider& sp = CSettingsProvider::This();
+		return ScrollMath::ZoomRunMaxOffset(sp.ZoomSpeed(), sp.ZoomDurationMs());
 	}
 	// What sticks out above and below the window is what there is to scroll through.
 	// Offsets are measured from the centre, which is why this is half the overflow - the
@@ -3537,8 +3549,14 @@ int CMainDlg::GetScrollMaxOffsetY() {
 }
 
 double CMainDlg::GetZoomRunZoom() {
-	return ScrollMath::ZoomAt(m_scrollState.dOffsetY, GetScrollMaxOffsetY(),
-		GetZoomFactorForFitToScreen(false, true), GetZoomFactorForFitToScreen(true, true), m_bZoomInverse);
+	double dZoom = ScrollMath::ZoomRunZoomAt(m_scrollState.dOffsetY, GetScrollMaxOffsetY(), m_dZoomRunStart, m_bZoomInverse);
+	// Nothing stops a long fast zoom, so keep it within what the processing can take: never
+	// more than 65535 pixels on a side, and never less than one.
+	if (m_pCurrentImage != NULL) {
+		double dLongSide = max(1, max(m_pCurrentImage->OrigWidth(), m_pCurrentImage->OrigHeight()));
+		dZoom = max(1.0 / dLongSide, min(65535.0 / dLongSide, dZoom));
+	}
+	return dZoom;
 }
 
 void CMainDlg::SetupScrollForCurrentImage() {
@@ -3548,6 +3566,7 @@ void CMainDlg::SetupScrollForCurrentImage() {
 	if (m_bScrollZoom) {
 		// Centred, at the zoom the cycle starts from: fit to screen, or fill with crop
 		// when inverse.
+		m_dZoomRunStart = GetZoomFactorForFitToScreen(m_bZoomInverse, true);
 		ScrollMath::Reset(m_scrollState, GetScrollMaxOffsetY());
 		m_dZoom = GetZoomRunZoom();
 		m_isUserFitToScreen = false;

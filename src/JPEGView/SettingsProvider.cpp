@@ -178,6 +178,7 @@ CSettingsProvider::CSettingsProvider(void) {
 	m_bScrollFillWithCrop = GetBool(_T("ScrollFillWithCrop"), true);
 	m_bScrollAccentOnCenter = GetBool(_T("ScrollAccentOnCenter"), false);
 	m_nZoomSpeed = GetInt(_T("ZoomSpeed"), 5, MIN_ZOOM_SPEED, MAX_ZOOM_SPEED);
+	m_nZoomDurationMs = GetInt(_T("ZoomDurationMs"), 5000, MIN_ZOOM_DURATION, MAX_ZOOM_DURATION);
 	m_nZoomTimeMs = GetInt(_T("ZoomTimeMs"), 2000, MIN_ZOOM_TIME, MAX_ZOOM_TIME);
 	m_bZoomInverse = GetBool(_T("ZoomInverse"), false);
 	m_bCrossFade = GetBool(_T("CrossFade"), true);
@@ -639,6 +640,18 @@ void CSettingsProvider::SaveZoomSpeed(int nPercentPerSecond) {
 	TCHAR buff[BUFF_SIZE];
 	_sntprintf(buff, BUFF_SIZE, _T("%d"), nPercentPerSecond);
 	WriteString(_T("ZoomSpeed"), buff);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SaveZoomDuration(int nMilliseconds) {
+	MakeSureUserINIExists();
+
+	m_nZoomDurationMs = nMilliseconds;
+	const int BUFF_SIZE = 16;
+	TCHAR buff[BUFF_SIZE];
+	_sntprintf(buff, BUFF_SIZE, _T("%d"), nMilliseconds);
+	WriteString(_T("ZoomDurationMs"), buff);
 
 	m_bUserINIExists = true;
 }

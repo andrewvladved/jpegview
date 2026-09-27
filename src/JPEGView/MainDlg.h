@@ -325,6 +325,7 @@ private:
 	bool m_bScrollFillWithCrop;
 	bool m_bScrollAccentOnCenter;
 	bool m_bZoomInverse;
+	double m_dZoomRunStart; // zoom mode: the zoom the current image started from
 	bool m_bCrossFade;
 	bool m_bPreview;
 	int m_nPreviewSize;
@@ -425,9 +426,9 @@ private:
 	double RelativeZoomBase();
 	// Scroll mode: fill the window with the image, hold at its top edge, glide down to
 	// the bottom edge, hold again, then move on to the next image.
-	// With bZoom it runs as zoom mode instead: the same cycle, but between fit to screen and
-	// fill with crop - the image is held at the one, zoomed smoothly to the other, held
-	// there, and then the next image comes.
+	// With bZoom it runs as zoom mode instead: the same cycle, but through the zoom - the
+	// image is held at fit to screen (fill with crop when inverse), zoomed smoothly in (out)
+	// at the zoom speed for the zoom duration, held again, and then the next image comes.
 	void StartScrollMode(bool bZoom = false);
 	void StopScrollMode();
 	// The down and up keys while scroll mode runs: glide that way, or move to another

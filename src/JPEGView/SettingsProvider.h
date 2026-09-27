@@ -79,10 +79,12 @@ public:
 	// it stands still at each end, in milliseconds. Both are asked for in a dialog.
 	int ScrollSpeed() { return m_nScrollSpeed; }
 	int ScrollTimeMs() { return m_nScrollTimeMs; }
-	// Zoom mode: how fast the zoom changes, in percent per second, how long it stands still
-	// at each end, in milliseconds, and whether it zooms out from fill with crop to fit to
-	// screen instead of in from fit to screen to fill with crop.
+	// Zoom mode: how fast the zoom changes, in percent per second, for how long it changes,
+	// in milliseconds - the same for every image - how long it stands still before and
+	// after, in milliseconds, and whether it zooms out starting from fill with crop instead
+	// of in starting from fit to screen.
 	int ZoomSpeed() { return m_nZoomSpeed; }
+	int ZoomDurationMs() { return m_nZoomDurationMs; }
 	int ZoomTimeMs() { return m_nZoomTimeMs; }
 	bool ZoomInverse() { return m_bZoomInverse; }
 	// Whether scroll mode fills the window with the image before gliding through it.
@@ -115,6 +117,8 @@ public:
 	static const int MAX_SCROLL_TIME = 600000;
 	static const int MIN_ZOOM_SPEED = 1;
 	static const int MAX_ZOOM_SPEED = 1000;
+	static const int MIN_ZOOM_DURATION = 0; // zero means no zooming, only the pauses
+	static const int MAX_ZOOM_DURATION = 600000;
 	static const int MIN_ZOOM_TIME = 0; // zero means no pause at the ends
 	static const int MAX_ZOOM_TIME = 600000;
 	static const int MIN_TRANSITION_TIME = 100;
@@ -236,8 +240,10 @@ public:
 	void SaveScrollTime(int nMilliseconds);
 	void SaveScrollFillWithCrop(bool bFillWithCrop);
 	void SaveScrollAccentOnCenter(bool bAccentOnCenter);
-	// Saves the zoom speed / the time zoom mode holds at each end / the inverse flag
+	// Saves the zoom speed / how long zoom mode zooms / how long it holds at each end /
+	// the inverse flag
 	void SaveZoomSpeed(int nPercentPerSecond);
+	void SaveZoomDuration(int nMilliseconds);
 	void SaveZoomTime(int nMilliseconds);
 	void SaveZoomInverse(bool bInverse);
 	void SaveCrossFade(bool bCrossFade);
@@ -338,6 +344,7 @@ private:
 	bool m_bScrollFillWithCrop;
 	bool m_bScrollAccentOnCenter;
 	int m_nZoomSpeed;
+	int m_nZoomDurationMs;
 	int m_nZoomTimeMs;
 	bool m_bZoomInverse;
 	bool m_bCrossFade;
