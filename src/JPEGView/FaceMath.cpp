@@ -1,4 +1,5 @@
 #include "FaceMath.h"
+#include <algorithm>
 
 namespace FaceMath {
 
@@ -24,24 +25,89 @@ static double Limit(double dOffset, int nImage, double dZoom, int nWindow) {
 }
 
 SLetterbox Letterbox(int nImageWidth, int nImageHeight, int nSquare) {
-	SLetterbox letterbox = { 1.0, 0, 0, 0, 0 };
+	SLetterbox letterbox;
+	letterbox.dScale = (double)nSquare / max(1, max(nImageWidth, nImageHeight));
+	letterbox.nWidth = max(1, min(nSquare, (int)(nImageWidth * letterbox.dScale + 0.5)));
+	letterbox.nHeight = max(1, min(nSquare, (int)(nImageHeight * letterbox.dScale + 0.5)));
+	letterbox.nPadX = (nSquare - letterbox.nWidth) / 2;
+	letterbox.nPadY = (nSquare - letterbox.nHeight) / 2;
 	return letterbox;
 }
 
 std::vector<SScoredFace> DecodeDetections(const float* pOutput, int nAnchors, const SLetterbox& letterbox, double dMinScore) {
-	return std::vector<SScoredFace>();
-}
-
-std::vector<SScoredFace> SuppressOverlaps(std::vector<SScoredFace> faces, double dMaxIoU) {
+	std::vector<SScoredFace> faces;
+	for (int i = 0; i < nAnchors; i++) {
+		double dScore = pOutput[4 * nAnchors + i];
+		if (dScore < dMinScore) {
+			continue;
+		}
+		double dCenterX = pOutput[i], dCenterY = pOutput[nAnchors + i];
+		double dWidth = pOutput[2 * nAnchors + i], dHeight = pOutput[3 * nAnchors + i];
+		SScoredFace face;
+		face.face.dX = (dCenterX - dWidth / 2 - letterbox.nPadX) / letterbox.dScale;
+		face.face.dY = (dCenterY - dHeight / 2 - letterbox.nPadY) / letterbox.dScale;
+		face.face.dWidth = dWidth / letterbox.dScale;
+		face.face.dHeight = dHeight / letterbox.dScale;
+		face.dScore = dScore;
+		faces.push_back(face);
+	}
 	return faces;
 }
 
+static double Intersection(const SFace& a, const SFace& b) {
+	double dWidth = min(a.dX + a.dWidth, b.dX + b.dWidth) - max(a.dX, b.dX);
+	double dHeight = min(a.dY + a.dHeight, b.dY + b.dHeight) - max(a.dY, b.dY);
+	return (dWidth > 0 && dHeight > 0) ? dWidth * dHeight : 0;
+}
+
+std::vector<SScoredFace> SuppressOverlaps(std::vector<SScoredFace> faces, double dMaxIoU) {
+	std::stable_sort(faces.begin(), faces.end(),
+		[](const SScoredFace& a, const SScoredFace& b) { return a.dScore > b.dScore; });
+	std::vector<SScoredFace> kept;
+	for (size_t i = 0; i < faces.size(); i++) {
+		bool bOverlaps = false;
+		for (size_t j = 0; j < kept.size() && !bOverlaps; j++) {
+			double dCommon = Intersection(faces[i].face, kept[j].face);
+			double dUnion = faces[i].face.dWidth * faces[i].face.dHeight + kept[j].face.dWidth * kept[j].face.dHeight - dCommon;
+			bOverlaps = dUnion > 0 && dCommon / dUnion > dMaxIoU;
+		}
+		if (!bOverlaps) {
+			kept.push_back(faces[i]);
+		}
+	}
+	return kept;
+}
+
 std::vector<SFace> SelectFaces(const std::vector<SScoredFace>& faces, double dThreshold, double dFallback) {
-	return std::vector<SFace>();
+	std::vector<SFace> selected;
+	int nBest = -1;
+	for (int i = 0; i < (int)faces.size(); i++) {
+		if (faces[i].dScore >= dThreshold) {
+			selected.push_back(faces[i].face);
+		}
+		if (nBest < 0 || faces[i].dScore > faces[nBest].dScore) {
+			nBest = i;
+		}
+	}
+	if (selected.empty() && nBest >= 0 && faces[nBest].dScore >= dFallback) {
+		selected.push_back(faces[nBest].face);
+	}
+	return selected;
 }
 
 std::vector<SFace> MergeFaces(const std::vector<SFace>& first, const std::vector<SFace>& second) {
-	return first;
+	std::vector<SFace> merged = first;
+	for (size_t i = 0; i < second.size(); i++) {
+		bool bKnown = false;
+		for (size_t j = 0; j < first.size() && !bKnown; j++) {
+			double dSmaller = min(second[i].dWidth * second[i].dHeight, first[j].dWidth * first[j].dHeight);
+			bKnown = dSmaller > 0 && Intersection(second[i], first[j]) / dSmaller > 0.5;
+		}
+		if (!bKnown) {
+			merged.push_back(second[i]);
+		}
+	}
+	return merged;
 }
 
 SOffset LimitOffset(SOffset offset, SIZE imageSize, double dZoom, SIZE windowSize) {
