@@ -255,8 +255,10 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_dRelativeZoomFactor = 1.0;
 	m_dZoomFactorBeforeFit = 1.0;
 	m_bScrollMode = false;
+	m_bScrollZoom = false;
 	m_bScrollFillWithCrop = sp.ScrollFillWithCrop();
 	m_bScrollAccentOnCenter = sp.ScrollAccentOnCenter();
+	m_bZoomInverse = sp.ZoomInverse();
 	m_bCrossFade = sp.CrossFade();
 	m_bPreview = sp.Preview();
 	m_nPreviewSize = sp.PreviewSize();
@@ -1321,10 +1323,25 @@ LRESULT CMainDlg::OnTimer(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOOL&
 			DWORD nNow = ::GetTickCount();
 			int nElapsedMs = (int)(nNow - m_nScrollLastTick);
 			m_nScrollLastTick = nNow;
-			ScrollMath::Advance(m_scrollState, GetScrollMaxOffsetY(), sp.ScrollSpeed(), sp.ScrollTime() * 1000, nElapsedMs,
-				m_bScrollAccentOnCenter);
+			if (m_bScrollZoom) {
+				ScrollMath::Advance(m_scrollState, GetScrollMaxOffsetY(), ScrollMath::ZoomSpeedUnitsPerSecond(sp.ZoomSpeed()),
+					sp.ZoomTimeMs(), nElapsedMs);
+			} else {
+				ScrollMath::Advance(m_scrollState, GetScrollMaxOffsetY(), sp.ScrollSpeed(), sp.ScrollTimeMs(), nElapsedMs,
+					m_bScrollAccentOnCenter);
+			}
 			if (m_scrollState.bAdvanceToNextImage) {
 				GotoImageWithTransition(POS_Next, 0);
+			} else if (m_bScrollZoom) {
+				// The image stays centred and only its zoom changes.
+				double dNewZoom = GetZoomRunZoom();
+				if (fabs(dNewZoom - m_dZoom) > 0.000001 || m_offsets != CPoint(0, 0)) {
+					m_dZoom = dNewZoom;
+					m_offsets = CPoint(0, 0);
+					m_bUserZoom = true;
+					m_bUserPan = true;
+					this->InvalidateRect(&m_clientRect, FALSE);
+				}
 			} else {
 				CPoint newOffsets(0, Helpers::RoundToInt(m_scrollState.dOffsetY));
 				if (newOffsets != m_offsets) {
@@ -1406,6 +1423,7 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	if (!m_bMovieMode && !m_bScrollMode) ::EnableMenuItem(hMenuMovie, IDM_STOP_MOVIE, MF_BYCOMMAND | MF_GRAYED);
 	if (m_bScrollFillWithCrop) ::CheckMenuItem(hMenuMovie, IDM_SCROLL_FILL_WITH_CROP, MF_CHECKED);
 	if (m_bScrollAccentOnCenter) ::CheckMenuItem(hMenuMovie, IDM_SCROLL_ACCENT_ON_CENTER, MF_CHECKED);
+	if (m_bZoomInverse) ::CheckMenuItem(hMenuMovie, IDM_ZOOMRUN_INVERSE, MF_CHECKED);
 	if (m_bCrossFade) ::CheckMenuItem(hMenuMovie, IDM_CROSS_FADE, MF_CHECKED);
 	if (m_bPreview) ::CheckMenuItem(hMenuMovie, IDM_PREVIEW, MF_CHECKED);
 	if (m_bPreviewOnTop) ::CheckMenuItem(hMenuMovie, IDM_PREVIEW_ON_TOP, MF_CHECKED);
@@ -1433,16 +1451,16 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 		::DeleteMenu(hMenuTrackPopup, SUBMENU_POS_USER_COMMANDS - 1, MF_BYPOSITION);
 	}
 	if (!m_bFullScreenMode) {
-		// Transition effect and speed only available in full screen mode. They are the
-		// Transition effect and speed only available in full screen mode. They are the
-		// tenth and eleventh entries of the submenu: the Settings submenu, a separator, the
-		// four scroll entries, a separator, Slideshow, Set Waiting Time, and then these two.
-		::DeleteMenu(hMenuMovie, 9, MF_BYPOSITION);
-		::DeleteMenu(hMenuMovie, 9, MF_BYPOSITION);
+		// The transition effect is only available in full screen mode. Its submenu is looked
+		// up by what it holds rather than by position, so the entries around it can move.
+		for (int i = ::GetMenuItemCount(hMenuMovie) - 1; i >= 0; i--) {
+			HMENU hSubMenu = ::GetSubMenu(hMenuMovie, i);
+			if (hSubMenu != NULL && ::GetMenuState(hSubMenu, IDM_EFFECT_NONE, MF_BYCOMMAND) != (UINT)-1) {
+				::DeleteMenu(hMenuMovie, i, MF_BYPOSITION);
+			}
+		}
 	} else {
 		::CheckMenuItem(hMenuMovie, m_eTransitionEffect + IDM_EFFECT_NONE, MF_CHECKED);
-		int nIndex = (m_nTransitionTime < 180) ? 0 : (m_nTransitionTime < 375) ? 1 : (m_nTransitionTime < 750) ? 2 : (m_nTransitionTime < 1500) ? 3 : 4;
-		::CheckMenuItem(hMenuMovie, nIndex + IDM_EFFECTTIME_VERY_FAST, MF_CHECKED);
 	}
 
 	if (CParameterDB::This().IsEmpty()) ::EnableMenuItem(hMenuSettings, IDM_BACKUP_PARAMDB, MF_BYCOMMAND | MF_GRAYED);
@@ -1814,6 +1832,43 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 		case IDM_SCROLL_START:
 			StartScrollMode();
 			break;
+		case IDM_ZOOMRUN_START:
+			StartScrollMode(true);
+			break;
+		case IDM_ZOOMRUN_INVERSE:
+			m_bZoomInverse = !m_bZoomInverse;
+			sp.SaveZoomInverse(m_bZoomInverse);
+			if (m_bScrollMode && m_bScrollZoom) {
+				// Mirror the cycle, so the zoom on screen stays where it is: the start and the
+				// end swap places, and a zoom under way carries on the other way round.
+				m_scrollState.dOffsetY = -m_scrollState.dOffsetY;
+				if (m_scrollState.ePhase == ScrollMath::PHASE_HoldTop) {
+					m_scrollState.ePhase = ScrollMath::PHASE_HoldBottom;
+				} else if (m_scrollState.ePhase == ScrollMath::PHASE_HoldBottom) {
+					m_scrollState.ePhase = ScrollMath::PHASE_HoldTop;
+				}
+			}
+			break;
+		case IDM_ZOOMRUN_SET_SPEED:
+			{
+				CSetValueDlg dlgZoomSpeed(CNLS::GetString(_T("Set Zoom Speed")), CNLS::GetString(_T("Zoom speed")),
+					CNLS::GetString(_T("%/s")), sp.ZoomSpeed(),
+					CSettingsProvider::MIN_ZOOM_SPEED, CSettingsProvider::MAX_ZOOM_SPEED);
+				if (dlgZoomSpeed.DoModal(m_hWnd) == IDOK) {
+					sp.SaveZoomSpeed(dlgZoomSpeed.GetValue());
+				}
+			}
+			break;
+		case IDM_ZOOMRUN_SET_TIME:
+			{
+				CSetValueDlg dlgZoomTime(CNLS::GetString(_T("Set Zoom Time")), CNLS::GetString(_T("Hold at each end")),
+					CNLS::GetString(_T("ms")), sp.ZoomTimeMs(),
+					CSettingsProvider::MIN_ZOOM_TIME, CSettingsProvider::MAX_ZOOM_TIME);
+				if (dlgZoomTime.DoModal(m_hWnd) == IDOK) {
+					sp.SaveZoomTime(dlgZoomTime.GetValue());
+				}
+			}
+			break;
 		case IDM_SCROLL_FILL_WITH_CROP:
 			m_bScrollFillWithCrop = !m_bScrollFillWithCrop;
 			sp.SaveScrollFillWithCrop(m_bScrollFillWithCrop);
@@ -1876,7 +1931,7 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 		case IDM_SCROLL_SET_TIME:
 			{
 				CSetValueDlg dlgScrollTime(CNLS::GetString(_T("Set Scroll Time")), CNLS::GetString(_T("Hold at each end")),
-					CNLS::GetString(_T("sec")), sp.ScrollTime(),
+					CNLS::GetString(_T("ms")), sp.ScrollTimeMs(),
 					CSettingsProvider::MIN_SCROLL_TIME, CSettingsProvider::MAX_SCROLL_TIME);
 				if (dlgScrollTime.DoModal(m_hWnd) == IDOK) {
 					sp.SaveScrollTime(dlgScrollTime.GetValue());
@@ -1884,12 +1939,12 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			}
 			break;
 		case IDM_SLIDESHOW_START:
-			StartMovieMode(1.0 / sp.SlideShowWaitTime());
+			StartMovieMode(1000.0 / sp.SlideShowWaitTimeMs());
 			break;
 		case IDM_SLIDESHOW_SET_TIME:
 			{
 				CSetValueDlg dlgWaitTime(CNLS::GetString(_T("Set Waiting Time")), CNLS::GetString(_T("Waiting time")),
-					CNLS::GetString(_T("sec")), sp.SlideShowWaitTime(),
+					CNLS::GetString(_T("ms")), sp.SlideShowWaitTimeMs(),
 					CSettingsProvider::MIN_SLIDESHOW_WAIT_TIME, CSettingsProvider::MAX_SLIDESHOW_WAIT_TIME);
 				if (dlgWaitTime.DoModal(m_hWnd) == IDOK) {
 					sp.SaveSlideShowWaitTime(dlgWaitTime.GetValue());
@@ -1911,13 +1966,6 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 		case IDM_EFFECT_SCROLL_TB:
 		case IDM_EFFECT_SCROLL_BT:
 			m_eTransitionEffect = (Helpers::ETransitionEffect)(nCommand - IDM_EFFECT_NONE);
-			break;
-		case IDM_EFFECTTIME_VERY_FAST:
-		case IDM_EFFECTTIME_FAST:
-		case IDM_EFFECTTIME_NORMAL:
-		case IDM_EFFECTTIME_SLOW:
-		case IDM_EFFECTTIME_VERY_SLOW:
-			m_nTransitionTime = 125 * (1 << (nCommand - IDM_EFFECTTIME_VERY_FAST));
 			break;
 		case IDM_MOVIE_START_FPS:
 			StartMovieMode(sp.MoviePlaybackSpeed());
@@ -3476,6 +3524,11 @@ int CMainDlg::GetScrollMaxOffsetY() {
 	if (m_pCurrentImage == NULL) {
 		return 0;
 	}
+	if (m_bScrollZoom) {
+		// In zoom mode the cycle runs through the zoom, from the fitted image to the image
+		// filling the window, and its offset stands for the logarithm of that zoom.
+		return ScrollMath::ZoomMaxOffset(GetZoomFactorForFitToScreen(false, true), GetZoomFactorForFitToScreen(true, true));
+	}
 	// What sticks out above and below the window is what there is to scroll through.
 	// Offsets are measured from the centre, which is why this is half the overflow - the
 	// same arithmetic Helpers::LimitOffsets uses.
@@ -3483,8 +3536,26 @@ int CMainDlg::GetScrollMaxOffsetY() {
 	return max(0, (nVirtualHeight - m_clientRect.Height()) / 2);
 }
 
+double CMainDlg::GetZoomRunZoom() {
+	return ScrollMath::ZoomAt(m_scrollState.dOffsetY, GetScrollMaxOffsetY(),
+		GetZoomFactorForFitToScreen(false, true), GetZoomFactorForFitToScreen(true, true), m_bZoomInverse);
+}
+
 void CMainDlg::SetupScrollForCurrentImage() {
 	if (m_pCurrentImage == NULL) {
+		return;
+	}
+	if (m_bScrollZoom) {
+		// Centred, at the zoom the cycle starts from: fit to screen, or fill with crop
+		// when inverse.
+		ScrollMath::Reset(m_scrollState, GetScrollMaxOffsetY());
+		m_dZoom = GetZoomRunZoom();
+		m_isUserFitToScreen = false;
+		m_bUserZoom = true;
+		m_bUserPan = true;
+		m_offsets = CPoint(0, 0);
+		m_nScrollLastTick = ::GetTickCount();
+		this->Invalidate(FALSE);
 		return;
 	}
 	if (m_bScrollFillWithCrop) {
@@ -3502,12 +3573,13 @@ void CMainDlg::SetupScrollForCurrentImage() {
 	this->Invalidate(FALSE);
 }
 
-void CMainDlg::StartScrollMode() {
+void CMainDlg::StartScrollMode(bool bZoom) {
 	StopMovieMode();
 	StopAnimation();
 	m_bScrollMode = true;
+	m_bScrollZoom = bZoom;
 	UpdateClientRect();
-	if (!m_bScrollFillWithCrop) {
+	if (!bZoom && !m_bScrollFillWithCrop) {
 		// Gliding through the image at its current zoom only makes sense if that zoom is
 		// carried to the next image, which is exactly what relative zoom mode does - so it
 		// is switched on for the duration if the user has not switched it on already.
@@ -3803,6 +3875,7 @@ void CMainDlg::StopScrollMode() {
 		return;
 	}
 	m_bScrollMode = false;
+	m_bScrollZoom = false;
 	UpdateClientRect();
 	this->Invalidate(FALSE);
 	if (m_bRelativeZoomTemporary) {

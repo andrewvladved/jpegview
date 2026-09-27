@@ -170,13 +170,16 @@ CSettingsProvider::CSettingsProvider(void) {
 
 	m_nMaxSlideShowFileListSize = GetInt(_T("MaxSlideShowFileListSizeKB"), 200, 100, 10000);
 	m_nSlideShowEffectTimeMs = GetInt(_T("SlideShowEffectTime"), 200, 100, 5000);
-	m_nSlideShowWaitTime = GetInt(_T("SlideShowWaitTime"), 3, MIN_SLIDESHOW_WAIT_TIME, MAX_SLIDESHOW_WAIT_TIME);
+	m_nSlideShowWaitTimeMs = GetMilliseconds(_T("SlideShowWaitTimeMs"), _T("SlideShowWaitTime"), 3000, MIN_SLIDESHOW_WAIT_TIME, MAX_SLIDESHOW_WAIT_TIME);
 	m_nMoviePlaybackSpeed = GetInt(_T("MoviePlaybackSpeed"), 5, MIN_MOVIE_PLAYBACK_SPEED, MAX_MOVIE_PLAYBACK_SPEED);
 	m_bRelativeZoomMode = GetBool(_T("RelativeZoomMode"), false);
 	m_nScrollSpeed = GetInt(_T("ScrollSpeed"), 100, MIN_SCROLL_SPEED, MAX_SCROLL_SPEED);
-	m_nScrollTime = GetInt(_T("ScrollTime"), 2, MIN_SCROLL_TIME, MAX_SCROLL_TIME);
+	m_nScrollTimeMs = GetMilliseconds(_T("ScrollTimeMs"), _T("ScrollTime"), 2000, MIN_SCROLL_TIME, MAX_SCROLL_TIME);
 	m_bScrollFillWithCrop = GetBool(_T("ScrollFillWithCrop"), true);
 	m_bScrollAccentOnCenter = GetBool(_T("ScrollAccentOnCenter"), false);
+	m_nZoomSpeed = GetInt(_T("ZoomSpeed"), 5, MIN_ZOOM_SPEED, MAX_ZOOM_SPEED);
+	m_nZoomTimeMs = GetInt(_T("ZoomTimeMs"), 2000, MIN_ZOOM_TIME, MAX_ZOOM_TIME);
+	m_bZoomInverse = GetBool(_T("ZoomInverse"), false);
 	m_bCrossFade = GetBool(_T("CrossFade"), true);
 	m_bPreview = GetBool(_T("Preview"), false);
 	m_nPreviewSize = GetInt(_T("PreviewSize"), 25, 10, 100);
@@ -553,14 +556,14 @@ void CSettingsProvider::SaveStickyWindowRect(CRect rect) {
 	}
 }
 
-void CSettingsProvider::SaveSlideShowWaitTime(int nSeconds) {
+void CSettingsProvider::SaveSlideShowWaitTime(int nMilliseconds) {
 	MakeSureUserINIExists();
 
-	m_nSlideShowWaitTime = nSeconds;
+	m_nSlideShowWaitTimeMs = nMilliseconds;
 	const int BUFF_SIZE = 16;
 	TCHAR buff[BUFF_SIZE];
-	_sntprintf(buff, BUFF_SIZE, _T("%d"), nSeconds);
-	WriteString(_T("SlideShowWaitTime"), buff);
+	_sntprintf(buff, BUFF_SIZE, _T("%d"), nMilliseconds);
+	WriteString(_T("SlideShowWaitTimeMs"), buff);
 
 	m_bUserINIExists = true;
 }
@@ -598,14 +601,14 @@ void CSettingsProvider::SaveScrollSpeed(int nPixelsPerSecond) {
 	m_bUserINIExists = true;
 }
 
-void CSettingsProvider::SaveScrollTime(int nSeconds) {
+void CSettingsProvider::SaveScrollTime(int nMilliseconds) {
 	MakeSureUserINIExists();
 
-	m_nScrollTime = nSeconds;
+	m_nScrollTimeMs = nMilliseconds;
 	const int BUFF_SIZE = 16;
 	TCHAR buff[BUFF_SIZE];
-	_sntprintf(buff, BUFF_SIZE, _T("%d"), nSeconds);
-	WriteString(_T("ScrollTime"), buff);
+	_sntprintf(buff, BUFF_SIZE, _T("%d"), nMilliseconds);
+	WriteString(_T("ScrollTimeMs"), buff);
 
 	m_bUserINIExists = true;
 }
@@ -624,6 +627,39 @@ void CSettingsProvider::SaveScrollAccentOnCenter(bool bAccentOnCenter) {
 
 	m_bScrollAccentOnCenter = bAccentOnCenter;
 	WriteBool(_T("ScrollAccentOnCenter"), bAccentOnCenter);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SaveZoomSpeed(int nPercentPerSecond) {
+	MakeSureUserINIExists();
+
+	m_nZoomSpeed = nPercentPerSecond;
+	const int BUFF_SIZE = 16;
+	TCHAR buff[BUFF_SIZE];
+	_sntprintf(buff, BUFF_SIZE, _T("%d"), nPercentPerSecond);
+	WriteString(_T("ZoomSpeed"), buff);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SaveZoomTime(int nMilliseconds) {
+	MakeSureUserINIExists();
+
+	m_nZoomTimeMs = nMilliseconds;
+	const int BUFF_SIZE = 16;
+	TCHAR buff[BUFF_SIZE];
+	_sntprintf(buff, BUFF_SIZE, _T("%d"), nMilliseconds);
+	WriteString(_T("ZoomTimeMs"), buff);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SaveZoomInverse(bool bInverse) {
+	MakeSureUserINIExists();
+
+	m_bZoomInverse = bInverse;
+	WriteBool(_T("ZoomInverse"), bInverse);
 
 	m_bUserINIExists = true;
 }
@@ -907,6 +943,17 @@ int CSettingsProvider::GetInt(LPCTSTR sKey, int nDefault, int nMin, int nMax) {
 	}
 	int nValue = (int)_wtof((LPCTSTR)s);
 	return min(nMax, max(nMin, nValue));
+}
+
+int CSettingsProvider::GetMilliseconds(LPCTSTR sKeyMs, LPCTSTR sKeySeconds, int nDefault, int nMin, int nMax) {
+	if (m_bUserINIExists && ReadUserIniString(sKeyMs) == NULL) {
+		LPCTSTR sSeconds = ReadUserIniString(sKeySeconds);
+		if (sSeconds != NULL && *sSeconds != 0) {
+			int nValue = (int)(_wtof(sSeconds) * 1000.0 + 0.5);
+			return min(nMax, max(nMin, nValue));
+		}
+	}
+	return GetInt(sKeyMs, nDefault, nMin, nMax);
 }
 
 double CSettingsProvider::GetDouble(LPCTSTR sKey, double dDefault, double dMin, double dMax) {

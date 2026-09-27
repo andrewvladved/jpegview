@@ -70,15 +70,21 @@ public:
 	int MaxSlideShowFileListSize() { return m_nMaxSlideShowFileListSize; }
 	Helpers::ETransitionEffect SlideShowTransitionEffect() { return m_eSlideShowTransitionEffect; }
 	int SlideShowEffectTimeMs() { return m_nSlideShowEffectTimeMs; }
-	// Waiting time in seconds used by the Slideshow menu entry, and playback speed in
+	// Waiting time in milliseconds used by the Slideshow menu entry, and playback speed in
 	// frames per second used by the Movie entry. Both are asked for in a dialog and
 	// written back to the INI file, so they survive a restart.
-	int SlideShowWaitTime() { return m_nSlideShowWaitTime; }
+	int SlideShowWaitTimeMs() { return m_nSlideShowWaitTimeMs; }
 	int MoviePlaybackSpeed() { return m_nMoviePlaybackSpeed; }
 	// Scroll mode: how fast the image glides, in screen pixels per second, and how long
-	// it stands still at each end, in seconds. Both are asked for in a dialog.
+	// it stands still at each end, in milliseconds. Both are asked for in a dialog.
 	int ScrollSpeed() { return m_nScrollSpeed; }
-	int ScrollTime() { return m_nScrollTime; }
+	int ScrollTimeMs() { return m_nScrollTimeMs; }
+	// Zoom mode: how fast the zoom changes, in percent per second, how long it stands still
+	// at each end, in milliseconds, and whether it zooms out from fill with crop to fit to
+	// screen instead of in from fit to screen to fill with crop.
+	int ZoomSpeed() { return m_nZoomSpeed; }
+	int ZoomTimeMs() { return m_nZoomTimeMs; }
+	bool ZoomInverse() { return m_bZoomInverse; }
 	// Whether scroll mode fills the window with the image before gliding through it.
 	// With it off the image keeps the zoom it has and scroll mode glides through
 	// whatever sticks out at that zoom.
@@ -99,14 +105,18 @@ public:
 	Helpers::EPreviewFloor PreviewFloor() { return m_ePreviewFloor; }
 
 	// Bounds shared by the INI clamp and by the dialogs asking for these two values
-	static const int MIN_SLIDESHOW_WAIT_TIME = 1;
-	static const int MAX_SLIDESHOW_WAIT_TIME = 3600;
+	static const int MIN_SLIDESHOW_WAIT_TIME = 100;
+	static const int MAX_SLIDESHOW_WAIT_TIME = 3600000;
 	static const int MIN_MOVIE_PLAYBACK_SPEED = 1;
 	static const int MAX_MOVIE_PLAYBACK_SPEED = 200;
 	static const int MIN_SCROLL_SPEED = 1;
 	static const int MAX_SCROLL_SPEED = 5000;
 	static const int MIN_SCROLL_TIME = 0; // zero means no pause at the ends
-	static const int MAX_SCROLL_TIME = 600;
+	static const int MAX_SCROLL_TIME = 600000;
+	static const int MIN_ZOOM_SPEED = 1;
+	static const int MAX_ZOOM_SPEED = 1000;
+	static const int MIN_ZOOM_TIME = 0; // zero means no pause at the ends
+	static const int MAX_ZOOM_TIME = 600000;
 	static const int MIN_TRANSITION_TIME = 100;
 	static const int MAX_TRANSITION_TIME = 5000;
 
@@ -215,7 +225,7 @@ public:
 	void SaveStickyWindowRect(CRect rect);
 
 	// Saves the slide show waiting time / the movie playback speed to the INI file
-	void SaveSlideShowWaitTime(int nSeconds);
+	void SaveSlideShowWaitTime(int nMilliseconds);
 	void SaveMoviePlaybackSpeed(int nFPS);
 
 	// Saves the relative zoom mode flag to the INI file
@@ -223,9 +233,13 @@ public:
 
 	// Saves the scroll speed / the time scroll mode holds at each end to the INI file
 	void SaveScrollSpeed(int nPixelsPerSecond);
-	void SaveScrollTime(int nSeconds);
+	void SaveScrollTime(int nMilliseconds);
 	void SaveScrollFillWithCrop(bool bFillWithCrop);
 	void SaveScrollAccentOnCenter(bool bAccentOnCenter);
+	// Saves the zoom speed / the time zoom mode holds at each end / the inverse flag
+	void SaveZoomSpeed(int nPercentPerSecond);
+	void SaveZoomTime(int nMilliseconds);
+	void SaveZoomInverse(bool bInverse);
 	void SaveCrossFade(bool bCrossFade);
 	void SavePreview(bool bPreview);
 	void SavePreviewSettings(int nSizePercent, bool bOnLeft, Helpers::EPreviewFloor eFloor);
@@ -316,13 +330,16 @@ private:
 	int m_nMaxSlideShowFileListSize;
 	Helpers::ETransitionEffect m_eSlideShowTransitionEffect;
 	int m_nSlideShowEffectTimeMs;
-	int m_nSlideShowWaitTime;
+	int m_nSlideShowWaitTimeMs;
 	int m_nMoviePlaybackSpeed;
 	bool m_bRelativeZoomMode;
 	int m_nScrollSpeed;
-	int m_nScrollTime;
+	int m_nScrollTimeMs;
 	bool m_bScrollFillWithCrop;
 	bool m_bScrollAccentOnCenter;
+	int m_nZoomSpeed;
+	int m_nZoomTimeMs;
+	bool m_bZoomInverse;
 	bool m_bCrossFade;
 	bool m_bPreview;
 	int m_nPreviewSize;
@@ -412,6 +429,10 @@ private:
 	void ReadWriteableINISettings();
 
 	LPCTSTR ReadUserIniString(LPCTSTR key);
+	// A time in milliseconds under sKeyMs. A user INI written before the time was kept in
+	// milliseconds still has it in seconds under sKeySeconds, and that is honoured until
+	// the new key is written.
+	int GetMilliseconds(LPCTSTR sKeyMs, LPCTSTR sKeySeconds, int nDefault, int nMin, int nMax);
 	LPCTSTR ReadGlobalIniString(LPCTSTR key);
 	LPCTSTR ReadIniString(LPCTSTR key, LPCTSTR fileName, IniHashMap*& keyMap, TCHAR*& pBuffer);
 	void ReadIniFile(LPCTSTR fileName, IniHashMap* keyMap, TCHAR*& pBuffer);

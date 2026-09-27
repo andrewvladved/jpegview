@@ -63,15 +63,28 @@ static double GlideDistance(double dOffsetY, int nMaxOffsetY, double dSpeedPixel
 }
 
 int ZoomMaxOffset(double dFitZoom, double dCropZoom) {
-	return 0;
+	if (dFitZoom <= 0 || dCropZoom <= 0) {
+		return 0;
+	}
+	double dSpan = ZOOM_UNITS_PER_E * fabs(log(dCropZoom / dFitZoom));
+	return (int)(dSpan / 2.0 + 0.5);
 }
 
 double ZoomSpeedUnitsPerSecond(double dPercentPerSecond) {
-	return 0.0;
+	return ZOOM_UNITS_PER_E * log(1.0 + dPercentPerSecond / 100.0);
 }
 
 double ZoomAt(double dOffset, int nMaxOffset, double dFitZoom, double dCropZoom, bool bInverse) {
-	return 0.0;
+	double dFrom = bInverse ? dCropZoom : dFitZoom;
+	double dTo = bInverse ? dFitZoom : dCropZoom;
+	if (nMaxOffset <= 0) {
+		return dFrom;
+	}
+	// Measured along the whole way rather than from the rounded unit count, so both ends
+	// land exactly on the two zooms.
+	double dProgress = (nMaxOffset - dOffset) / (2.0 * nMaxOffset);
+	dProgress = max(0.0, min(1.0, dProgress));
+	return dFrom * pow(dTo / dFrom, dProgress);
 }
 
 void Advance(SState& state, int nMaxOffsetY, double dSpeedPixelsPerSecond, int nHoldMs, int nElapsedMs,

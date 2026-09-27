@@ -205,10 +205,10 @@
 #define IDM_SORT_DESCENDING 7110		// :KeyMap: sort descending (decreasing in value, e.g. Z->A, 9->0)
 #define IDM_SLIDESHOW_RESUME 7399		// :KeyMap: resume slide show (after stop)
 #define IDM_SLIDESHOW_START 7400		// starts a slide show with the stored waiting time
-#define IDM_SLIDESHOW_SET_TIME 7430	// asks for the slide show waiting time in seconds
+#define IDM_SLIDESHOW_SET_TIME 7430	// asks for the slide show waiting time in milliseconds
 #define IDM_SCROLL_START 7440		// starts scroll mode, menu only (no key mapping)
 #define IDM_SCROLL_SET_SPEED 7441	// asks for the scroll speed in pixels per second
-#define IDM_SCROLL_SET_TIME 7442	// asks for how long to hold at each end, in seconds
+#define IDM_SCROLL_SET_TIME 7442	// asks for how long to hold at each end, in milliseconds
 #define IDM_SCROLL_FILL_WITH_CROP 7443	// scroll mode fills the window with the image, menu only (no key mapping)
 #define IDM_SET_TRANSITION_TIME 7444	// asks for the length of the crossfade between images, in milliseconds
 #define IDM_CROSS_FADE 7445		// toggles the crossfade between images in every mode, menu only (no key mapping)
@@ -230,11 +230,10 @@
 #define IDM_EFFECT_SCROLL_LR 7461
 #define IDM_EFFECT_SCROLL_TB 7462
 #define IDM_EFFECT_SCROLL_BT 7463
-#define IDM_EFFECTTIME_VERY_FAST  7470
-#define IDM_EFFECTTIME_FAST  7471
-#define IDM_EFFECTTIME_NORMAL 7472
-#define IDM_EFFECTTIME_SLOW  7473
-#define IDM_EFFECTTIME_VERY_SLOW  7474
+#define IDM_ZOOMRUN_START 7475		// starts zoom mode, menu only (no key mapping)
+#define IDM_ZOOMRUN_INVERSE 7476	// zoom mode zooms out from fill with crop instead of in from fit, menu only (no key mapping)
+#define IDM_ZOOMRUN_SET_SPEED 7477	// asks for the zoom speed in percent per second
+#define IDM_ZOOMRUN_SET_TIME 7478	// asks for how long zoom mode holds at each end, in milliseconds
 #define IDM_MOVIE_START_FPS 7500	// starts a movie with the stored playback speed
 #define IDM_MOVIE_SET_SPEED 7610	// asks for the movie playback speed in fps
 #define IDM_ROTATE_90		8000		// :KeyMap: rotate image 90 deg

@@ -321,8 +321,10 @@ private:
 	double m_dRelativeZoomFactor; // current zoom as a multiple of the fitted image
 	double m_dZoomFactorBeforeFit; // what Fit to screen was asked from, to come back to
 	bool m_bScrollMode;
+	bool m_bScrollZoom; // scroll mode is running as zoom mode: the zoom moves, not the image
 	bool m_bScrollFillWithCrop;
 	bool m_bScrollAccentOnCenter;
+	bool m_bZoomInverse;
 	bool m_bCrossFade;
 	bool m_bPreview;
 	int m_nPreviewSize;
@@ -423,7 +425,10 @@ private:
 	double RelativeZoomBase();
 	// Scroll mode: fill the window with the image, hold at its top edge, glide down to
 	// the bottom edge, hold again, then move on to the next image.
-	void StartScrollMode();
+	// With bZoom it runs as zoom mode instead: the same cycle, but between fit to screen and
+	// fill with crop - the image is held at the one, zoomed smoothly to the other, held
+	// there, and then the next image comes.
+	void StartScrollMode(bool bZoom = false);
 	void StopScrollMode();
 	// The down and up keys while scroll mode runs: glide that way, or move to another
 	// image when the glide is already standing at that end.
@@ -442,6 +447,8 @@ private:
 	int CrossFadeDurationMs();
 	int GetScrollMaxOffsetY();
 	double GetScrollZoom();
+	// Zoom mode: the zoom at the current point of the cycle
+	double GetZoomRunZoom();
 	CProcessParams CreateProcessParams(bool bNoProcessingAfterLoad);
 	void ResetParamsToDefault();
 	void StartSlideShowTimer(int nMilliSeconds);

@@ -534,9 +534,11 @@ SlideShowTransitionEffect=Blend
 ; Time of the slide show transition effect in milliseconds, only used in full screen mode
 SlideShowEffectTime=250
 
-; Waiting time in seconds used by the 'Slideshow' entry of the context menu.
+; Waiting time in milliseconds used by the 'Slideshow' entry of the context menu.
 ; The 'Set Waiting Time' entry of the same menu writes this value.
-SlideShowWaitTime=3
+; (Older versions kept it in seconds under SlideShowWaitTime, which is still read from
+; the user INI until this key is written.)
+SlideShowWaitTimeMs=3000
 
 ; Playback speed in frames per second used by the 'Movie' entry of the context menu.
 ; The 'Set Playback Speed' entry of the same menu writes this value.
@@ -547,9 +549,11 @@ MoviePlaybackSpeed=5
 ScrollSpeed=100
 
 ; Scroll mode: how long to stand still at the top and at the bottom of each image,
-; in seconds. Zero means no pause.
+; in milliseconds. Zero means no pause.
 ; The 'Set Scroll Time' entry of the Slideshow submenu writes this value.
-ScrollTime=2
+; (Older versions kept it in seconds under ScrollTime, which is still read from the user
+; INI until this key is written.)
+ScrollTimeMs=2000
 
 ; Scroll mode: whether the image is scaled to fill the window before gliding through it.
 ; With this off the image keeps the zoom it has, relative zoom mode is switched on for the
@@ -561,6 +565,24 @@ ScrollFillWithCrop=true
 ; 30% of ScrollSpeed there, and picks up again just as smoothly towards the other edge.
 ; The 'Accent On Center' entry of the Slideshow submenu writes this value.
 ScrollAccentOnCenter=false
+
+; Zoom mode: each image is shown fitted to the window, held there for ZoomTimeMs, zoomed
+; smoothly in until it fills the window with crop, held there again and then followed by
+; the next image. The image stays centred throughout. An image of the window's own shape
+; fits and fills at the same zoom, so it is only held.
+; Whether zoom mode runs the other way round: from fill with crop out to fit to screen.
+; The 'Inverse' entry of the Slideshow submenu writes this value.
+ZoomInverse=false
+
+; Zoom mode: how fast the zoom changes, in percent per second. At 5 the zoom is 1.05 times
+; larger (or smaller) after every second.
+; The 'Set Zoom Speed' entry of the Slideshow submenu writes this value.
+ZoomSpeed=5
+
+; Zoom mode: how long to stand still before the zoom starts and after it ends, in
+; milliseconds. Zero means no pause.
+; The 'Set Zoom Time' entry of the Slideshow submenu writes this value.
+ZoomTimeMs=2000
 
 ; Whether one image is cross faded into the next in scroll, slide show and movie mode.
 ; The length of the fade is SlideShowEffectTime, which the 'Set Transition Time' entry
