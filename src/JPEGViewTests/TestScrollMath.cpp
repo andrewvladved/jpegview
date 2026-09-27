@@ -184,8 +184,14 @@ TEST(StepUpAtTheTopGoesToThePreviousImage) {
 }
 
 // Accent on center: the glide slows down towards the middle of the image and speeds up again.
-TEST(TheAccentFactorIsSixtyPercentAtTheCentre) {
-	CHECK_NEAR(AccentSpeedFactor(0.0, 400), 0.6, 0.0001);
+TEST(TheAccentFactorIsThirtyPercentAtTheCentre) {
+	CHECK_NEAR(AccentSpeedFactor(0.0, 400), 0.3, 0.0001);
+}
+
+// Halfway between the centre and an edge the speed is halfway back up: 30% + 70% / 2.
+TEST(TheAccentFactorIsHalfwayBackUpHalfwayToTheEdge) {
+	CHECK_NEAR(AccentSpeedFactor(200.0, 400), 0.65, 0.0001);
+	CHECK_NEAR(AccentSpeedFactor(-200.0, 400), 0.65, 0.0001);
 }
 
 TEST(TheAccentFactorIsTheFullSpeedAtBothEdges) {
@@ -224,13 +230,13 @@ TEST(WithTheAccentTheGlideLeavesTheTopEdgeAtFullSpeed) {
 	CHECK_NEAR(state.dOffsetY, 3990.0, 0.01);
 }
 
-TEST(WithTheAccentTheGlidePassesTheCentreAtSixtyPercent) {
+TEST(WithTheAccentTheGlidePassesTheCentreAtThirtyPercent) {
 	SState state;
 	Reset(state, 4000);
 	StartMovingDown(state);
 	state.dOffsetY = 5.0;
-	Advance(state, 4000, 100.0, 0, 100, true); // 10 px at full speed, 6 px at the centre
-	CHECK_NEAR(state.dOffsetY, -1.0, 0.01);
+	Advance(state, 4000, 100.0, 0, 100, true); // 10 px at full speed, 3 px at the centre
+	CHECK_NEAR(state.dOffsetY, 2.0, 0.01);
 }
 
 TEST(WithTheAccentTheGlideUpSlowsDownAtTheCentreToo) {
@@ -239,7 +245,7 @@ TEST(WithTheAccentTheGlideUpSlowsDownAtTheCentreToo) {
 	StartMovingUp(state);
 	state.dOffsetY = -5.0;
 	Advance(state, 4000, 100.0, 0, 100, true);
-	CHECK_NEAR(state.dOffsetY, 1.0, 0.01);
+	CHECK_NEAR(state.dOffsetY, -2.0, 0.01);
 }
 
 TEST(WithTheAccentTheGlideStillStopsExactlyAtTheBottomEdge) {
