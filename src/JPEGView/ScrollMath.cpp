@@ -81,7 +81,7 @@ double ZoomRunZoomAt(double dOffset, int nMaxOffset, double dStartZoom, bool bOu
 }
 
 double ZoomRunLimitToFit(double dZoom, double dFitZoom, bool bOut) {
-	return dZoom;
+	return (bOut && dZoom < dFitZoom) ? dFitZoom : dZoom;
 }
 
 void Advance(SState& state, int nMaxOffsetY, double dSpeedPixelsPerSecond, int nHoldMs, int nElapsedMs,
