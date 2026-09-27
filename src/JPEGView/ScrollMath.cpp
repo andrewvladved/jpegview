@@ -62,6 +62,18 @@ static double GlideDistance(double dOffsetY, int nMaxOffsetY, double dSpeedPixel
 	return dDistance;
 }
 
+int ZoomMaxOffset(double dFitZoom, double dCropZoom) {
+	return 0;
+}
+
+double ZoomSpeedUnitsPerSecond(double dPercentPerSecond) {
+	return 0.0;
+}
+
+double ZoomAt(double dOffset, int nMaxOffset, double dFitZoom, double dCropZoom, bool bInverse) {
+	return 0.0;
+}
+
 void Advance(SState& state, int nMaxOffsetY, double dSpeedPixelsPerSecond, int nHoldMs, int nElapsedMs,
 	bool bAccentOnCenter) {
 	switch (state.ePhase) {

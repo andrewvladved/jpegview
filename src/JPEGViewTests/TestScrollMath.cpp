@@ -284,3 +284,67 @@ TEST(WithTheAccentTheDistanceDoesNotDependOnTheTickSize) {
 	}
 	CHECK_NEAR(fewTicks.dOffsetY, manyTicks.dOffsetY, 0.5);
 }
+
+// Zoom mode: a picture twice as wide as the window's shape needs twice the zoom to fill it.
+TEST(ZoomModeRunsFromFitToScreenToFillWithCrop) {
+	int nMax = ZoomMaxOffset(0.5, 1.0);
+	CHECK(nMax > 0);
+	CHECK_NEAR(ZoomAt(nMax, nMax, 0.5, 1.0, false), 0.5, 0.000001);
+	CHECK_NEAR(ZoomAt(-nMax, nMax, 0.5, 1.0, false), 1.0, 0.000001);
+}
+
+TEST(InverseZoomModeRunsFromFillWithCropToFitToScreen) {
+	int nMax = ZoomMaxOffset(0.5, 1.0);
+	CHECK_NEAR(ZoomAt(nMax, nMax, 0.5, 1.0, true), 1.0, 0.000001);
+	CHECK_NEAR(ZoomAt(-nMax, nMax, 0.5, 1.0, true), 0.5, 0.000001);
+}
+
+// Halfway through in time is halfway in magnification, not in zoom percent.
+TEST(TheMiddleOfTheZoomIsTheGeometricMean) {
+	int nMax = ZoomMaxOffset(0.5, 2.0);
+	CHECK_NEAR(ZoomAt(0, nMax, 0.5, 2.0, false), 1.0, 0.001);
+	CHECK_NEAR(ZoomAt(0, nMax, 0.5, 2.0, true), 1.0, 0.001);
+}
+
+TEST(AnImageOfTheWindowsShapeHasNothingToZoomThrough) {
+	CHECK(ZoomMaxOffset(0.75, 0.75) == 0);
+	CHECK_NEAR(ZoomAt(0, 0, 0.75, 0.75, false), 0.75, 0.000001);
+}
+
+// The zoom speed is in percent per second: at 10% the zoom is 1.1 times larger after a
+// second of zooming, and 1.21 times after two, whatever zoom it started from.
+TEST(TheZoomSpeedIsInPercentPerSecond) {
+	int nMax = ZoomMaxOffset(0.5, 2.0);
+	double dSpeed = ZoomSpeedUnitsPerSecond(10.0);
+	SState state;
+	Reset(state, nMax);
+	StartMovingDown(state);
+	Advance(state, nMax, dSpeed, 0, 1000);
+	CHECK_NEAR(ZoomAt(state.dOffsetY, nMax, 0.5, 2.0, false), 0.55, 0.001);
+	Advance(state, nMax, dSpeed, 0, 1000);
+	CHECK_NEAR(ZoomAt(state.dOffsetY, nMax, 0.5, 2.0, false), 0.605, 0.001);
+}
+
+TEST(InverseZoomShrinksAtTheSameRate) {
+	int nMax = ZoomMaxOffset(0.5, 2.0);
+	SState state;
+	Reset(state, nMax);
+	StartMovingDown(state);
+	Advance(state, nMax, ZoomSpeedUnitsPerSecond(10.0), 0, 1000);
+	CHECK_NEAR(ZoomAt(state.dOffsetY, nMax, 0.5, 2.0, true), 2.0 / 1.1, 0.001);
+}
+
+// The whole zoom takes as long as the magnification needs: from 1x to 4x at 100% per
+// second is two seconds, after which the cycle holds at the end.
+TEST(TheZoomReachesItsEndAndHoldsThere) {
+	int nMax = ZoomMaxOffset(1.0, 4.0);
+	double dSpeed = ZoomSpeedUnitsPerSecond(100.0);
+	SState state;
+	Reset(state, nMax);
+	StartMovingDown(state);
+	Advance(state, nMax, dSpeed, 500, 1900);
+	CHECK(state.ePhase == PHASE_Moving);
+	Advance(state, nMax, dSpeed, 500, 200);
+	CHECK(state.ePhase == PHASE_HoldBottom);
+	CHECK_NEAR(ZoomAt(state.dOffsetY, nMax, 1.0, 4.0, false), 4.0, 0.000001);
+}
