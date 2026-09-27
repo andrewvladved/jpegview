@@ -96,6 +96,7 @@ public:
 		MESSAGE_HANDLER(WM_DROPFILES, OnDropFiles)
 		MESSAGE_HANDLER(WM_CLOSE, OnClose)
 		MESSAGE_HANDLER(WM_LOAD_FILE_ASYNCH, OnLoadFileAsynch)
+		MESSAGE_HANDLER(WM_FACES_DETECTED, OnFacesDetected)
 		MESSAGE_HANDLER(WM_COPYDATA, OnAnotherInstanceStarted) 
 		COMMAND_ID_HANDLER(IDOK, OnOK)
 		COMMAND_ID_HANDLER(IDCANCEL, OnCancel)
@@ -141,6 +142,7 @@ public:
 	LRESULT OnDropFiles(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL& /*bHandled*/);
 	LRESULT OnAnotherInstanceStarted(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL& /*bHandled*/);
 	LRESULT OnLoadFileAsynch(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL& /*bHandled*/);
+	LRESULT OnFacesDetected(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL& /*bHandled*/);
 	LRESULT OnClose(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL& /*bHandled*/);
 
 	// Called by main()
@@ -330,6 +332,11 @@ private:
 	bool m_bZoomOnFace; // zoom mode follows a face
 	bool m_bZoomFaceCenter; // ... bringing it to the centre, or else zooming around it
 	bool m_bZoomFacesKnown; // the faces of the current image have been looked for
+	bool m_bZoomFacesPending; // ... and are being looked for in the background
+	int m_nZoomFacesRequest; // numbers the searches, so one for an image gone is dropped
+	bool m_bZoomFaceBlending; // a face found late: the image glides to it from here
+	DWORD m_nZoomFaceBlendStart;
+	FaceMath::SOffset m_zoomFaceBlendFrom;
 	std::vector<FaceMath::SFace> m_zoomFaces;
 	double m_dZoomFaceAnchorZoom; // zooming around a face: the zoom and offset it is held from
 	FaceMath::SOffset m_zoomFaceAnchorOffset;
@@ -461,6 +468,8 @@ private:
 	CPoint GetZoomRunOffsets(double dZoom);
 	// Zoom mode on a face: the centre of the face it follows, false when there is none
 	bool GetZoomRunFace(double& dPointX, double& dPointY);
+	// Zoom mode on a face: starts the background search for the faces of the current image
+	void RequestZoomFaces();
 	// Zoom mode on a face: the face is held from the zoom and offsets on screen now, or
 	// at the start of an image from the offsets centred on it
 	void AnchorZoomRunFace(bool bStartOfImage);

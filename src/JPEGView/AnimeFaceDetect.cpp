@@ -3,6 +3,7 @@
 #include <atlstr.h>
 #include "onnxruntime/include/onnxruntime_c_api.h"
 #include "AnimeFaceDetect.h"
+#include <mutex>
 
 // The detector is a YOLOv8 model trained on drawn faces (deepghs/anime_face_detection,
 // MIT), run by onnxruntime (MIT). Both sit next to JPEGView.exe and are loaded on first
@@ -126,6 +127,9 @@ std::vector<FaceMath::SFace> Detect(const void* pPixels, int nWidth, int nHeight
 	if (pPixels == NULL || nWidth <= 0 || nHeight <= 0 || (nChannels != 1 && nChannels != 3 && nChannels != 4)) {
 		return std::vector<FaceMath::SFace>();
 	}
+	// Searches for the next image may overlap one still running, and the session is shared.
+	static std::mutex s_lock;
+	std::lock_guard<std::mutex> guard(s_lock);
 	if (!LoadRuntime()) {
 		return std::vector<FaceMath::SFace>();
 	}

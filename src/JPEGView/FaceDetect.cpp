@@ -244,4 +244,50 @@ std::vector<FaceMath::SFace> Detect(const void* pPixels, int nWidth, int nHeight
 #endif
 }
 
+namespace {
+	struct SAsyncJob {
+		HWND hWnd;
+		UINT nMessage;
+		WPARAM wParam;
+		BYTE* pPixels;
+		int nWidth, nHeight, nChannels, nStride;
+	};
+
+	DWORD WINAPI DetectAsyncThread(void* pParameter) {
+		SAsyncJob* pJob = (SAsyncJob*)pParameter;
+		std::vector<FaceMath::SFace>* pFaces = new std::vector<FaceMath::SFace>(
+			Detect(pJob->pPixels, pJob->nWidth, pJob->nHeight, pJob->nChannels, pJob->nStride));
+		// A window closed in the meantime takes no message, and then the faces go here.
+		if (!::PostMessage(pJob->hWnd, pJob->nMessage, pJob->wParam, (LPARAM)pFaces)) {
+			delete pFaces;
+		}
+		delete[] pJob->pPixels;
+		delete pJob;
+		return 0;
+	}
+}
+
+void DetectAsync(HWND hWnd, UINT nMessage, WPARAM wParam, const void* pPixels, int nWidth, int nHeight, int nChannels, int nStride) {
+	SAsyncJob* pJob = new SAsyncJob();
+	pJob->hWnd = hWnd;
+	pJob->nMessage = nMessage;
+	pJob->wParam = wParam;
+	pJob->nWidth = nWidth;
+	pJob->nHeight = nHeight;
+	pJob->nChannels = nChannels;
+	pJob->nStride = nStride;
+	pJob->pPixels = NULL;
+	if (pPixels != NULL && nWidth > 0 && nHeight > 0 && nStride > 0) {
+		size_t nSize = (size_t)nStride * nHeight;
+		pJob->pPixels = new BYTE[nSize];
+		memcpy(pJob->pPixels, pPixels, nSize);
+	}
+	HANDLE hThread = ::CreateThread(NULL, 0, DetectAsyncThread, pJob, 0, NULL);
+	if (hThread == NULL) {
+		DetectAsyncThread(pJob); // no thread to be had: search here, the answer is still posted
+	} else {
+		::CloseHandle(hThread);
+	}
+}
+
 }

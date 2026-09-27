@@ -12,4 +12,9 @@ namespace FaceDetect {
 	// rows of nStride bytes with 1 (grey), 3 (BGR) or 4 (BGRA) bytes per pixel. Empty when
 	// there is no face, and where neither detector is available - never an error.
 	std::vector<FaceMath::SFace> Detect(const void* pPixels, int nWidth, int nHeight, int nChannels, int nStride);
+
+	// The same search on a thread of its own, on a copy of the pixels, so the caller need
+	// not keep them. When done it posts nMessage to hWnd with wParam as given and lParam a
+	// new std::vector<FaceMath::SFace>*, which the receiver deletes.
+	void DetectAsync(HWND hWnd, UINT nMessage, WPARAM wParam, const void* pPixels, int nWidth, int nHeight, int nChannels, int nStride);
 }

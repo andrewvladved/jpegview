@@ -88,6 +88,7 @@ static const int ZOOM_TEXT_RECT_HEIGHT = 25; // zoom label height
 static const int ZOOM_TEXT_RECT_OFFSET = 35; // zoom label offset from right border
 static const int PAN_STEP = 48; // number of pixels to pan if pan with cursor keys (SHIFT+up/down/left/right)
 static const int SCROLL_TIMER_INTERVAL_MS = 30; // how often scroll mode moves the image, about 33 times a second
+static const int ZOOM_FACE_BLEND_MS = 400; // zoom mode: how long the image glides to a face found after the image appeared
 
 static const bool SHOW_TIMING_INFO = false; // Set to true for debugging
 
@@ -264,6 +265,11 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_bZoomOnFace = sp.ZoomOnFace();
 	m_bZoomFaceCenter = sp.ZoomFaceCenter();
 	m_bZoomFacesKnown = false;
+	m_bZoomFacesPending = false;
+	m_nZoomFacesRequest = 0;
+	m_bZoomFaceBlending = false;
+	m_nZoomFaceBlendStart = 0;
+	m_zoomFaceBlendFrom.dX = m_zoomFaceBlendFrom.dY = 0;
 	m_dZoomFaceAnchorZoom = 1.0;
 	m_zoomFaceAnchorOffset.dX = m_zoomFaceAnchorOffset.dY = 0;
 	m_bCrossFade = sp.CrossFade();
@@ -1343,6 +1349,13 @@ LRESULT CMainDlg::OnTimer(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOOL&
 				// The image stays centred, or follows its face, and only its zoom changes.
 				double dNewZoom = GetZoomRunZoom();
 				CPoint newOffsets = GetZoomRunOffsets(dNewZoom);
+				if (m_bZoomFaceBlending) {
+					double dProgress = (double)(nNow - m_nZoomFaceBlendStart) / ZOOM_FACE_BLEND_MS;
+					FaceMath::SOffset target = { (double)newOffsets.x, (double)newOffsets.y };
+					FaceMath::SOffset blended = FaceMath::BlendOffset(m_zoomFaceBlendFrom, target, dProgress);
+					newOffsets = CPoint(Helpers::RoundToInt(blended.dX), Helpers::RoundToInt(blended.dY));
+					m_bZoomFaceBlending = dProgress < 1.0;
+				}
 				if (fabs(dNewZoom - m_dZoom) > 0.000001 || m_offsets != newOffsets) {
 					m_dZoom = dNewZoom;
 					m_offsets = newOffsets;
@@ -3590,10 +3603,9 @@ bool CMainDlg::GetZoomRunFace(double& dPointX, double& dPointY) {
 		return false;
 	}
 	if (!m_bZoomFacesKnown) {
-		m_bZoomFacesKnown = true;
-		m_zoomFaces = FaceDetect::Detect(m_pCurrentImage->OriginalPixels(), m_pCurrentImage->OrigWidth(),
-			m_pCurrentImage->OrigHeight(), m_pCurrentImage->OriginalChannels(),
-			Helpers::DoPadding(m_pCurrentImage->OrigWidth() * m_pCurrentImage->OriginalChannels(), 4));
+		// Until the background search answers there is no face, and the image stays centred.
+		RequestZoomFaces();
+		return false;
 	}
 	// Inverse starts close and pulls back, so it starts on the smallest face; zooming in
 	// goes towards the largest.
@@ -3617,6 +3629,36 @@ CPoint CMainDlg::GetZoomRunOffsets(double dZoom) {
 		FaceMath::CenterOffset(dPointX, dPointY, imageSize, dZoom, windowSize) :
 		FaceMath::AnchorOffset(dPointX, dPointY, imageSize, m_dZoomFaceAnchorZoom, m_zoomFaceAnchorOffset, dZoom, windowSize);
 	return CPoint(Helpers::RoundToInt(offset.dX), Helpers::RoundToInt(offset.dY));
+}
+
+void CMainDlg::RequestZoomFaces() {
+	if (!m_bZoomOnFace || m_pCurrentImage == NULL || m_bZoomFacesKnown || m_bZoomFacesPending) {
+		return;
+	}
+	m_bZoomFacesPending = true;
+	FaceDetect::DetectAsync(m_hWnd, WM_FACES_DETECTED, (WPARAM)m_nZoomFacesRequest, m_pCurrentImage->OriginalPixels(),
+		m_pCurrentImage->OrigWidth(), m_pCurrentImage->OrigHeight(), m_pCurrentImage->OriginalChannels(),
+		Helpers::DoPadding(m_pCurrentImage->OrigWidth() * m_pCurrentImage->OriginalChannels(), 4));
+}
+
+LRESULT CMainDlg::OnFacesDetected(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL& /*bHandled*/) {
+	std::vector<FaceMath::SFace>* pFaces = (std::vector<FaceMath::SFace>*)lParam;
+	if ((int)wParam == m_nZoomFacesRequest && m_bZoomFacesPending) {
+		m_bZoomFacesPending = false;
+		m_bZoomFacesKnown = true;
+		m_zoomFaces = *pFaces;
+		if (m_bScrollMode && m_bScrollZoom && m_bZoomOnFace && m_pCurrentImage != NULL) {
+			// Anchored as it would have been had the face been known from the start, and
+			// reached by a glide from where the image is now instead of a jump.
+			m_zoomFaceBlendFrom.dX = m_offsets.x;
+			m_zoomFaceBlendFrom.dY = m_offsets.y;
+			AnchorZoomRunFace(true);
+			m_nZoomFaceBlendStart = ::GetTickCount();
+			m_bZoomFaceBlending = true;
+		}
+	}
+	delete pFaces;
+	return 0;
 }
 
 void CMainDlg::AnchorZoomRunFace(bool bStartOfImage) {
@@ -3645,8 +3687,13 @@ void CMainDlg::SetupScrollForCurrentImage() {
 		m_bUserZoom = true;
 		m_bUserPan = true;
 		// On a face the start is centred on it as far as the edges allow, which at fit to
-		// screen is not at all.
+		// screen is not at all. The faces are searched for in the background, and a search
+		// still running for the image before is dropped when it answers.
+		m_nZoomFacesRequest++;
 		m_bZoomFacesKnown = false;
+		m_bZoomFacesPending = false;
+		m_bZoomFaceBlending = false;
+		m_zoomFaces.clear();
 		m_offsets = CPoint(0, 0);
 		AnchorZoomRunFace(true);
 		m_offsets = GetZoomRunOffsets(m_dZoom);
