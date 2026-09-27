@@ -3589,6 +3589,8 @@ int CMainDlg::GetScrollMaxOffsetY() {
 
 double CMainDlg::GetZoomRunZoom() {
 	double dZoom = ScrollMath::ZoomRunZoomAt(m_scrollState.dOffsetY, GetScrollMaxOffsetY(), m_dZoomRunStart, m_bZoomInverse);
+	// Inverse pulls back no further than fit to screen, and stays there to the end.
+	dZoom = ScrollMath::ZoomRunLimitToFit(dZoom, GetZoomFactorForFitToScreen(false, true), m_bZoomInverse);
 	// Nothing stops a long fast zoom, so keep it within what the processing can take: never
 	// more than 65535 pixels on a side, and never less than one.
 	if (m_pCurrentImage != NULL) {

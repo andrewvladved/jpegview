@@ -571,6 +571,7 @@ ScrollAccentOnCenter=false
 ; image. The image stays centred throughout. The zoom has no end point: fit to screen is
 ; only where it starts, and every image zooms for the same time and by the same factor.
 ; Whether zoom mode runs the other way round: starting from fill with crop, zooming out.
+; It pulls back no further than fit to screen and stays there for the rest of ZoomDurationMs.
 ; The 'Inverse' entry of the Slideshow submenu writes this value.
 ZoomInverse=false
 
