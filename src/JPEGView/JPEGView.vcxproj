@@ -383,6 +383,9 @@
     <ClCompile Include="FaceDetect.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="AnimeFaceDetect.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="ValueInput.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
@@ -495,6 +498,7 @@
     <ClInclude Include="ZoomMath.h" />
     <ClInclude Include="FaceMath.h" />
     <ClInclude Include="FaceDetect.h" />
+    <ClInclude Include="AnimeFaceDetect.h" />
     <ClInclude Include="ValueInput.h" />
     <ClInclude Include="AnnotationModel.h" />
     <ClInclude Include="TitleBarPanel.h" />

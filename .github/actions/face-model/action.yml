@@ -1,0 +1,43 @@
+name: Action - Fetch the face detector runtime and model
+description: Puts onnxruntime.dll and the drawn-face model where the post-build event copies them from
+
+# The zoom mode's On Face entry runs a YOLOv8 model trained on drawn faces
+# (deepghs/anime_face_detection, MIT) with onnxruntime (Microsoft, MIT). Neither is
+# committed: both are fetched here, pinned, and the post-build event copies them next to
+# JPEGView.exe. 1.22.1 is the newest onnxruntime with both x64 and x86 builds.
+
+inputs:
+  platform-arch:
+    description: x64 or Win32
+    required: true
+    type: string
+
+runs:
+  using: composite
+  steps:
+    - name: Cache runtime and model
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          src/JPEGView/onnxruntime/bin
+          src/JPEGView/onnxruntime/bin64
+          src/JPEGView/onnxruntime/face_detect.onnx
+        key: face-model-ort1.22.1-784dc4c0-${{ inputs.platform-arch }}
+
+    - name: Download runtime and model
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: powershell
+      run: |
+        $ErrorActionPreference = "Stop"
+        $ProgressPreference = "SilentlyContinue"
+        $ort = "1.22.1"
+        if ("${{ inputs.platform-arch }}" -eq "x64") { $arch = "x64"; $bin = "bin64" } else { $arch = "x86"; $bin = "bin" }
+        $dir = "src/JPEGView/onnxruntime"
+        $zip = "$env:RUNNER_TEMP/ort.zip"
+        Invoke-WebRequest "https://github.com/microsoft/onnxruntime/releases/download/v$ort/onnxruntime-win-$arch-$ort.zip" -OutFile $zip
+        Expand-Archive $zip -DestinationPath "$env:RUNNER_TEMP/ort"
+        New-Item -ItemType Directory -Force "$dir/$bin" | Out-Null
+        Copy-Item "$env:RUNNER_TEMP/ort/onnxruntime-win-$arch-$ort/lib/onnxruntime.dll" "$dir/$bin/"
+        Invoke-WebRequest "https://huggingface.co/deepghs/anime_face_detection/resolve/784dc4c0bb692351ddcdbe6131a050b17d3025d5/face_detect_v1.4_n/model.onnx" -OutFile "$dir/face_detect.onnx"
+        Get-ChildItem -Recurse $dir -Include *.dll,*.onnx | Format-Table FullName, Length

@@ -36,3 +36,6 @@ ipch/
 *.cachefile
 *.VC.db
 *.VC.VC.opendb
+
+# the drawn-face detector model, fetched by .github/actions/face-model
+src/JPEGView/onnxruntime/face_detect.onnx

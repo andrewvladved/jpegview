@@ -1,20 +1,31 @@
-// The detector is a Windows Runtime class. This file talks to it through the plain ABI and
-// finds combase.dll at run time, so JPEGView imports nothing new and still starts on
-// systems that have no Windows Runtime at all.
+// Two detectors look at the image. The neural one (AnimeFaceDetect) knows drawn faces. The
+// one Windows 10 and later have built in knows photographs; it is a Windows Runtime class
+// this file talks to through the plain ABI, finding combase.dll at run time, so JPEGView
+// imports nothing new and still starts on systems that have no Windows Runtime at all.
 #undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0A00
 #undef NTDDI_VERSION
 #define NTDDI_VERSION 0x0A000000
 #include <windows.h>
 #include <atlbase.h>
+
+#include "FaceDetect.h"
+#include "AnimeFaceDetect.h"
+
+// The Windows XP build's SDK has no Windows Runtime headers; it gets the neural detector only.
+#if defined(__has_include)
+#if __has_include(<windows.media.faceanalysis.h>)
+#define FACE_DETECT_WINRT
+#endif
+#endif
+
+#ifdef FACE_DETECT_WINRT
 #include <roapi.h>
 #include <robuffer.h>
 #include <windows.foundation.h>
 #include <windows.foundation.collections.h>
 #include <windows.graphics.imaging.h>
 #include <windows.media.faceanalysis.h>
-
-#include "FaceDetect.h"
 #include <windows.storage.streams.h>
 
 using namespace ABI::Windows::Foundation;
@@ -174,6 +185,8 @@ namespace {
 	}
 }
 
+#endif // FACE_DETECT_WINRT
+
 namespace FaceDetect {
 
 std::vector<FaceMath::SFace> Detect(const void* pPixels, int nWidth, int nHeight, int nChannels, int nStride) {
@@ -181,6 +194,9 @@ std::vector<FaceMath::SFace> Detect(const void* pPixels, int nWidth, int nHeight
 	if (pPixels == NULL || nWidth <= 0 || nHeight <= 0 || (nChannels != 1 && nChannels != 3 && nChannels != 4)) {
 		return faces;
 	}
+#ifndef FACE_DETECT_WINRT
+	return AnimeFaceDetect::Detect(pPixels, nWidth, nHeight, nChannels, nStride);
+#else
 
 	// Shrink to grey. Nearest pixel is plenty for finding faces.
 	double dScale = min(1.0, (double)MAX_DETECT_SIZE / max(nWidth, nHeight));
@@ -201,26 +217,31 @@ std::vector<FaceMath::SFace> Detect(const void* pPixels, int nWidth, int nHeight
 		}
 	}
 
+	// The photo detector runs on its own thread while the neural one runs on this one.
 	HANDLE hThread = ::CreateThread(NULL, 0, DetectThread, pJob, 0, NULL);
 	if (hThread == NULL) {
 		Release(pJob);
-		Release(pJob);
-		return faces;
 	}
+	std::vector<FaceMath::SFace> drawnFaces = AnimeFaceDetect::Detect(pPixels, nWidth, nHeight, nChannels, nStride);
 	// A detector that does not answer in time is left to finish on its own; the job is
 	// freed by whichever side lets go of it last.
-	if (::WaitForSingleObject(hThread, TIMEOUT_MS + 1000) == WAIT_OBJECT_0) {
-		double dBackX = (double)nWidth / nGreyWidth;
-		double dBackY = (double)nHeight / nGreyHeight;
-		for (size_t i = 0; i < pJob->faces.size(); i++) {
-			const FaceMath::SFace& face = pJob->faces[i];
-			FaceMath::SFace scaled = { face.dX * dBackX, face.dY * dBackY, face.dWidth * dBackX, face.dHeight * dBackY };
-			faces.push_back(scaled);
+	if (hThread != NULL) {
+		if (::WaitForSingleObject(hThread, TIMEOUT_MS + 1000) == WAIT_OBJECT_0) {
+			double dBackX = (double)nWidth / nGreyWidth;
+			double dBackY = (double)nHeight / nGreyHeight;
+			for (size_t i = 0; i < pJob->faces.size(); i++) {
+				const FaceMath::SFace& face = pJob->faces[i];
+				FaceMath::SFace scaled = { face.dX * dBackX, face.dY * dBackY, face.dWidth * dBackX, face.dHeight * dBackY };
+				faces.push_back(scaled);
+			}
 		}
+		::CloseHandle(hThread);
 	}
-	::CloseHandle(hThread);
 	Release(pJob);
-	return faces;
+	// The neural boxes come first: they frame drawn faces better, and a face both found
+	// is kept once.
+	return FaceMath::MergeFaces(drawnFaces, faces);
+#endif
 }
 
 }

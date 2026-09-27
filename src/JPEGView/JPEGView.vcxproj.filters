@@ -246,6 +246,9 @@
     <ClCompile Include="FaceDetect.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="AnimeFaceDetect.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="ValueInput.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -555,6 +558,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="FaceDetect.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AnimeFaceDetect.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ValueInput.h">

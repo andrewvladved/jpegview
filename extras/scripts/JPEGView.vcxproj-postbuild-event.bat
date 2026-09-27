@@ -66,6 +66,12 @@ call :COPY_DLLS libheif
 call :COPY_DLLS libavif
 call :COPY_DLLS lcms2
 call :COPY_DLLS libraw
+call :COPY_DLLS onnxruntime
+
+REM the neural face detector's model, fetched by the build workflow (see .github/actions/face-model)
+echo + XCopy onnxruntime\face_detect.onnx if present ...
+IF EXIST "%PROJECT_DIR%onnxruntime\face_detect.onnx" xcopy "%PROJECT_DIR%onnxruntime\face_detect.onnx" "%OUT_DIR_FULL_PATH%" /Y /D
+echo ~ ErrorLevel: %ErrorLevel%
 
 
 exit /b 0

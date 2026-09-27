@@ -39,6 +39,10 @@ jobs:
 
     - uses: ./.github/actions/bin-cache
 
+    - uses: ./.github/actions/face-model
+      with:
+        platform-arch: ${{ inputs.platform-arch }}
+
     - uses: ./.github/actions/build-solution
       with:
         platform-arch: ${{ inputs.platform-arch }}
