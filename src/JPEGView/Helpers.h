@@ -43,6 +43,13 @@ namespace Helpers {
 		ZM_FillScreen
 	};
 
+	// Which corner of its side the preview pane starts from, top to bottom
+	enum EPreviewFloor {
+		PF_Top,
+		PF_Mid,
+		PF_Bottom
+	};
+
 	// Transition effects for full screen slideshow
 	enum ETransitionEffect {
 		TE_None,

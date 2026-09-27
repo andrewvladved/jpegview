@@ -83,7 +83,7 @@ public:
 	// With it off the image keeps the zoom it has and scroll mode glides through
 	// whatever sticks out at that zoom.
 	bool ScrollFillWithCrop() { return m_bScrollFillWithCrop; }
-	// Scroll mode: whether the glide slows down to 60% of the scroll speed through the centre
+	// Scroll mode: whether the glide slows down to 30% of the scroll speed through the centre
 	// of the image and speeds up again towards the edges.
 	bool ScrollAccentOnCenter() { return m_bScrollAccentOnCenter; }
 	// Whether images are cross faded into each other in scroll, slide show and movie
@@ -95,6 +95,8 @@ public:
 	int PreviewSize() { return m_nPreviewSize; }
 	bool PreviewOnLeft() { return m_bPreviewOnLeft; }
 	bool PreviewOnTop() { return m_bPreviewOnTop; }
+	// Top, middle or bottom of Preview Side - where the picture in the pane starts from
+	Helpers::EPreviewFloor PreviewFloor() { return m_ePreviewFloor; }
 
 	// Bounds shared by the INI clamp and by the dialogs asking for these two values
 	static const int MIN_SLIDESHOW_WAIT_TIME = 1;
@@ -226,7 +228,7 @@ public:
 	void SaveScrollAccentOnCenter(bool bAccentOnCenter);
 	void SaveCrossFade(bool bCrossFade);
 	void SavePreview(bool bPreview);
-	void SavePreviewSettings(int nSizePercent, bool bOnLeft);
+	void SavePreviewSettings(int nSizePercent, bool bOnLeft, Helpers::EPreviewFloor eFloor);
 	void SavePreviewOnTop(bool bOnTop);
 	// Saves the length of the transition between two images to the INI file
 	void SaveSlideShowEffectTime(int nMilliseconds);
@@ -326,6 +328,7 @@ private:
 	int m_nPreviewSize;
 	bool m_bPreviewOnLeft;
 	bool m_bPreviewOnTop;
+	Helpers::EPreviewFloor m_ePreviewFloor;
 	bool m_bForceGDIPlus;
 	bool m_bSingleInstance;
 	bool m_bSingleFullScreenInstance;

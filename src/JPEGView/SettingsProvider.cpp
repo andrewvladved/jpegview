@@ -182,6 +182,9 @@ CSettingsProvider::CSettingsProvider(void) {
 	m_nPreviewSize = GetInt(_T("PreviewSize"), 25, 10, 100);
 	m_bPreviewOnLeft = GetString(_T("PreviewSide"), _T("Right")).CompareNoCase(_T("Left")) == 0;
 	m_bPreviewOnTop = GetBool(_T("PreviewOnTop"), true);
+	CString sPreviewFloor = GetString(_T("PreviewFloor"), _T("Bottom"));
+	m_ePreviewFloor = (sPreviewFloor.CompareNoCase(_T("Top")) == 0) ? Helpers::PF_Top :
+		(sPreviewFloor.CompareNoCase(_T("Mid")) == 0) ? Helpers::PF_Mid : Helpers::PF_Bottom;
 	m_bForceGDIPlus = GetBool(_T("ForceGDIPlus"), false);
 	m_bSingleInstance = GetBool(_T("SingleInstance"), false);
 	m_bSingleFullScreenInstance = GetBool(_T("SingleFullScreenInstance"), true);
@@ -643,16 +646,18 @@ void CSettingsProvider::SavePreview(bool bPreview) {
 	m_bUserINIExists = true;
 }
 
-void CSettingsProvider::SavePreviewSettings(int nSizePercent, bool bOnLeft) {
+void CSettingsProvider::SavePreviewSettings(int nSizePercent, bool bOnLeft, Helpers::EPreviewFloor eFloor) {
 	MakeSureUserINIExists();
 
 	m_nPreviewSize = nSizePercent;
 	m_bPreviewOnLeft = bOnLeft;
+	m_ePreviewFloor = eFloor;
 	const int BUFF_SIZE = 16;
 	TCHAR buff[BUFF_SIZE];
 	_sntprintf(buff, BUFF_SIZE, _T("%d"), nSizePercent);
 	WriteString(_T("PreviewSize"), buff);
 	WriteString(_T("PreviewSide"), bOnLeft ? _T("Left") : _T("Right"));
+	WriteString(_T("PreviewFloor"), (eFloor == Helpers::PF_Top) ? _T("Top") : (eFloor == Helpers::PF_Mid) ? _T("Mid") : _T("Bottom"));
 
 	m_bUserINIExists = true;
 }

@@ -262,6 +262,7 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_nPreviewSize = sp.PreviewSize();
 	m_bPreviewOnLeft = sp.PreviewOnLeft();
 	m_bPreviewOnTop = sp.PreviewOnTop();
+	m_ePreviewFloor = sp.PreviewFloor();
 	m_bRelativeZoomTemporary = false;
 	m_nScrollLastTick = 0;
 	ScrollMath::Reset(m_scrollState, 0);
@@ -1836,11 +1837,12 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			break;
 		case IDM_SET_PREVIEW_SETTINGS:
 			{
-				CPreviewSettingsDlg dlgPreview(m_nPreviewSize, m_bPreviewOnLeft);
+				CPreviewSettingsDlg dlgPreview(m_nPreviewSize, m_bPreviewOnLeft, m_ePreviewFloor);
 				if (dlgPreview.DoModal(m_hWnd) == IDOK) {
 					m_nPreviewSize = dlgPreview.GetSizePercent();
 					m_bPreviewOnLeft = dlgPreview.IsOnLeft();
-					sp.SavePreviewSettings(m_nPreviewSize, m_bPreviewOnLeft);
+					m_ePreviewFloor = dlgPreview.GetFloor();
+					sp.SavePreviewSettings(m_nPreviewSize, m_bPreviewOnLeft, m_ePreviewFloor);
 					UpdateClientRect();
 					this->Invalidate(FALSE);
 				}
@@ -3545,8 +3547,9 @@ CRect CMainDlg::GetPreviewPaneRect() {
 			CRect(fullRect.left, fullRect.top, fullRect.left + nPaneWidth, fullRect.bottom) :
 			CRect(fullRect.right - nPaneWidth, fullRect.top, fullRect.right, fullRect.bottom);
 	}
-	// Over the image it starts right in the bottom corner of Preview Side - the right one or
-	// the left one - with only its frame between it and the window edges, and it is always as
+	// Over the image it sits right against Preview Side - the right one or the left one - in the
+	// corner Preview Floor names: the bottom one, the top one or halfway up the side, with only
+	// its frame between it and the window edges. It is always as
 	// wide as Preview Size asks for. Its height is whatever the image needs at that width, so
 	// nothing is cut off; a picture too tall to fit that way is limited by the height instead
 	// and gets a margin left and right inside the pane. The image processing panel is not
@@ -3561,8 +3564,19 @@ CRect CMainDlg::GetPreviewPaneRect() {
 		nPaneHeight = max(1, min(nMaxHeight, (int)sizeImage.cy));
 	}
 	int nLeft = m_bPreviewOnLeft ? fullRect.left + 1 : fullRect.right - nPaneWidth - 1;
-	int nTop = nBottom - nPaneHeight;
-	return CRect(nLeft, nTop, nLeft + nPaneWidth, nBottom);
+	int nTop;
+	switch (m_ePreviewFloor) {
+		case Helpers::PF_Top:
+			nTop = fullRect.top + 1;
+			break;
+		case Helpers::PF_Mid:
+			nTop = fullRect.top + (fullRect.Height() - nPaneHeight) / 2;
+			break;
+		default:
+			nTop = nBottom - nPaneHeight;
+			break;
+	}
+	return CRect(nLeft, nTop, nLeft + nPaneWidth, nTop + nPaneHeight);
 }
 
 void CMainDlg::UpdateClientRect() {
@@ -3635,8 +3649,16 @@ void CMainDlg::PaintPreviewPane(CDC& dc, bool bUnderPanels) {
 		void* pDIBData = m_pCurrentImage->GetThumbnailDIB(sizeThumb, *m_pImageProcParams,
 			CreateProcessingFlags(false, m_bAutoContrast, false, m_bLDC, false, m_bLandscapeMode));
 		if (pDIBData != NULL) {
-			int xDest = (paneRect.left - outerRect.left) + (paneRect.Width() - sizeThumb.cx) / 2;
-			int yDest = (paneRect.top - outerRect.top) + (paneRect.Height() - sizeThumb.cy) / 2;
+			// The picture starts from the corner of the pane Preview Side and Preview Floor
+			// name, so whatever margin is left over lies on the far side of it.
+			int xDest = (paneRect.left - outerRect.left) +
+				(m_bPreviewOnLeft ? 0 : paneRect.Width() - sizeThumb.cx);
+			int yDest = (paneRect.top - outerRect.top);
+			if (m_ePreviewFloor == Helpers::PF_Mid) {
+				yDest += (paneRect.Height() - sizeThumb.cy) / 2;
+			} else if (m_ePreviewFloor == Helpers::PF_Bottom) {
+				yDest += paneRect.Height() - sizeThumb.cy;
+			}
 			BITMAPINFO bmInfo = { 0 };
 			bmInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
 			bmInfo.bmiHeader.biWidth = sizeThumb.cx;

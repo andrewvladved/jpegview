@@ -328,6 +328,7 @@ private:
 	int m_nPreviewSize;
 	bool m_bPreviewOnLeft;
 	bool m_bPreviewOnTop;
+	Helpers::EPreviewFloor m_ePreviewFloor;
 	bool m_bRelativeZoomTemporary; // relative zoom switched on by scroll mode, not by the user
 	ScrollMath::SState m_scrollState;
 	DWORD m_nScrollLastTick;

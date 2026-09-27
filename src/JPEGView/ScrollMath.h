@@ -62,6 +62,6 @@ namespace ScrollMath {
 	// The share of the speed the image glides with at dOffsetY when the centre is accented:
 	// ACCENT_CENTER_SPEED_FACTOR at the centre, 1 at either edge, and a smooth curve between
 	// that neither jumps at the centre nor at the edges.
-	const double ACCENT_CENTER_SPEED_FACTOR = 0.6;
+	const double ACCENT_CENTER_SPEED_FACTOR = 0.3;
 	double AccentSpeedFactor(double dOffsetY, int nMaxOffsetY);
 }

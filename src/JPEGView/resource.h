@@ -153,6 +153,10 @@
 #define IDC_PV_LBL_SIDE                 2063
 #define IDC_PV_RB_LEFT                  2064
 #define IDC_PV_RB_RIGHT                 2065
+#define IDC_PV_LBL_FLOOR                2066
+#define IDC_PV_RB_TOP                   2067
+#define IDC_PV_RB_MID                   2068
+#define IDC_PV_RB_BOTTOM                2069
 
 // this is not used anywhere in code, but defined in KeyMap as an "invalid command", so make sure the defined number doesn't match anything!
 #define IDM_DONOTHING		1			// :KeyMap: do nothing (can be used to disable a standard command for a mouse button)
