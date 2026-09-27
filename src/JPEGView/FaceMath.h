@@ -26,6 +26,39 @@ namespace FaceMath {
 	// The index of the smallest (or else the largest) face by area, -1 when there is none.
 	int PickFace(const std::vector<SFace>& faces, bool bSmallest);
 
+	// A face found by the neural detector, with how sure it is (0 to 1).
+	struct SScoredFace {
+		SFace face;
+		double dScore;
+	};
+
+	// How an image is fitted into the square the neural detector looks at: scaled so its
+	// long side fills the square, and centred with the rest padded.
+	struct SLetterbox {
+		double dScale;
+		int nWidth, nHeight; // the scaled image inside the square
+		int nPadX, nPadY; // where it starts in the square
+	};
+
+	SLetterbox Letterbox(int nImageWidth, int nImageHeight, int nSquare);
+
+	// The detector's output as it comes: five rows of nAnchors values each - centre x,
+	// centre y, width, height (all in the square) and score. Returns every box scoring at
+	// least dMinScore, in image pixels.
+	std::vector<SScoredFace> DecodeDetections(const float* pOutput, int nAnchors, const SLetterbox& letterbox, double dMinScore);
+
+	// Of boxes overlapping by more than dMaxIoU (intersection over union) only the best
+	// scoring one is kept. The result is sorted by score, best first.
+	std::vector<SScoredFace> SuppressOverlaps(std::vector<SScoredFace> faces, double dMaxIoU);
+
+	// Every face scoring at least dThreshold; when there is none, the best one scoring at
+	// least dFallback, so a single less certain face still counts.
+	std::vector<SFace> SelectFaces(const std::vector<SScoredFace>& faces, double dThreshold, double dFallback);
+
+	// The first list, plus those of the second that are not already in it - a face counts
+	// as the same when most of the smaller box lies inside the other.
+	std::vector<SFace> MergeFaces(const std::vector<SFace>& first, const std::vector<SFace>& second);
+
 	// The offset limited so the image at this zoom does not leave an edge of the window.
 	SOffset LimitOffset(SOffset offset, SIZE imageSize, double dZoom, SIZE windowSize);
 

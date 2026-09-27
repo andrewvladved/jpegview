@@ -23,6 +23,27 @@ static double Limit(double dOffset, int nImage, double dZoom, int nWindow) {
 	return (dOffset < -dMax) ? -dMax : (dOffset > dMax) ? dMax : dOffset;
 }
 
+SLetterbox Letterbox(int nImageWidth, int nImageHeight, int nSquare) {
+	SLetterbox letterbox = { 1.0, 0, 0, 0, 0 };
+	return letterbox;
+}
+
+std::vector<SScoredFace> DecodeDetections(const float* pOutput, int nAnchors, const SLetterbox& letterbox, double dMinScore) {
+	return std::vector<SScoredFace>();
+}
+
+std::vector<SScoredFace> SuppressOverlaps(std::vector<SScoredFace> faces, double dMaxIoU) {
+	return faces;
+}
+
+std::vector<SFace> SelectFaces(const std::vector<SScoredFace>& faces, double dThreshold, double dFallback) {
+	return std::vector<SFace>();
+}
+
+std::vector<SFace> MergeFaces(const std::vector<SFace>& first, const std::vector<SFace>& second) {
+	return first;
+}
+
 SOffset LimitOffset(SOffset offset, SIZE imageSize, double dZoom, SIZE windowSize) {
 	SOffset limited = { Limit(offset.dX, imageSize.cx, dZoom, windowSize.cx), Limit(offset.dY, imageSize.cy, dZoom, windowSize.cy) };
 	return limited;

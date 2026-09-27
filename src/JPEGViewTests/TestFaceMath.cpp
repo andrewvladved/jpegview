@@ -11,6 +11,11 @@ static SIZE Size(int nWidth, int nHeight) {
 	return size;
 }
 
+static FaceMath::SScoredFace Scored(double dX, double dY, double dWidth, double dHeight, double dScore) {
+	FaceMath::SScoredFace face = { { dX, dY, dWidth, dHeight }, dScore };
+	return face;
+}
+
 // Where an image point lands on screen, the arithmetic CMainDlg draws with.
 static double ScreenPos(double dPoint, int nImage, double dZoom, double dOffset, int nWindow) {
 	return nWindow / 2.0 + dOffset + (dPoint - nImage / 2.0) * dZoom;
@@ -87,4 +92,103 @@ TEST(AnchorOffsetStopsAtTheEdgesWhenZoomingOut) {
 	FaceMath::SOffset offset = FaceMath::AnchorOffset(100, 100, Size(1000, 1000), 2.0, start, 1.0, Size(800, 600));
 	CHECK_NEAR(offset.dX, 100, 0.001);
 	CHECK_NEAR(offset.dY, 200, 0.001);
+}
+
+TEST(LetterboxFitsATallImageIntoTheSquare) {
+	// 768 x 1365 into 640: the height fills it, the width is centred.
+	FaceMath::SLetterbox letterbox = FaceMath::Letterbox(768, 1365, 640);
+	CHECK_NEAR(letterbox.dScale, 640.0 / 1365, 0.000001);
+	CHECK(letterbox.nWidth == 360);
+	CHECK(letterbox.nHeight == 640);
+	CHECK(letterbox.nPadX == 140);
+	CHECK(letterbox.nPadY == 0);
+}
+
+TEST(LetterboxFitsAWideImageIntoTheSquare) {
+	FaceMath::SLetterbox letterbox = FaceMath::Letterbox(2400, 1500, 640);
+	CHECK(letterbox.nWidth == 640);
+	CHECK(letterbox.nHeight == 400);
+	CHECK(letterbox.nPadX == 0);
+	CHECK(letterbox.nPadY == 120);
+}
+
+TEST(DecodeDetectionsMapsBoxesBackToTheImage) {
+	// Three anchors, row after row: centre x, centre y, width, height, score.
+	float output[5 * 3] = {
+		240, 100, 400,
+		120, 200, 300,
+		 40,  20,  60,
+		 60,  30,  80,
+		0.9f, 0.1f, 0.5f,
+	};
+	// A 1000 x 2000 image: scale 0.32, 320 x 640 in the square, padded 160 on the left.
+	FaceMath::SLetterbox letterbox = FaceMath::Letterbox(1000, 2000, 640);
+	std::vector<FaceMath::SScoredFace> faces = FaceMath::DecodeDetections(output, 3, letterbox, 0.3);
+	CHECK(faces.size() == 2);
+	if (faces.size() == 2) {
+		// (240 - 20 - 160) / 0.32, (120 - 30) / 0.32, 40 / 0.32, 60 / 0.32
+		CHECK_NEAR(faces[0].face.dX, 187.5, 0.01);
+		CHECK_NEAR(faces[0].face.dY, 281.25, 0.01);
+		CHECK_NEAR(faces[0].face.dWidth, 125, 0.01);
+		CHECK_NEAR(faces[0].face.dHeight, 187.5, 0.01);
+		CHECK_NEAR(faces[0].dScore, 0.9, 0.0001);
+		CHECK_NEAR(faces[1].dScore, 0.5, 0.0001);
+	}
+}
+
+TEST(SuppressOverlapsKeepsTheBestOfOverlappingBoxes) {
+	std::vector<FaceMath::SScoredFace> faces;
+	faces.push_back(Scored(100, 100, 50, 50, 0.6));
+	faces.push_back(Scored(104, 102, 50, 50, 0.9)); // nearly the same box, more certain
+	faces.push_back(Scored(400, 100, 50, 50, 0.4)); // elsewhere
+	std::vector<FaceMath::SScoredFace> kept = FaceMath::SuppressOverlaps(faces, 0.5);
+	CHECK(kept.size() == 2);
+	if (kept.size() == 2) {
+		CHECK_NEAR(kept[0].dScore, 0.9, 0.0001);
+		CHECK_NEAR(kept[1].dScore, 0.4, 0.0001);
+	}
+}
+
+TEST(SelectFacesTakesEveryCertainFace) {
+	std::vector<FaceMath::SScoredFace> faces;
+	faces.push_back(Scored(0, 0, 10, 10, 0.8));
+	faces.push_back(Scored(50, 0, 10, 10, 0.2));
+	faces.push_back(Scored(90, 0, 10, 10, 0.5));
+	std::vector<FaceMath::SFace> selected = FaceMath::SelectFaces(faces, 0.278, 0.12);
+	CHECK(selected.size() == 2);
+	if (selected.size() == 2) {
+		CHECK_NEAR(selected[0].dX, 0, 0.001);
+		CHECK_NEAR(selected[1].dX, 90, 0.001);
+	}
+}
+
+TEST(SelectFacesFallsBackToTheBestLessCertainFace) {
+	std::vector<FaceMath::SScoredFace> faces;
+	faces.push_back(Scored(0, 0, 10, 10, 0.13));
+	faces.push_back(Scored(50, 0, 10, 10, 0.2));
+	faces.push_back(Scored(90, 0, 10, 10, 0.05));
+	std::vector<FaceMath::SFace> selected = FaceMath::SelectFaces(faces, 0.278, 0.12);
+	CHECK(selected.size() == 1);
+	if (selected.size() == 1) {
+		CHECK_NEAR(selected[0].dX, 50, 0.001);
+	}
+}
+
+TEST(SelectFacesFindsNothingBelowTheFallback) {
+	std::vector<FaceMath::SScoredFace> faces;
+	faces.push_back(Scored(0, 0, 10, 10, 0.11));
+	CHECK(FaceMath::SelectFaces(faces, 0.278, 0.12).empty());
+}
+
+TEST(MergeFacesAddsOnlyFacesNotFoundYet) {
+	std::vector<FaceMath::SFace> first, second;
+	first.push_back(Face(347, 181, 122, 118));
+	second.push_back(Face(399, 217, 56, 56)); // the same face, a tighter box inside the first
+	second.push_back(Face(10, 10, 40, 40)); // another face
+	std::vector<FaceMath::SFace> merged = FaceMath::MergeFaces(first, second);
+	CHECK(merged.size() == 2);
+	if (merged.size() == 2) {
+		CHECK_NEAR(merged[0].dX, 347, 0.001);
+		CHECK_NEAR(merged[1].dX, 10, 0.001);
+	}
 }
