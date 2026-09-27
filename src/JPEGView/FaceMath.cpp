@@ -116,7 +116,10 @@ SOffset LimitOffset(SOffset offset, SIZE imageSize, double dZoom, SIZE windowSiz
 }
 
 SOffset BlendOffset(SOffset from, SOffset to, double dProgress) {
-	return to;
+	double t = (dProgress < 0) ? 0 : (dProgress > 1) ? 1 : dProgress;
+	double dEase = t * t * (3 - 2 * t);
+	SOffset offset = { from.dX + (to.dX - from.dX) * dEase, from.dY + (to.dY - from.dY) * dEase };
+	return offset;
 }
 
 SOffset CenterOffset(double dPointX, double dPointY, SIZE imageSize, double dZoom, SIZE windowSize) {
