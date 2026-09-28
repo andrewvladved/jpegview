@@ -458,6 +458,8 @@ Transparent window title bar	Прозрачный заголовок окна
 Minimize	Свернуть
 Maximize/Restore	Развернуть/восстановить
 Hide/show file path	Скрыть/показать путь к файлу
+Hide all panels	Скрыть все панели
+Show/hide all panels	Показать/скрыть все панели
 Set window always on top	Закрепить окно поверх других окон
 Settings/Admin	Настройки
 Edit global settings...	Глобальные настройки...

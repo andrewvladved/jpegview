@@ -39,7 +39,7 @@ bool CZoomNavigatorCtl::IsActive() {
 	// switched off entirely - not only unpainted, but out of hit testing and redrawing
 	// too, which is what left it appearing over the pane.
 	return m_pMainDlg->GetCurrentImage() != NULL && CSettingsProvider::This().ShowZoomNavigator()
-		&& !m_pMainDlg->IsPreviewPaneActive();
+		&& !m_pMainDlg->IsPreviewPaneActive() && !m_pMainDlg->IsHideAllPanels();
 }
 
 CRect CZoomNavigatorCtl::PanelRect() {

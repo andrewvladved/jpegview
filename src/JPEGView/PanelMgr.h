@@ -31,6 +31,10 @@ public:
 	// what is painted afterwards stays behind the panels
 	void ExcludeVisiblePanels(CDC& dc);
 
+	// While set, only modal panels (the tools opened on purpose) are painted and get the mouse;
+	// all other panels stay out of the way as if they were switched off
+	void SetHideNonModal(bool bHide) { m_bHideNonModal = bHide; }
+
 	// Called by main dialog -> routed to managed panels
 	void AfterNewImageLoaded();
 	void AfterImageRenamed();
@@ -47,6 +51,10 @@ public:
 	void OnPostPaint(HDC hPaintDC);
 
 private:
+	bool IsShown(CPanelController* pCtl) const { return pCtl->IsVisible() && (pCtl->IsModal() || !m_bHideNonModal); }
+	bool IsLive(CPanelController* pCtl) const { return pCtl->IsActive() && (pCtl->IsModal() || !m_bHideNonModal); }
+
+	bool m_bHideNonModal;
 	std::list<CPanelController*> m_panelControllers;
 	CPanelController* m_pCapturedPanelController;
 };

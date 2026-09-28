@@ -187,6 +187,7 @@ CSettingsProvider::CSettingsProvider(void) {
 	m_bPreview = GetBool(_T("Preview"), false);
 	m_bHideTitleBarWhilePlaying = GetBool(_T("HideTitleBarWhilePlaying"), false);
 	m_bTitleBarPathHidden = GetBool(_T("TitleBarPathHidden"), false);
+	m_bHideAllPanels = GetBool(_T("HideAllPanels"), false);
 	m_nPreviewSize = GetInt(_T("PreviewSize"), 25, 10, 100);
 	m_bPreviewOnLeft = GetString(_T("PreviewSide"), _T("Right")).CompareNoCase(_T("Left")) == 0;
 	m_bPreviewOnTop = GetBool(_T("PreviewOnTop"), true);
@@ -722,6 +723,15 @@ void CSettingsProvider::SaveTitleBarPathHidden(bool bHidden) {
 
 	m_bTitleBarPathHidden = bHidden;
 	WriteBool(_T("TitleBarPathHidden"), bHidden);
+
+	m_bUserINIExists = true;
+}
+
+void CSettingsProvider::SaveHideAllPanels(bool bHide) {
+	MakeSureUserINIExists();
+
+	m_bHideAllPanels = bHide;
+	WriteBool(_T("HideAllPanels"), bHide);
 
 	m_bUserINIExists = true;
 }

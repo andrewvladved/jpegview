@@ -109,6 +109,8 @@ public:
 	bool HideTitleBarWhilePlaying() { return m_bHideTitleBarWhilePlaying; }
 	// Whether the file path on the transparent title bar is folded away by its '<' button.
 	bool TitleBarPathHidden() { return m_bTitleBarPathHidden; }
+	// Whether every panel, the transparent title bar included, is hidden so only the image shows (Tab).
+	bool HideAllPanels() { return m_bHideAllPanels; }
 	int PreviewSize() { return m_nPreviewSize; }
 	bool PreviewOnLeft() { return m_bPreviewOnLeft; }
 	bool PreviewOnTop() { return m_bPreviewOnTop; }
@@ -261,6 +263,7 @@ public:
 	void SavePreview(bool bPreview);
 	void SaveHideTitleBarWhilePlaying(bool bHide);
 	void SaveTitleBarPathHidden(bool bHidden);
+	void SaveHideAllPanels(bool bHide);
 	void SavePreviewSettings(int nSizePercent, bool bOnLeft, Helpers::EPreviewFloor eFloor);
 	void SavePreviewOnTop(bool bOnTop);
 	// Saves the length of the transition between two images to the INI file
@@ -366,6 +369,7 @@ private:
 	bool m_bPreview;
 	bool m_bHideTitleBarWhilePlaying;
 	bool m_bTitleBarPathHidden;
+	bool m_bHideAllPanels;
 	int m_nPreviewSize;
 	bool m_bPreviewOnLeft;
 	bool m_bPreviewOnTop;

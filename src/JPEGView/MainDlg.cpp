@@ -274,6 +274,7 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_bCrossFade = sp.CrossFade();
 	m_bPreview = sp.Preview();
 	m_bHideTitleBarWhilePlaying = sp.HideTitleBarWhilePlaying();
+	m_bHideAllPanels = sp.HideAllPanels();
 	m_nPreviewSize = sp.PreviewSize();
 	m_bPreviewOnLeft = sp.PreviewOnLeft();
 	m_bPreviewOnTop = sp.PreviewOnTop();
@@ -428,6 +429,7 @@ LRESULT CMainDlg::OnInitDialog(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam
 	// Create the annotation style strip, which sits above the navigation panel
 	m_pAnnotationStylePanelCtl = new CAnnotationStylePanelCtl(this, m_pNavPanelCtl->GetPanel());
 	m_pPanelMgr->AddPanelController(m_pAnnotationStylePanelCtl);
+	m_pPanelMgr->SetHideNonModal(m_bHideAllPanels);
 
 	// Create zoom navigator
 	m_pZoomNavigatorCtl = new CZoomNavigatorCtl(this, m_pImageProcPanelCtl->GetPanel(), m_pNavPanelCtl->GetPanel());
@@ -633,7 +635,9 @@ LRESULT CMainDlg::OnPaint(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 		m_pTiltCorrectionPanelCtl->IsVisible() ? &trapezoid : NULL);
 
 	// Display file name if enabled
-	DisplayFileName(imageProcessingArea, dc, m_dRealizedZoom);
+	if (!m_bHideAllPanels) {
+		DisplayFileName(imageProcessingArea, dc, m_dRealizedZoom);
+	}
 
 	// Display errors and warnings
 	DisplayErrors(m_pCurrentImage, m_clientRect, dc);
@@ -653,7 +657,7 @@ LRESULT CMainDlg::OnPaint(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 	}
 
 	// Show current zoom factor
-	if (m_bInZooming || m_bShowZoomFactor) {
+	if ((m_bInZooming || m_bShowZoomFactor) && !m_bHideAllPanels) {
 		CString sZoom = ZoomMath::FormatZoom(m_dZoom, RelativeZoomBase());
 		dc.SetTextColor(CSettingsProvider::This().ColorGUI());
 		HelpersGUI::SelectDefaultFileNameFont(dc);
@@ -1464,6 +1468,7 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	if (m_bWindowBorderless) ::CheckMenuItem(hMenuZoom, IDM_HIDE_TITLE_BAR, MF_CHECKED);
 	// Moved out of the Zoom submenu to the top level, so the check mark moves with it.
 	if (m_bTransparentTitleBar) ::CheckMenuItem(hMenuTrackPopup, IDM_TRANSPARENT_TITLE_BAR, MF_CHECKED);
+	if (m_bHideAllPanels) ::CheckMenuItem(hMenuTrackPopup, IDM_HIDE_ALL_PANELS, MF_CHECKED);
 	if (m_bAlwaysOnTop) ::CheckMenuItem(hMenuZoom, IDM_ALWAYS_ON_TOP, MF_CHECKED);
 	if (IsAdjustWindowToImage() && IsImageExactlyFittingWindow()) ::CheckMenuItem(hMenuZoom, IDM_FIT_WINDOW_TO_IMAGE, MF_CHECKED);
 	if (m_bRelativeZoom) ::CheckMenuItem(hMenuZoom, IDM_RELATIVE_ZOOM_MODE, MF_CHECKED);
@@ -1937,6 +1942,13 @@ void CMainDlg::ExecuteCommand(int nCommand) {
 			// Takes effect on the very next timer tick, even in the middle of a glide.
 			m_bScrollAccentOnCenter = !m_bScrollAccentOnCenter;
 			sp.SaveScrollAccentOnCenter(m_bScrollAccentOnCenter);
+			break;
+		case IDM_HIDE_ALL_PANELS:
+			m_bHideAllPanels = !m_bHideAllPanels;
+			sp.SaveHideAllPanels(m_bHideAllPanels);
+			m_pPanelMgr->SetHideNonModal(m_bHideAllPanels);
+			UpdateClientRect(); // a preview pane beside the image gives its room back, or takes it again
+			this->Invalidate(FALSE);
 			break;
 		case IDM_HIDE_TITLE_BAR_WHILE_PLAYING:
 			m_bHideTitleBarWhilePlaying = !m_bHideTitleBarWhilePlaying;
@@ -3823,7 +3835,7 @@ void CMainDlg::StartScrollMode(bool bZoom) {
 bool CMainDlg::IsPreviewPaneActive() {
 	// Only while a folder is playing. Every other time the image gets the whole window and
 	// the zoom navigator JPEGView shows on its own is the overview, untouched by any of this.
-	return m_bPreview && (m_bScrollMode || m_bMovieMode);
+	return m_bPreview && (m_bScrollMode || m_bMovieMode) && !m_bHideAllPanels;
 }
 
 CRect CMainDlg::GetPreviewPaneRect() {

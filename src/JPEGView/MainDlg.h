@@ -176,6 +176,8 @@ public:
 	bool IsTransparentTitleBar() { return m_bTransparentTitleBar; }
 	// The transparent title bar is left out while a folder plays, if so set
 	bool IsTitleBarHiddenWhilePlaying() { return m_bHideTitleBarWhilePlaying && (m_bMovieMode || m_bScrollMode); }
+	// Tab: every panel is hidden and only the image is left
+	bool IsHideAllPanels() { return m_bHideAllPanels; }
 	bool IsAlwaysOnTop() { return m_bAlwaysOnTop; }
 
 	CPoint GetMousePos() { return CPoint(m_nMouseX, m_nMouseY); }
@@ -355,6 +357,7 @@ private:
 	bool m_bCrossFade;
 	bool m_bPreview;
 	bool m_bHideTitleBarWhilePlaying;
+	bool m_bHideAllPanels;
 	int m_nPreviewSize;
 	bool m_bPreviewOnLeft;
 	bool m_bPreviewOnTop;

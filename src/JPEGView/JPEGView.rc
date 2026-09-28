@@ -352,6 +352,7 @@ BEGIN
         MENUITEM "Show filename",               IDM_SHOW_FILENAME
         MENUITEM "Show navigation panel",       IDM_SHOW_NAVPANEL
         MENUITEM "Transparent window title bar", IDM_TRANSPARENT_TITLE_BAR
+        MENUITEM "Hide all panels",             IDM_HIDE_ALL_PANELS
         MENUITEM SEPARATOR
         MENUITEM "Next image",                  IDM_NEXT
         MENUITEM "Previous image",              IDM_PREV
