@@ -10,6 +10,7 @@ public:
 	// IDs of the controls on this panel
 	enum {
 		ID_txtFilePath,
+		ID_btnTogglePath,
 		ID_btnMinimize,
 		ID_btnMaximize,
 		ID_btnClose
@@ -19,6 +20,7 @@ public:
 	CTitleBarPanel(HWND hWnd, INotifiyMouseCapture* pNotifyMouseCapture);
 
 	CTextCtrl* GetTextFilePath() { return GetControl<CTextCtrl*>(ID_txtFilePath); }
+	CButtonCtrl* GetBtnTogglePath() { return GetControl<CButtonCtrl*>(ID_btnTogglePath); }
 	CButtonCtrl* GetBtnMinimize() { return GetControl<CButtonCtrl*>(ID_btnMinimize); }
 	CButtonCtrl* GetBtnMaximize() { return GetControl<CButtonCtrl*>(ID_btnMaximize); }
 	CButtonCtrl* GetBtnClose() { return GetControl<CButtonCtrl*>(ID_btnClose); }
@@ -39,6 +41,7 @@ protected:
 
 private:
 	// Painting handlers for the buttons. pContext is the panel.
+	static void PaintTogglePathBtn(void* pContext, const CRect& rect, CDC& dc);
 	static void PaintMinimizeBtn(void* pContext, const CRect& rect, CDC& dc);
 	static void PaintMaximizeBtn(void* pContext, const CRect& rect, CDC& dc);
 	static void PaintCloseBtn(void* pContext, const CRect& rect, CDC& dc);

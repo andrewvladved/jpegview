@@ -3,6 +3,7 @@
 #include "PanelController.h"
 
 class CTitleBarPanel;
+class CButtonCtrl;
 
 // Implements functionality of the title bar panel used in transparent title bar mode
 // (file path on top, left and minimize/maximize/close buttons on top, right corner of the window)
@@ -38,5 +39,8 @@ public:
 	void UpdateFilePath();
 
 private:
+	// '<' / 'V' button: hides or shows the file path, remembered across sessions
+	static void OnTogglePath(void* pContext, int nParameter, CButtonCtrl & sender);
+
 	CTitleBarPanel* m_pTitleBarPanel;
 };

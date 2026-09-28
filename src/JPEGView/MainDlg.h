@@ -374,6 +374,7 @@ private:
 	bool m_bMouseOn;
 	bool m_bKeepParametersBeforeAnimation;
 	bool m_bIsAnimationPlaying;
+	bool m_bAnimationPausedForPan; // animation timer is off while the left mouse button is held
 	int m_nLastAnimationOffset;
 	int m_nExpectedNextAnimationTickCount;
 	int m_nMonitor;
@@ -522,5 +523,9 @@ private:
 	void StartAnimation();
 	void AdjustAnimationFrameTime();
 	void StopAnimation();
+	// Holding the left mouse button over a playing animation stops its frames so it can be panned;
+	// releasing the button plays on from the frame shown.
+	void PauseAnimationForPan();
+	void ResumeAnimationAfterPan();
 	void ToggleAlwaysOnTop();
 };

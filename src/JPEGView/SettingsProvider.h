@@ -107,6 +107,8 @@ public:
 	// Whether the transparent title bar is left out while a folder plays (slideshow, zoom,
 	// scroll or movie mode).
 	bool HideTitleBarWhilePlaying() { return m_bHideTitleBarWhilePlaying; }
+	// Whether the file path on the transparent title bar is folded away by its '<' button.
+	bool TitleBarPathHidden() { return m_bTitleBarPathHidden; }
 	int PreviewSize() { return m_nPreviewSize; }
 	bool PreviewOnLeft() { return m_bPreviewOnLeft; }
 	bool PreviewOnTop() { return m_bPreviewOnTop; }
@@ -258,6 +260,7 @@ public:
 	void SaveCrossFade(bool bCrossFade);
 	void SavePreview(bool bPreview);
 	void SaveHideTitleBarWhilePlaying(bool bHide);
+	void SaveTitleBarPathHidden(bool bHidden);
 	void SavePreviewSettings(int nSizePercent, bool bOnLeft, Helpers::EPreviewFloor eFloor);
 	void SavePreviewOnTop(bool bOnTop);
 	// Saves the length of the transition between two images to the INI file
@@ -362,6 +365,7 @@ private:
 	bool m_bCrossFade;
 	bool m_bPreview;
 	bool m_bHideTitleBarWhilePlaying;
+	bool m_bTitleBarPathHidden;
 	int m_nPreviewSize;
 	bool m_bPreviewOnLeft;
 	bool m_bPreviewOnTop;

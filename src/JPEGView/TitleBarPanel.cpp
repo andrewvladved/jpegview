@@ -20,7 +20,10 @@ CTitleBarPanel::CTitleBarPanel(HWND hWnd, INotifiyMouseCapture* pNotifyMouseCapt
 	m_nHeight = (int)(TITLEBAR_PANEL_HEIGHT*m_fDPIScale);
 
 	AddText(ID_txtFilePath, _T(""), false);
+	GetTextFilePath()->SetShow(!CSettingsProvider::This().TitleBarPathHidden(), false);
 
+	CButtonCtrl* pTogglePathBtn = AddUserPaintButton(ID_btnTogglePath, CNLS::GetString(_T("Hide/show file path")), &PaintTogglePathBtn, NULL, this);
+	pTogglePathBtn->SetExtendedActiveArea(CRect(0, -2, 0, 0));
 	CButtonCtrl* pMinimizeBtn = AddUserPaintButton(ID_btnMinimize, CNLS::GetString(_T("Minimize")), &PaintMinimizeBtn, NULL, this);
 	pMinimizeBtn->SetExtendedActiveArea(CRect(0, -2, 0, 0));
 	CButtonCtrl* pMaximizeBtn = AddUserPaintButton(ID_btnMaximize, CNLS::GetString(_T("Maximize/Restore")), &PaintMaximizeBtn, NULL, this);
@@ -83,6 +86,26 @@ void CTitleBarPanel::RepositionAll() {
 		int nTextMargin = (int)(TITLEBAR_TEXT_MARGIN*m_fDPIScale);
 		int nTextWidth = max(0, buttonAreaRect.left - panelRect.left - 2 * nTextMargin);
 		pText->SetPosition(CRect(CPoint(panelRect.left + nTextMargin, nStartY), CSize(nTextWidth, nButtonSize)));
+	}
+}
+
+void CTitleBarPanel::PaintTogglePathBtn(void* pContext, const CRect& rect, CDC& dc) {
+	// '<' folds the file path away, 'V' brings it back
+	CRect r = Helpers::InflateRect(rect, 0.3f);
+	int nMidX = (r.left + r.right) / 2;
+	int nMidY = (r.top + r.bottom) / 2;
+	for (int i = 0; i < 2; i++) {
+		if (CSettingsProvider::This().TitleBarPathHidden()) {
+			dc.MoveTo(r.left + i, r.top);
+			dc.LineTo(nMidX + i, r.bottom);
+			dc.LineTo(r.right + i, r.top - 1);
+		} else {
+			int nLeft = nMidX - r.Height() / 3;
+			int nRight = nMidX + r.Height() / 3;
+			dc.MoveTo(nRight + i, r.top);
+			dc.LineTo(nLeft + i, nMidY);
+			dc.LineTo(nRight + i, r.bottom + 1);
+		}
 	}
 }
 

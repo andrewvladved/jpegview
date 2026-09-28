@@ -298,6 +298,7 @@ CMainDlg::CMainDlg(bool bForceFullScreen) {
 	m_bMouseOn = false;
 	m_bKeepParametersBeforeAnimation = false;
 	m_bIsAnimationPlaying = false;
+	m_bAnimationPausedForPan = false;
 	m_nLastAnimationOffset = 0;
 	m_nExpectedNextAnimationTickCount = 0;
 	m_bUseLosslessWEBP = false;
@@ -875,6 +876,8 @@ LRESULT CMainDlg::OnLButtonDown(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 			return 0;
 		}
 
+		PauseAnimationForPan();
+
 		bool bDraggingRequired = m_virtualImageSize.cx > m_clientRect.Width() || m_virtualImageSize.cy > m_clientRect.Height();
 		bool bHandleByCropping = isCropping || m_pCropCtl->HitHandle(pointClicked.x, pointClicked.y) != CCropCtl::HH_None;
 		bool bTransformPanelShown = m_pRotationPanelCtl->IsVisible() || m_pTiltCorrectionPanelCtl->IsVisible();
@@ -903,6 +906,7 @@ LRESULT CMainDlg::OnLButtonDown(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 }
 
 LRESULT CMainDlg::OnLButtonUp(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL& /*bHandled*/) {
+	ResumeAnimationAfterPan();
 	if (m_pAnnotationCtl != NULL && m_pAnnotationCtl->OnLButtonUp(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam))) {
 		Invalidate(FALSE);
 		::ReleaseCapture();
@@ -5007,6 +5011,9 @@ void CMainDlg::StartAnimation() {
 }
 
 void CMainDlg::AdjustAnimationFrameTime() {
+	if (m_bAnimationPausedForPan) {
+		return; // a frame that finished loading must not restart the animation under the held button
+	}
 	// restart timer with new frame time
 	::KillTimer(this->m_hWnd, ANIMATION_TIMER_EVENT_ID);
 	m_nLastAnimationOffset += ::GetTickCount() - m_nExpectedNextAnimationTickCount;
@@ -5034,6 +5041,29 @@ void CMainDlg::StopAnimation() {
 	}
 	::KillTimer(this->m_hWnd, ANIMATION_TIMER_EVENT_ID);
 	m_bIsAnimationPlaying = false;
+	m_bAnimationPausedForPan = false;
+}
+
+void CMainDlg::PauseAnimationForPan() {
+	if (!m_bIsAnimationPlaying || m_bAnimationPausedForPan) {
+		return;
+	}
+	::KillTimer(this->m_hWnd, ANIMATION_TIMER_EVENT_ID);
+	m_bAnimationPausedForPan = true;
+}
+
+void CMainDlg::ResumeAnimationAfterPan() {
+	if (!m_bAnimationPausedForPan) {
+		return;
+	}
+	m_bAnimationPausedForPan = false;
+	if (!m_bIsAnimationPlaying || m_pCurrentImage == NULL) {
+		return;
+	}
+	int nFrameTime = max(10, m_pCurrentImage->FrameTimeMs());
+	m_nLastAnimationOffset = 0;
+	m_nExpectedNextAnimationTickCount = ::GetTickCount() + nFrameTime;
+	::SetTimer(this->m_hWnd, ANIMATION_TIMER_EVENT_ID, nFrameTime, NULL);
 }
 
 void CMainDlg::ToggleAlwaysOnTop() {
