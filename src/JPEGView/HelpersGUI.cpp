@@ -234,24 +234,27 @@ namespace HelpersGUI {
 		bmInfo.bmiHeader.biPlanes = 1;
 		bmInfo.bmiHeader.biBitCount = 32;
 		bmInfo.bmiHeader.biCompression = BI_RGB;
-		int xDest = (targetArea.Width() - dibSize.cx) / 2 + offset.x;
-		int yDest = (targetArea.Height() - dibSize.cy) / 2 + offset.y;
+		// The target area is a rectangle in client coordinates, not just a size: it starts
+		// at the window origin in every ordinary case, but the preview pane can take a strip
+		// off one side, and then the image belongs in what is left of the window.
+		int xDest = targetArea.left + (targetArea.Width() - dibSize.cx) / 2 + offset.x;
+		int yDest = targetArea.top + (targetArea.Height() - dibSize.cy) / 2 + offset.y;
 
 		// remaining client area is painted black
-		if (xDest > 0) {
-			CRect r(0, 0, xDest, targetArea.Height());
+		if (xDest > targetArea.left) {
+			CRect r(targetArea.left, targetArea.top, xDest, targetArea.bottom);
 			dc.FillRect(&r, backBrush);
 		}
-		if (xDest + dibSize.cx < targetArea.Width()) {
-			CRect r(xDest + dibSize.cx, 0, targetArea.Width(), targetArea.Height());
+		if (xDest + dibSize.cx < targetArea.right) {
+			CRect r(xDest + dibSize.cx, targetArea.top, targetArea.right, targetArea.bottom);
 			dc.FillRect(&r, backBrush);
 		}
-		if (yDest > 0) {
-			CRect r(xDest, 0, xDest + dibSize.cx, yDest);
+		if (yDest > targetArea.top) {
+			CRect r(xDest, targetArea.top, xDest + dibSize.cx, yDest);
 			dc.FillRect(&r, backBrush);
 		}
-		if (yDest + dibSize.cy < targetArea.Height()) {
-			CRect r(xDest, yDest + dibSize.cy, xDest + dibSize.cx, targetArea.Height());
+		if (yDest + dibSize.cy < targetArea.bottom) {
+			CRect r(xDest, yDest + dibSize.cy, xDest + dibSize.cx, targetArea.bottom);
 			dc.FillRect(&r, backBrush);
 		}
 

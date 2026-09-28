@@ -181,6 +181,16 @@ bool CJPEGProvider::ClearRequest(CJPEGImage* pImage, bool releaseLockedFile) {
 	return bErased;
 }
 
+void CJPEGProvider::GetReadyImages(std::vector<CJPEGImage*>& images, std::vector<CString>& fileNames) {
+	std::list<CImageRequest*>::iterator iter;
+	for (iter = m_requestList.begin( ); iter != m_requestList.end( ); iter++ ) {
+		if ((*iter)->Ready && (*iter)->Image != NULL && !(*iter)->Deleted && (*iter)->FrameIndex == 0) {
+			images.push_back((*iter)->Image);
+			fileNames.push_back((*iter)->FileName);
+		}
+	}
+}
+
 void CJPEGProvider::OnImageLoadCompleted(int nHandle) {
 	std::list<CImageRequest*>::iterator iter;
 	for (iter = m_requestList.begin( ); iter != m_requestList.end( ); iter++ ) {
