@@ -478,6 +478,28 @@ namespace HelpersGUI {
 		}
 	}
 
+	HMENU FindSubMenu(HMENU hMenu, UINT nCommand, int* pnPosition) {
+		if (pnPosition != NULL) {
+			*pnPosition = -1;
+		}
+		if (hMenu == NULL) {
+			return NULL;
+		}
+		int nCount = ::GetMenuItemCount(hMenu);
+		for (int i = 0; i < nCount; i++) {
+			HMENU hSubMenu = ::GetSubMenu(hMenu, i);
+			// GetMenuState searches the submenu and everything nested inside it, so an anchor
+			// buried a level deeper still finds the submenu it belongs to.
+			if (hSubMenu != NULL && ::GetMenuState(hSubMenu, nCommand, MF_BYCOMMAND) != (UINT)-1) {
+				if (pnPosition != NULL) {
+					*pnPosition = i;
+				}
+				return hSubMenu;
+			}
+		}
+		return NULL;
+	}
+
 	bool CreateUserCommandsMenu(HMENU hMenu) {
 		return CreateCommandsMenu(hMenu, CSettingsProvider::This().UserCommandList(), IDM_FIRST_USER_CMD);
 	}

@@ -3,7 +3,11 @@
 namespace WindowMath {
 
 	SPlacement MaximizedPlacement(const RECT& rcMonitor, const RECT& rcWork) {
-		SPlacement placement = { 0, 0, 0, 0 };
+		SPlacement placement;
+		placement.nX = rcWork.left - rcMonitor.left;
+		placement.nY = rcWork.top - rcMonitor.top;
+		placement.nWidth = rcWork.right - rcWork.left;
+		placement.nHeight = rcWork.bottom - rcWork.top;
 		return placement;
 	}
 }

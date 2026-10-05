@@ -531,4 +531,8 @@ private:
 	void PauseAnimationForPan();
 	void ResumeAnimationAfterPan();
 	void ToggleAlwaysOnTop();
+	// Keeps a maximized window off the taskbar when it has no title bar of its own.
+	void LimitMaximizedSizeToWorkArea(MINMAXINFO* pMinMaxInfo);
+	// Greys out the entry of the submenu holding the given command.
+	static void GrayOutSubMenu(HMENU hMenu, UINT nAnchorCommand);
 };

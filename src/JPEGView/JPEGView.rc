@@ -324,7 +324,7 @@ BEGIN
         MENUITEM "Open image...",               IDM_OPEN
         POPUP "Open image with"
         BEGIN
-            MENUITEM "_empty_",                     IDM_ABOUT
+            MENUITEM "_empty_",                     IDM_OPEN_WITH_PLACEHOLDER
         END
         MENUITEM "Save processed image...\t0x5de", IDM_SAVE
         MENUITEM "Reload image",                IDM_RELOAD
@@ -351,6 +351,7 @@ BEGIN
         MENUITEM "Show picture info (EXIF)",    IDM_SHOW_FILEINFO
         MENUITEM "Show filename",               IDM_SHOW_FILENAME
         MENUITEM "Show navigation panel",       IDM_SHOW_NAVPANEL
+        MENUITEM "Set window always on top",    IDM_ALWAYS_ON_TOP
         MENUITEM "Transparent window title bar", IDM_TRANSPARENT_TITLE_BAR
         MENUITEM "Hide all panels",             IDM_HIDE_ALL_PANELS
         MENUITEM SEPARATOR
@@ -489,7 +490,6 @@ BEGIN
             MENUITEM "Fit window to image",         IDM_FIT_WINDOW_TO_IMAGE
             MENUITEM SEPARATOR
             MENUITEM "Hide window title bar",       IDM_HIDE_TITLE_BAR
-            MENUITEM "Set window always on top",    IDM_ALWAYS_ON_TOP
             MENUITEM SEPARATOR
             MENUITEM "400 %",                       IDM_ZOOM_400
             MENUITEM "200 %",                       IDM_ZOOM_200
@@ -515,7 +515,7 @@ BEGIN
         MENUITEM SEPARATOR
         POPUP "User commands"
         BEGIN
-            MENUITEM "_empty_",                     IDM_ABOUT
+            MENUITEM "_empty_",                     IDM_USER_COMMANDS_PLACEHOLDER
         END
         MENUITEM SEPARATOR
         MENUITEM "About JPEGView...",           IDM_ABOUT

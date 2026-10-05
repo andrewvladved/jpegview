@@ -353,6 +353,12 @@
 #define IDM_ANNOTATE_APPLY_SAVE 21007		// :KeyMap: burn the annotations into the image and save it
 #define IDM_ANNOTATE_FILL       21008		// :KeyMap: fill the shapes instead of drawing their outline
 
+// The one entry each dynamically built submenu carries in the resource file. It is
+// replaced by the real entries at run time; its only job is to let the submenu be found
+// by what it holds, the way every other submenu is found.
+#define IDM_USER_COMMANDS_PLACEHOLDER 21900
+#define IDM_OPEN_WITH_PLACEHOLDER     21901
+
 #define IDM_FIRST_USER_CMD  22000
 #define IDM_LAST_USER_CMD   22099
 
@@ -360,19 +366,23 @@
 #define IDM_LAST_OPENWITH_CMD   22199
 
 // in the main menu
-// these position must be changed if menu items are inserted
-#define SUBMENU_POS_OPENWITH 3
-#define SUBMENU_POS_MODDATE 9
-#define SUBMENU_POS_WALLPAPER 10
-#define SUBMENU_POS_NAVIGATION 24
-#define SUBMENU_POS_DISPLAY_ORDER 25
-#define SUBMENU_POS_MOVIE 26
-#define SUBMENU_POS_TRANSFORM 28
-#define SUBMENU_POS_TRANSFORM_LOSSLESS 30
-#define SUBMENU_POS_ZOOM 38
-#define SUBMENU_POS_AUTOZOOMMODE 0	// inside the zoom submenu, not in the main menu
-#define SUBMENU_POS_SETTINGS 40
-#define SUBMENU_POS_USER_COMMANDS 42
+// The submenus of the main context menu used to be addressed by their position here.
+// Every entry added to or removed from that menu moved them all, and a position that had
+// gone stale did not fail loudly - GetSubMenu simply returned the wrong menu, or none, and
+// check marks quietly stopped appearing. They are looked up by a command they hold instead,
+// through HelpersGUI::FindSubMenu, and these are the commands used for that.
+#define SUBMENU_ANCHOR_OPENWITH IDM_OPEN_WITH_PLACEHOLDER
+#define SUBMENU_ANCHOR_MODDATE IDM_TOUCH_IMAGE
+#define SUBMENU_ANCHOR_WALLPAPER IDM_SET_WALLPAPER_ORIG
+#define SUBMENU_ANCHOR_NAVIGATION IDM_LOOP_FOLDER
+#define SUBMENU_ANCHOR_DISPLAY_ORDER IDM_SORT_MOD_DATE
+#define SUBMENU_ANCHOR_MOVIE IDM_SCROLL_START
+#define SUBMENU_ANCHOR_TRANSFORM IDM_PERSPECTIVE
+#define SUBMENU_ANCHOR_TRANSFORM_LOSSLESS IDM_ROTATE_90_LOSSLESS
+#define SUBMENU_ANCHOR_ZOOM IDM_ZOOM_100
+#define SUBMENU_ANCHOR_AUTOZOOMMODE IDM_AUTO_ZOOM_FIT_NO_ZOOM	// inside the zoom submenu, not in the main menu
+#define SUBMENU_ANCHOR_SETTINGS IDM_EDIT_GLOBAL_CONFIG
+#define SUBMENU_ANCHOR_USER_COMMANDS IDM_USER_COMMANDS_PLACEHOLDER
 
 // in the crop menu
 #define SUBMENU_POS_CROPMODE 3

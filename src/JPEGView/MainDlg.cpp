@@ -37,6 +37,7 @@
 #include "PreviewSettingsDlg.h"
 #include "ZoomMath.h"
 #include "ScrollMath.h"
+#include "WindowMath.h"
 #include "FaceDetect.h"
 #include "ResizeDlg.h"
 #include "ResizeFilter.h"
@@ -798,15 +799,47 @@ LRESULT CMainDlg::OnSize(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BO
 	return 0;
 }
 
+// A submenu's own entry has no command of its own, so it can only be greyed by position -
+// which is found through a command the submenu holds rather than written down by hand.
+void CMainDlg::GrayOutSubMenu(HMENU hMenu, UINT nAnchorCommand) {
+	int nPosition;
+	HelpersGUI::FindSubMenu(hMenu, nAnchorCommand, &nPosition);
+	if (nPosition >= 0) {
+		::EnableMenuItem(hMenu, nPosition, MF_BYPOSITION | MF_GRAYED);
+	}
+}
+
 LRESULT CMainDlg::OnGetMinMaxInfo(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL& /*bHandled*/) {
 	if (m_pJPEGProvider != NULL) {
 		MINMAXINFO* pMinMaxInfo = (MINMAXINFO*) lParam;
 		CSize minimalSize = CSettingsProvider::This().MinimalWindowSize();
 		pMinMaxInfo->ptMinTrackSize = CPoint(max(0, minimalSize.cx), max(0, minimalSize.cy));
+		LimitMaximizedSizeToWorkArea(pMinMaxInfo);
 		return 1;
 	} else {
 		return 0;
 	}
+}
+
+// Windows keeps a maximized window clear of the taskbar by itself, but only for a window
+// that has a title bar. The transparent title bar and the borderless window both clear
+// WS_CAPTION, and such a window is maximized over the whole monitor instead - the taskbar
+// disappears underneath it. Full screen mode is left alone: covering everything is the
+// whole point of it.
+void CMainDlg::LimitMaximizedSizeToWorkArea(MINMAXINFO* pMinMaxInfo) {
+	if (m_bFullScreenMode || (this->GetWindowLongW(GWL_STYLE) & WS_CAPTION) == WS_CAPTION) {
+		return;
+	}
+	MONITORINFO monitorInfo;
+	monitorInfo.cbSize = sizeof(MONITORINFO);
+	HMONITOR hMonitor = ::MonitorFromWindow(this->m_hWnd, MONITOR_DEFAULTTONEAREST);
+	if (hMonitor == NULL || !::GetMonitorInfo(hMonitor, &monitorInfo)) {
+		return;
+	}
+	WindowMath::SPlacement placement = WindowMath::MaximizedPlacement(monitorInfo.rcMonitor, monitorInfo.rcWork);
+	pMinMaxInfo->ptMaxPosition = CPoint(placement.nX, placement.nY);
+	pMinMaxInfo->ptMaxSize = CPoint(placement.nWidth, placement.nHeight);
+	pMinMaxInfo->ptMaxTrackSize = CPoint(placement.nWidth, placement.nHeight);
 }
 
 LRESULT CMainDlg::OnAnotherInstanceStarted(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL& bHandled) {
@@ -1016,19 +1049,9 @@ LRESULT CMainDlg::OnNCCalcSize(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 		return 0;
 	}
 
-	NCCALCSIZE_PARAMS* pParams = (NCCALCSIZE_PARAMS*)lParam;
-	if (::IsZoomed(m_hWnd)) {
-		// a maximized window with WS_THICKFRAME extends beyond the monitor borders by the frame size,
-		// so here the frame has to be kept to not push the image off screen
-		const int SM_CXP_ADDEDBORDER = 92;  // in MSDN this is SM_CXPADDEDBORDER, but for some reason it's not always available depending on configuration
-		int nFrameX = ::GetSystemMetrics(SM_CXSIZEFRAME) + ::GetSystemMetrics(SM_CXP_ADDEDBORDER);
-		int nFrameY = ::GetSystemMetrics(SM_CYSIZEFRAME) + ::GetSystemMetrics(SM_CXP_ADDEDBORDER);
-		pParams->rgrc[0].left += nFrameX;
-		pParams->rgrc[0].right -= nFrameX;
-		pParams->rgrc[0].top += nFrameY;
-		pParams->rgrc[0].bottom -= nFrameY;
-	}
-	// for a non maximized window the client area covers the whole window, nothing to adjust
+	// The client area covers the whole window, maximized or not: OnGetMinMaxInfo places a
+	// maximized window on the work area exactly, so there is no longer a frame hanging off
+	// the edges of the screen to make room for here.
 	return 0;
 }
 
@@ -1435,10 +1458,10 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	if (m_bAutoContrast) ::CheckMenuItem(hMenuTrackPopup, IDM_AUTO_CORRECTION, MF_CHECKED);
 	if (m_bLDC) ::CheckMenuItem(hMenuTrackPopup, IDM_LDC, MF_CHECKED);
 	if (m_bKeepParams) ::CheckMenuItem(hMenuTrackPopup, IDM_KEEP_PARAMETERS, MF_CHECKED);
-	HMENU hMenuNavigation = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_NAVIGATION);
+	HMENU hMenuNavigation = HelpersGUI::FindSubMenu(hMenuTrackPopup, SUBMENU_ANCHOR_NAVIGATION);
 	::CheckMenuItem(hMenuNavigation,  m_pFileList->GetNavigationMode()*10 + IDM_LOOP_FOLDER, MF_CHECKED);
 	if (m_pFileList->IsWrapAroundFolder()) ::CheckMenuItem(hMenuNavigation, IDM_WRAP_AROUND_FOLDER, MF_CHECKED);
-	HMENU hMenuOrdering = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_DISPLAY_ORDER);
+	HMENU hMenuOrdering = HelpersGUI::FindSubMenu(hMenuTrackPopup, SUBMENU_ANCHOR_DISPLAY_ORDER);
 	::CheckMenuItem(hMenuOrdering,  
 		(m_pFileList->GetSorting() == Helpers::FS_LastModTime) ? IDM_SORT_MOD_DATE :
 		(m_pFileList->GetSorting() == Helpers::FS_CreationTime) ? IDM_SORT_CREATION_DATE :
@@ -1450,7 +1473,7 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 		::EnableMenuItem(hMenuOrdering, IDM_SORT_ASCENDING, MF_BYCOMMAND | MF_GRAYED);
 		::EnableMenuItem(hMenuOrdering, IDM_SORT_DESCENDING, MF_BYCOMMAND | MF_GRAYED);
 	}
-	HMENU hMenuMovie = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_MOVIE);
+	HMENU hMenuMovie = HelpersGUI::FindSubMenu(hMenuTrackPopup, SUBMENU_ANCHOR_MOVIE);
 	if (!m_bMovieMode && !m_bScrollMode) ::EnableMenuItem(hMenuMovie, IDM_STOP_MOVIE, MF_BYCOMMAND | MF_GRAYED);
 	if (m_bScrollFillWithCrop) ::CheckMenuItem(hMenuMovie, IDM_SCROLL_FILL_WITH_CROP, MF_CHECKED);
 	if (m_bScrollAccentOnCenter) ::CheckMenuItem(hMenuMovie, IDM_SCROLL_ACCENT_ON_CENTER, MF_CHECKED);
@@ -1462,29 +1485,31 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	if (m_bPreview) ::CheckMenuItem(hMenuMovie, IDM_PREVIEW, MF_CHECKED);
 	if (m_bHideTitleBarWhilePlaying) ::CheckMenuItem(hMenuMovie, IDM_HIDE_TITLE_BAR_WHILE_PLAYING, MF_CHECKED);
 	if (m_bPreviewOnTop) ::CheckMenuItem(hMenuMovie, IDM_PREVIEW_ON_TOP, MF_CHECKED);
-	HMENU hMenuZoom = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_ZOOM);
-	if (m_bSpanVirtualDesktop) ::CheckMenuItem(hMenuZoom,  IDM_SPAN_SCREENS, MF_CHECKED);
-	if (m_bFullScreenMode) ::CheckMenuItem(hMenuZoom,  IDM_FULL_SCREEN_MODE, MF_CHECKED);
-	if (m_bWindowBorderless) ::CheckMenuItem(hMenuZoom, IDM_HIDE_TITLE_BAR, MF_CHECKED);
-	// Moved out of the Zoom submenu to the top level, so the check mark moves with it.
+	HMENU hMenuZoom = HelpersGUI::FindSubMenu(hMenuTrackPopup, SUBMENU_ANCHOR_ZOOM);
+	// Check marks go through the whole menu rather than through one submenu: a command is
+	// unique, so this finds the entry wherever it has been moved to.
+	if (m_bSpanVirtualDesktop) ::CheckMenuItem(hMenuTrackPopup, IDM_SPAN_SCREENS, MF_CHECKED);
+	if (m_bFullScreenMode) ::CheckMenuItem(hMenuTrackPopup, IDM_FULL_SCREEN_MODE, MF_CHECKED);
+	if (m_bWindowBorderless) ::CheckMenuItem(hMenuTrackPopup, IDM_HIDE_TITLE_BAR, MF_CHECKED);
 	if (m_bTransparentTitleBar) ::CheckMenuItem(hMenuTrackPopup, IDM_TRANSPARENT_TITLE_BAR, MF_CHECKED);
 	if (m_bHideAllPanels) ::CheckMenuItem(hMenuTrackPopup, IDM_HIDE_ALL_PANELS, MF_CHECKED);
-	if (m_bAlwaysOnTop) ::CheckMenuItem(hMenuZoom, IDM_ALWAYS_ON_TOP, MF_CHECKED);
-	if (IsAdjustWindowToImage() && IsImageExactlyFittingWindow()) ::CheckMenuItem(hMenuZoom, IDM_FIT_WINDOW_TO_IMAGE, MF_CHECKED);
-	if (m_bRelativeZoom) ::CheckMenuItem(hMenuZoom, IDM_RELATIVE_ZOOM_MODE, MF_CHECKED);
-	// Auto zoom mode moved into the zoom submenu, so it is looked up there now
-	HMENU hMenuAutoZoomMode = ::GetSubMenu(hMenuZoom, SUBMENU_POS_AUTOZOOMMODE);
+	if (m_bAlwaysOnTop) ::CheckMenuItem(hMenuTrackPopup, IDM_ALWAYS_ON_TOP, MF_CHECKED);
+	if (IsAdjustWindowToImage() && IsImageExactlyFittingWindow()) ::CheckMenuItem(hMenuTrackPopup, IDM_FIT_WINDOW_TO_IMAGE, MF_CHECKED);
+	if (m_bRelativeZoom) ::CheckMenuItem(hMenuTrackPopup, IDM_RELATIVE_ZOOM_MODE, MF_CHECKED);
+	HMENU hMenuAutoZoomMode = HelpersGUI::FindSubMenu(hMenuZoom, SUBMENU_ANCHOR_AUTOZOOMMODE);
 	::CheckMenuItem(hMenuAutoZoomMode, GetAutoZoomMode() * 10 + IDM_AUTO_ZOOM_FIT_NO_ZOOM, MF_CHECKED);
-	HMENU hMenuSettings = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_SETTINGS);
-	HMENU hMenuModDate = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_MODDATE);
-	HMENU hMenuUserCommands = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_USER_COMMANDS);
-	HMENU hMenuOpenWithCommands = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_OPENWITH);
-	HMENU hMenuWallpaper = ::GetSubMenu(hMenuTrackPopup, SUBMENU_POS_WALLPAPER);
+	HMENU hMenuSettings = HelpersGUI::FindSubMenu(hMenuTrackPopup, SUBMENU_ANCHOR_SETTINGS);
+	HMENU hMenuModDate = HelpersGUI::FindSubMenu(hMenuTrackPopup, SUBMENU_ANCHOR_MODDATE);
+	int nPosUserCommands;
+	HMENU hMenuUserCommands = HelpersGUI::FindSubMenu(hMenuTrackPopup, SUBMENU_ANCHOR_USER_COMMANDS, &nPosUserCommands);
+	HMENU hMenuOpenWithCommands = HelpersGUI::FindSubMenu(hMenuTrackPopup, SUBMENU_ANCHOR_OPENWITH);
+	HMENU hMenuWallpaper = HelpersGUI::FindSubMenu(hMenuTrackPopup, SUBMENU_ANCHOR_WALLPAPER);
 
-	if (!HelpersGUI::CreateUserCommandsMenu(hMenuUserCommands)) {
-		::DeleteMenu(hMenuTrackPopup, SUBMENU_POS_USER_COMMANDS + 1, MF_BYPOSITION);
-		::DeleteMenu(hMenuTrackPopup, SUBMENU_POS_USER_COMMANDS, MF_BYPOSITION);
-		::DeleteMenu(hMenuTrackPopup, SUBMENU_POS_USER_COMMANDS - 1, MF_BYPOSITION);
+	if (!HelpersGUI::CreateUserCommandsMenu(hMenuUserCommands) && nPosUserCommands >= 0) {
+		// the submenu together with the separator on either side of it
+		::DeleteMenu(hMenuTrackPopup, nPosUserCommands + 1, MF_BYPOSITION);
+		::DeleteMenu(hMenuTrackPopup, nPosUserCommands, MF_BYPOSITION);
+		::DeleteMenu(hMenuTrackPopup, nPosUserCommands - 1, MF_BYPOSITION);
 	}
 	if (!m_bFullScreenMode) {
 		// The transition effect is only available in full screen mode. Its submenu is looked
@@ -1501,9 +1526,9 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 
 	if (CParameterDB::This().IsEmpty()) ::EnableMenuItem(hMenuSettings, IDM_BACKUP_PARAMDB, MF_BYCOMMAND | MF_GRAYED);
 	if (CSettingsProvider::This().StoreToEXEPath()) ::EnableMenuItem(hMenuSettings, IDM_UPDATE_USER_CONFIG, MF_BYCOMMAND | MF_GRAYED);
-	if (m_bFullScreenMode) ::EnableMenuItem(hMenuZoom, IDM_FIT_WINDOW_TO_IMAGE, MF_BYCOMMAND | MF_GRAYED);
-	if (!m_bFullScreenMode) ::EnableMenuItem(hMenuZoom, IDM_SPAN_SCREENS, MF_BYCOMMAND | MF_GRAYED);
-	if (m_bFullScreenMode) ::EnableMenuItem(hMenuZoom, IDM_HIDE_TITLE_BAR, MF_BYCOMMAND | MF_GRAYED);
+	if (m_bFullScreenMode) ::EnableMenuItem(hMenuTrackPopup, IDM_FIT_WINDOW_TO_IMAGE, MF_BYCOMMAND | MF_GRAYED);
+	if (!m_bFullScreenMode) ::EnableMenuItem(hMenuTrackPopup, IDM_SPAN_SCREENS, MF_BYCOMMAND | MF_GRAYED);
+	if (m_bFullScreenMode) ::EnableMenuItem(hMenuTrackPopup, IDM_HIDE_TITLE_BAR, MF_BYCOMMAND | MF_GRAYED);
 	if (m_bFullScreenMode) ::EnableMenuItem(hMenuTrackPopup, IDM_TRANSPARENT_TITLE_BAR, MF_BYCOMMAND | MF_GRAYED);
 
 	if (!CSettingsProvider::This().AllowEditGlobalSettings()) {
@@ -1515,7 +1540,7 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 
 	bool bCanDoLosslessJPEGTransform = (m_pCurrentImage != NULL) && m_pCurrentImage->GetImageFormat() == IF_JPEG && !m_pCurrentImage->IsDestructivelyProcessed();
 
-	if (!bCanDoLosslessJPEGTransform) ::EnableMenuItem(hMenuTrackPopup, SUBMENU_POS_TRANSFORM_LOSSLESS, MF_BYPOSITION | MF_GRAYED);
+	if (!bCanDoLosslessJPEGTransform) GrayOutSubMenu(hMenuTrackPopup, SUBMENU_ANCHOR_TRANSFORM_LOSSLESS);
 
 	if (m_pCurrentImage == NULL) {
 		::EnableMenuItem(hMenuTrackPopup, IDM_SAVE, MF_BYCOMMAND | MF_GRAYED);
@@ -1527,10 +1552,10 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 		::EnableMenuItem(hMenuTrackPopup, IDM_COPY_PATH, MF_BYCOMMAND | MF_GRAYED);
 		::EnableMenuItem(hMenuTrackPopup, IDM_SAVE_PARAM_DB, MF_BYCOMMAND | MF_GRAYED);
 		::EnableMenuItem(hMenuTrackPopup, IDM_CLEAR_PARAM_DB, MF_BYCOMMAND | MF_GRAYED);
-		::EnableMenuItem(hMenuTrackPopup, SUBMENU_POS_ZOOM, MF_BYPOSITION  | MF_GRAYED);
-		::EnableMenuItem(hMenuTrackPopup, SUBMENU_POS_MODDATE, MF_BYPOSITION  | MF_GRAYED);
-		::EnableMenuItem(hMenuTrackPopup, SUBMENU_POS_TRANSFORM, MF_BYPOSITION  | MF_GRAYED);
-		::EnableMenuItem(hMenuTrackPopup, SUBMENU_POS_WALLPAPER, MF_BYPOSITION | MF_GRAYED);
+		GrayOutSubMenu(hMenuTrackPopup, SUBMENU_ANCHOR_ZOOM);
+		GrayOutSubMenu(hMenuTrackPopup, SUBMENU_ANCHOR_MODDATE);
+		GrayOutSubMenu(hMenuTrackPopup, SUBMENU_ANCHOR_TRANSFORM);
+		GrayOutSubMenu(hMenuTrackPopup, SUBMENU_ANCHOR_WALLPAPER);
 	} else {
 		if (m_bKeepParams || m_pCurrentImage->IsClipboardImage() ||
 			CParameterDB::This().FindEntry(m_pCurrentImage->GetPixelHash()) == NULL)
@@ -1554,7 +1579,10 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 		}
 	}
 	if (!HelpersGUI::CreateOpenWithCommandsMenu(hMenuOpenWithCommands) || m_pCurrentImage == NULL) {
-		::DeleteMenu(hMenuTrackPopup, SUBMENU_POS_OPENWITH, MF_BYPOSITION);
+		int nPosOpenWith;
+		// looked up again here: the submenu may have moved since, entries above it having been deleted
+		HelpersGUI::FindSubMenu(hMenuTrackPopup, SUBMENU_ANCHOR_OPENWITH, &nPosOpenWith);
+		if (nPosOpenWith >= 0) ::DeleteMenu(hMenuTrackPopup, nPosOpenWith, MF_BYPOSITION);
 	}
 	if (m_bMovieMode) {
 		::EnableMenuItem(hMenuTrackPopup, IDM_SAVE, MF_BYCOMMAND | MF_GRAYED);
