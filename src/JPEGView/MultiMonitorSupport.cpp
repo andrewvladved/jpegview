@@ -137,6 +137,16 @@ CRect CMultiMonitorSupport::GetDefaultWindowRect() {
 		CoveredMonitorParams params(windowRect);
 		::EnumDisplayMonitors(NULL, NULL, CoveredMonitorEnumProc, (LPARAM)&params);
 		if (params.NumCovered == 1 && !params.rectWork.IsRectEmpty()) {
+			// A window cannot be smaller than MinimalWindowSize: the window would be grown to it
+			// afterwards, from its top left corner, and pushed back over the taskbar. So the
+			// size it will really have is what gets placed.
+			CSize minimalSize = settings.MinimalWindowSize();
+			if (windowRect.Width() < minimalSize.cx) {
+				windowRect.right = windowRect.left + minimalSize.cx;
+			}
+			if (windowRect.Height() < minimalSize.cy) {
+				windowRect.bottom = windowRect.top + minimalSize.cy;
+			}
 			windowRect = CRect(WindowMath::ClampToWorkArea(windowRect, params.rectWork));
 		}
 	}
