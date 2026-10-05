@@ -837,9 +837,10 @@ void CMainDlg::LimitMaximizedSizeToWorkArea(MINMAXINFO* pMinMaxInfo) {
 		return;
 	}
 	WindowMath::SPlacement placement = WindowMath::MaximizedPlacement(monitorInfo.rcMonitor, monitorInfo.rcWork);
+	// Only the maximized size is settled here. The tracking size is left alone, so dragging
+	// a border can still make the window as large as the person dragging it wants.
 	pMinMaxInfo->ptMaxPosition = CPoint(placement.nX, placement.nY);
 	pMinMaxInfo->ptMaxSize = CPoint(placement.nWidth, placement.nHeight);
-	pMinMaxInfo->ptMaxTrackSize = CPoint(placement.nWidth, placement.nHeight);
 }
 
 LRESULT CMainDlg::OnAnotherInstanceStarted(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL& bHandled) {
