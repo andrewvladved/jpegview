@@ -72,6 +72,13 @@ namespace HelpersGUI {
 	// Convert the error result code from lossless JPEG transformation to a string
 	LPCTSTR LosslessTransformationResultToString(CJPEGLosslessTransform::EResult eResult);
 
+	// The submenu of hMenu that holds the given command, wherever that submenu now sits,
+	// together with its position when pnPosition is given. Looking a submenu up by what it
+	// holds rather than by a fixed position means that an entry added above it cannot send
+	// the lookup to the wrong place - a mistake that shows up only as a check mark that
+	// quietly stops appearing. Returns NULL and a position of -1 when nothing holds it.
+	HMENU FindSubMenu(HMENU hMenu, UINT nCommand, int* pnPosition = NULL);
+
 	// Creates the submenu containing the user commands in hMenu, returns if there are any menu items
 	bool CreateUserCommandsMenu(HMENU hMenu);
 	// Creates the submenu containing the open with.. commands in hMenu, returns if there are any menu items

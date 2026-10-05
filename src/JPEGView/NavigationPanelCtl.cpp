@@ -1,8 +1,10 @@
-#include "StdAfx.h"
+﻿#include "StdAfx.h"
 #include "resource.h"
 #include "MainDlg.h"
 #include "JPEGImage.h"
 #include "NavigationPanelCtl.h"
+#include "AnnotationCtl.h"
+#include "AnnotationStylePanelCtl.h"
 #include "NavigationPanel.h"
 #include "SettingsProvider.h"
 #include "TimerEventIDs.h"
@@ -36,7 +38,7 @@ CNavigationPanelCtl::CNavigationPanelCtl(CMainDlg* pMainDlg, CPanel* pImageProcP
 	m_nBlendInNavPanelCountdown = 0;
 	m_pMemDCAnimation = NULL;
 	m_hOffScreenBitmapAnimation = NULL;
-	m_pPanel = m_pNavPanel = new CNavigationPanel(pMainDlg->m_hWnd, this, pImageProcPanel, pMainDlg->GetKeyMap(), pFullScreenMode, &(CMainDlg::IsCurrentImageFitToScreen), pMainDlg);
+	m_pPanel = m_pNavPanel = new CNavigationPanel(pMainDlg->m_hWnd, this, pImageProcPanel, pMainDlg->GetKeyMap(), pFullScreenMode, &(CMainDlg::IsCurrentImageFitToScreen), pMainDlg, pMainDlg->GetAnnotationCtl());
 	m_pNavPanel->GetBtnHome()->SetButtonPressedHandler(&OnGotoImage, this, CMainDlg::POS_First);
 	m_pNavPanel->GetBtnPrev()->SetButtonPressedHandler(&OnGotoImage, this, CMainDlg::POS_Previous);
 	m_pNavPanel->GetBtnNext()->SetButtonPressedHandler(&OnGotoImage, this, CMainDlg::POS_Next);
@@ -54,6 +56,12 @@ CNavigationPanelCtl::CNavigationPanelCtl(CMainDlg* pMainDlg, CPanel* pImageProcP
 	m_pNavPanel->GetBtnKeepParams()->SetButtonPressedHandler(&CMainDlg::OnExecuteCommand, pMainDlg, IDM_KEEP_PARAMETERS, pMainDlg->IsKeepParams());
 	m_pNavPanel->GetBtnLandscapeMode()->SetButtonPressedHandler(&CMainDlg::OnExecuteCommand, pMainDlg, IDM_LANDSCAPE_MODE, pMainDlg->IsLandscapeMode());
 	m_pNavPanel->GetBtnShowInfo()->SetButtonPressedHandler(&CMainDlg::OnExecuteCommand, pMainDlg, IDM_SHOW_FILEINFO, pMainDlg->GetEXIFDisplayCtl()->IsActive());
+	m_pNavPanel->GetBtnAnnotateFreehand()->SetButtonPressedHandler(&CMainDlg::OnExecuteCommand, pMainDlg, IDM_ANNOTATE_FREEHAND);
+	m_pNavPanel->GetBtnAnnotateText()->SetButtonPressedHandler(&CMainDlg::OnExecuteCommand, pMainDlg, IDM_ANNOTATE_TEXT);
+	m_pNavPanel->GetBtnAnnotateRect()->SetButtonPressedHandler(&CMainDlg::OnExecuteCommand, pMainDlg, IDM_ANNOTATE_RECT);
+	m_pNavPanel->GetBtnAnnotateFill()->SetButtonPressedHandler(&CMainDlg::OnExecuteCommand, pMainDlg, IDM_ANNOTATE_FILL);
+	m_pNavPanel->GetBtnAnnotateClear()->SetButtonPressedHandler(&CMainDlg::OnExecuteCommand, pMainDlg, IDM_ANNOTATE_CLEAR);
+	m_pNavPanel->GetBtnAnnotateStyle()->SetButtonPressedHandler(&OnToggleAnnotationStyle, this);
 }
 
 CNavigationPanelCtl::~CNavigationPanelCtl() {
@@ -74,7 +82,24 @@ void CNavigationPanelCtl::AdjustMaximalWidth(int nMaxWidth) {
 	}
 }
 
+bool CNavigationPanelCtl::IsAnnotationStyleOpen() {
+	CAnnotationStylePanelCtl* pStyle = m_pMainDlg->GetAnnotationStylePanelCtl();
+	return pStyle != NULL && pStyle->IsVisible();
+}
+
+bool CNavigationPanelCtl::IsAnnotating() {
+	CAnnotationCtl* pCtl = m_pMainDlg->GetAnnotationCtl();
+	return pCtl != NULL && pCtl->IsAnnotating();
+}
+
 bool CNavigationPanelCtl::IsVisible() {
+	// The style strip is anchored to this panel and its buttons belong to it, so while
+	// the strip is open the panel must stay up regardless of where the mouse is. The
+	// same holds while a drawing tool is active: that is when its buttons are needed,
+	// and a panel fading in and out over the picture being drawn on is a distraction.
+	if (IsAnnotationStyleOpen() || IsAnnotating()) {
+		return m_bEnabled && !m_pMainDlg->IsInMovieMode() && !m_pMainDlg->IsDoCropping();
+	}
 	bool bMouseInNavPanel = m_bMouseInNavPanel && !m_pMainDlg->GetImageProcPanelCtl()->IsVisible();
 	return m_bEnabled && !(m_fCurrentBlendingFactorNavPanel <= 0.0f && !bMouseInNavPanel) &&
 		!m_pMainDlg->IsInMovieMode() && !m_pMainDlg->IsDoCropping() && (m_pMainDlg->IsMouseOn() || bMouseInNavPanel);
@@ -358,4 +383,36 @@ void CNavigationPanelCtl::OnToggleWindowMode(void* pContext, int nParameter, CBu
 	CRect oldRect = pThis->GetPanel()->PanelRect();
 	pThis->m_pMainDlg->ExecuteCommand(IDM_FULL_SCREEN_MODE);
 	pThis->MoveMouseCursorToButton(sender, oldRect);
+}
+
+void CNavigationPanelCtl::UpdateAnnotationButtons() {
+	CAnnotationCtl* pCtl = m_pMainDlg->GetAnnotationCtl();
+	if (pCtl == NULL || m_pNavPanel == NULL) {
+		return;
+	}
+	EAnnotationTool eTool = pCtl->GetTool();
+	CButtonCtrl* pFreehand = m_pNavPanel->GetBtnAnnotateFreehand();
+	CButtonCtrl* pText = m_pNavPanel->GetBtnAnnotateText();
+	CButtonCtrl* pRect = m_pNavPanel->GetBtnAnnotateRect();
+	CButtonCtrl* pFill = m_pNavPanel->GetBtnAnnotateFill();
+	if (pFreehand != NULL) pFreehand->SetActive(eTool == ATOOL_Freehand);
+	if (pText != NULL) pText->SetActive(eTool == ATOOL_Text);
+	if (pRect != NULL) pRect->SetActive(eTool == ATOOL_Shape);
+	// Fill is a style, not a tool, so its button shows whether fill is on rather than
+	// whether it is the tool in use.
+	if (pFill != NULL) pFill->SetActive(pCtl->IsFillEnabled());
+	// Every route that changes the tool or one of its modes passes through here, so this
+	// is where the style strip is told to follow: its two numbers belong to the tool.
+	CAnnotationStylePanelCtl* pStyle = m_pMainDlg->GetAnnotationStylePanelCtl();
+	if (pStyle != NULL) {
+		pStyle->OnToolChanged();
+	}
+}
+
+void CNavigationPanelCtl::OnToggleAnnotationStyle(void* pContext, int nParameter, CButtonCtrl& sender) {
+	CNavigationPanelCtl* pThis = (CNavigationPanelCtl*)pContext;
+	CAnnotationStylePanelCtl* pStyle = pThis->m_pMainDlg->GetAnnotationStylePanelCtl();
+	if (pStyle != NULL) {
+		pStyle->Toggle();
+	}
 }

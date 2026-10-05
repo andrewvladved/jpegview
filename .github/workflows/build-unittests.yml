@@ -1,0 +1,27 @@
+name: Unit Tests (x64)
+
+# The unit test project links only the annotation sources, ATL and GDI+, so it
+# needs neither the WTL cache nor WiX that the application build pulls in.
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: windows-2022
+    # A test binary that stalls must fail the job, not occupy a runner for hours.
+    timeout-minutes: 10
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: setup-msbuild
+      uses: microsoft/setup-msbuild@v2
+      with:
+        vs-version: '[17.0,18.0)'
+        msbuild-architecture: x64
+
+    - name: Build tests
+      run: msbuild src\JPEGView.sln /t:JPEGViewTests /p:Configuration=Debug /p:Platform=x64 /m
+
+    - name: Run tests
+      run: src\JPEGViewTests\bin\x64\Debug\JPEGViewTests.exe

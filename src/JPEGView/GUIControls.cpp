@@ -513,6 +513,10 @@ CSliderDouble::CSliderDouble(CPanel* pPanel, LPCTSTR sName, int nSliderLen, doub
 	m_bHighlight = false;
 	m_bHighlightNumber = false;
 	m_bNumberClicked = false;
+	m_bIntegerValue = false;
+	m_bDirectValueEntry = false;
+	m_bValueEntryRequested = false;
+	m_numberRect = CRect(0, 0, 0, 0);
 	m_bAllowPreviewAndReset = bAllowPreviewAndReset;
 
 	CPaintDC dc(m_pPanel->GetHWND());
@@ -521,6 +525,18 @@ CSliderDouble::CSliderDouble(CPanel* pPanel, LPCTSTR sName, int nSliderLen, doub
 	m_nSliderHeight = m_nNumberWidth/6;
 	m_nCheckHeight = pbEnable ? m_nNumberWidth/3 : 0;
 	m_nNameWidth = pbEnable ? m_textSize.cx + m_nCheckHeight + m_nCheckHeight/2 : m_textSize.cx;
+}
+
+void CSliderDouble::SetName(LPCTSTR sName) {
+	if (m_sName == sName) {
+		return;
+	}
+	m_sName = sName;
+	// CClientDC, not the CPaintDC the constructor uses: this runs outside WM_PAINT.
+	CClientDC dc(m_pPanel->GetHWND());
+	m_textSize = GetTextRect(dc, sName);
+	m_nNameWidth = (m_pEnable != NULL) ? m_textSize.cx + m_nCheckHeight + m_nCheckHeight / 2 : m_textSize.cx;
+	m_pPanel->RequestRepositioning();
 }
 
 CSize CSliderDouble::GetMinSize() {
@@ -557,6 +573,13 @@ bool CSliderDouble::OnMouseLButton(EMouseEvent eMouseEvent, int nX, int nY) {
 			SetValue(m_dDefaultValue);
 		}
 	} else if (m_bHighlightNumber) {
+		if (m_bDirectValueEntry) {
+			// The owner polls for this and puts an edit box over the number.
+			if (eMouseEvent == MouseEvent_BtnUp) {
+				m_bValueEntryRequested = true;
+			}
+			return true;
+		}
 		OnMouseMove(nX, nY);
 		m_bNumberClicked = eMouseEvent == MouseEvent_BtnDown && m_bHighlightNumber;
 		if (m_bNumberClicked) m_dSavedValue = *m_pValue;
@@ -602,8 +625,9 @@ bool CSliderDouble::OnMouseMove(int nX, int nY) {
 			::InvalidateRect(m_pPanel->GetHWND(), &invRect, FALSE);
 		}
 		CRect numberRect(m_sliderRect.right + HelpersGUI::ScaleToScreen(2), m_position.top, m_position.right, m_position.bottom);
+		m_numberRect = numberRect;
 		if (numberRect.PtInRect(mousePos)) {
-			if (!m_bHighlightNumber && abs(*m_pValue - m_dDefaultValue) > 5e-3) {
+			if (!m_bHighlightNumber && (m_bDirectValueEntry || abs(*m_pValue - m_dDefaultValue) > 5e-3)) {
 				m_bHighlightNumber = true;
 				::InvalidateRect(m_pPanel->GetHWND(), &numberRect, FALSE);
 			}
@@ -623,7 +647,12 @@ void CSliderDouble::OnPaint(CDC & dc, const CPoint& offset)  {
 
 void CSliderDouble::Draw(CDC & dc, CRect position, bool bBlack) {
 	dc.SetTextColor(bBlack ? 0 : m_bHighlightNumber ? CSettingsProvider::This().ColorHighlight() : CSettingsProvider::This().ColorGUI());
-	TCHAR buff[16]; _stprintf_s(buff, 16, _T("%.2f"), *m_pValue);
+	TCHAR buff[16];
+	if (m_bIntegerValue) {
+		_stprintf_s(buff, 16, _T("%d"), (int)(*m_pValue + 0.5));
+	} else {
+		_stprintf_s(buff, 16, _T("%.2f"), *m_pValue);
+	}
 	dc.DrawText(buff, (int)_tcslen(buff), &position, DT_VCENTER | DT_SINGLELINE | DT_RIGHT | DT_NOPREFIX);
 
 	if (m_pEnable != NULL) {
@@ -720,6 +749,9 @@ void CSliderDouble::DrawCheck(CDC & dc, CRect position, bool bBlack, bool bHighl
 }
 
 void CSliderDouble::SetValue(double dValue) {
+	if (m_bIntegerValue) {
+		dValue = (double)(int)(dValue + 0.5);
+	}
 	double dOldValue = *m_pValue;
 	*m_pValue = dValue;
 	if (dOldValue != *m_pValue) {

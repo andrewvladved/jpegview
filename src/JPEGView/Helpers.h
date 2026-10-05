@@ -43,6 +43,13 @@ namespace Helpers {
 		ZM_FillScreen
 	};
 
+	// Which corner of its side the preview pane starts from, top to bottom
+	enum EPreviewFloor {
+		PF_Top,
+		PF_Mid,
+		PF_Bottom
+	};
+
 	// Transition effects for full screen slideshow
 	enum ETransitionEffect {
 		TE_None,
@@ -270,7 +277,9 @@ namespace Helpers {
 	CString GetMultiframeIndex(CJPEGImage* pImage);
 
 	// replaces the file info format string by the actual values from the image and file list
-	CString GetFileInfoString(LPCTSTR sFormat, CJPEGImage* pImage, CFileList* pFilelist, double dZoom);
+	// dZoomBase is 1.0 normally, and the zoom that fits the image to the window in
+	// relative zoom mode - <z> then reads as a percentage of the fitted image.
+	CString GetFileInfoString(LPCTSTR sFormat, CJPEGImage* pImage, CFileList* pFilelist, double dZoom, double dZoomBase);
 
 	// Returns the windows version in the format Major * 100 + Minor, e.g. 602 for Windows 8
 	int GetWindowsVersion();

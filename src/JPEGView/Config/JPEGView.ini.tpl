@@ -151,6 +151,20 @@ MinimalWindowSize=320 240
 ; The window mode can be changed after startup
 WindowBorderlessOnStartup=false
 
+; If set to 'true', window starts with a transparent title bar
+; (only the file path and the window buttons are painted on top of the image)
+; The window mode can be changed after startup
+TransparentTitleBarOnStartup=false
+
+; Default colour for annotations (freehand, text, rectangles), R G B format as used by BackgroundColor
+AnnotationColor=255 0 0
+; Default annotation opacity in percent, 0 (invisible) .. 100 (opaque)
+AnnotationOpacity=70
+; Default annotation line width in screen pixels
+AnnotationPenWidth=4
+; Default annotation font size in screen pixels
+AnnotationFontSize=24
+
 ; If set to 'true', window starts in always-on-top mode (window will always be visible on top of other windows)
 ; The window mode can be changed after startup
 WindowAlwaysOnTopOnStartup=false
@@ -302,6 +316,11 @@ AutoZoomModeFullscreen=
 ; default: 100
 ; set to 0 to disable the pause
 ZoomPausePercent=100
+
+; Relative zoom mode: the image fitted to the window counts as 100%, so a zoom command
+; magnifies every image by the same amount regardless of its pixel size.
+; The 'Relative zoom mode' entry of the Zoom submenu writes this value.
+RelativeZoomMode=false
 
 ; -----------------------------------------------
 ; - ADVANCED IMAGE CORRECTION PARAMETERS
@@ -514,6 +533,108 @@ SlideShowTransitionEffect=Blend
 
 ; Time of the slide show transition effect in milliseconds, only used in full screen mode
 SlideShowEffectTime=250
+
+; Waiting time in milliseconds used by the 'Slideshow' entry of the context menu.
+; The 'Set Slideshow Wait' entry of the same menu writes this value.
+; (Older versions kept it in seconds under SlideShowWaitTime. An INI that has only that
+; key is still read in seconds, until this key is written.)
+SlideShowWaitTimeMs=3000
+
+; Playback speed in frames per second used by the 'Movie' entry of the context menu.
+; The 'Set Playback Speed' entry of the same menu writes this value.
+MoviePlaybackSpeed=5
+
+; Scroll mode: how fast the image glides down, in screen pixels per second.
+; The 'Set Scroll Speed' entry of the Slideshow submenu writes this value.
+ScrollSpeed=100
+
+; Scroll mode: how long to stand still at the top and at the bottom of each image,
+; in milliseconds. Zero means no pause.
+; The 'Set Scroll Wait' entry of the Slideshow submenu writes this value.
+; (Older versions kept it in seconds under ScrollTime. An INI that has only that key is
+; still read in seconds, until this key is written.)
+ScrollTimeMs=2000
+
+; Scroll mode: whether the image is scaled to fill the window before gliding through it.
+; With this off the image keeps the zoom it has, relative zoom mode is switched on for the
+; duration if it is not on already, and scroll mode glides through whatever sticks out.
+; The 'Fill with crop' entry of the Slideshow submenu writes this value.
+ScrollFillWithCrop=true
+
+; Scroll mode: whether the glide eases off on its way to the centre of the image, down to
+; 30% of ScrollSpeed there, and picks up again just as smoothly towards the other edge.
+; The 'Accent On Center' entry of the Slideshow submenu writes this value.
+ScrollAccentOnCenter=false
+
+; Zoom mode: each image is shown fitted to the window, held there for ZoomTimeMs, zoomed
+; smoothly in at ZoomSpeed for ZoomDurationMs, held again and then followed by the next
+; image. The image stays centred throughout. The zoom has no end point: fit to screen is
+; only where it starts, and every image zooms for the same time and by the same factor.
+; Whether zoom mode runs the other way round: starting from fill with crop, zooming out.
+; It pulls back no further than fit to screen and stays there for the rest of ZoomDurationMs.
+; The 'Inverse' entry of the Slideshow submenu writes this value.
+ZoomInverse=false
+
+; Zoom mode: whether it follows a face. With Inverse it starts on the smallest face in the
+; image, otherwise it zooms towards the largest one. Without a face it stays centred.
+; Drawn faces (anime, illustrations, pixel art) are found by a neural detector: it needs
+; onnxruntime.dll and face_detect.onnx next to JPEGView.exe. Photographed faces are also
+; found by the detector Windows 10 and later have built in.
+; The 'Zoom To Face' entry of the Slideshow submenu writes this value.
+ZoomOnFace=false
+
+; Zoom mode on a face: true brings the face to the centre of the window as far as the edges
+; of the image allow; false zooms around the face where it is on screen.
+; The 'Face Pivot' entry of the Slideshow submenu writes this value.
+ZoomFaceCenter=true
+
+; Zoom mode: how fast the zoom changes, in percent per second. At 5 the zoom is 1.05 times
+; larger (or smaller) after every second.
+; The 'Set Zoom Speed' entry of the Slideshow submenu writes this value.
+ZoomSpeed=5
+
+; Zoom mode: how long each image zooms, in milliseconds. Zero means no zooming.
+; The 'Set Zoom Duration' entry of the Slideshow submenu writes this value.
+ZoomDurationMs=5000
+
+; Zoom mode: how long to stand still before the zoom starts and after it ends, in
+; milliseconds. Zero means no pause.
+; The 'Set Zoom Wait' entry of the Slideshow submenu writes this value.
+ZoomTimeMs=2000
+
+; Whether one image is cross faded into the next in scroll, slide show and movie mode.
+; The length of the fade is SlideShowEffectTime, which the 'Set Transition Time' entry
+; of the Slideshow submenu writes.
+; The 'Cross fade' entry of the same submenu writes this value.
+CrossFade=true
+
+; Whether the transparent title bar (TransparentTitleBarOnStartup) is left out while
+; slideshow, zoom, scroll or movie mode is playing, so nothing covers the top of the image.
+; The 'Hide Titlebar' entry of the Settings submenu of the Slideshow submenu writes this value.
+HideTitleBarWhilePlaying=false
+
+; A preview pane showing the whole image beside it while scroll, slide show or movie mode
+; is playing. It has nothing to do with the zoom navigator JPEGView shows on its own, and
+; it appears in no other mode.
+; The 'Preview' entry of the Slideshow submenu writes this value.
+Preview=false
+
+; How much of the window width the preview pane takes, in percent, from 10 to 100.
+PreviewSize=25
+
+; Which side the preview pane is on: Right or Left.
+PreviewSide=Right
+
+; Which corner of Preview Side the picture in the preview pane starts from: Top, Mid or
+; Bottom. Bottom puts it in the bottom corner of that side, Top in the top corner, and Mid
+; halfway up the side. Over the image the pane itself moves there.
+; The 'Set Preview Settings' entry of the Slideshow submenu writes these three values.
+PreviewFloor=Bottom
+
+; true draws the preview pane over the image, false makes the image step aside so the two
+; split the window between them.
+; The 'On Top' entry of the Slideshow submenu writes this value.
+PreviewOnTop=true
 
 
 

@@ -112,6 +112,12 @@ public:
 	// Gets current navigation mode
 	Helpers::ENavigationMode GetNavigationMode() const { return sm_eMode; }
 
+	// Sets whether stepping past the last image in the folder wraps to the first one.
+	// The initial value comes from the WrapAroundFolder setting; the Navigation menu
+	// toggles it while JPEGView runs.
+	void SetWrapAroundFolder(bool bWrapAroundFolder);
+	bool IsWrapAroundFolder() const { return m_bWrapAroundFolder; }
+
 	// Marks the current file for toggling between this file and the current file
 	void MarkCurrentFile();
 	// Returns if there is a file marked for toggling

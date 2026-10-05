@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 #include "JPEGImage.h"
 #include "BasicProcessing.h"
+#include "AnnotationRenderer.h"
 #include "XMMImage.h"
 #include "Helpers.h"
 #include "SettingsProvider.h"
@@ -322,6 +323,48 @@ bool CJPEGImage::ApplyUnsharpMaskToOriginalPixels(const CUnsharpMaskParams & uns
 	m_bIsProcessedNoParamDB = true;
 
 	return bSuccess;
+}
+
+bool CJPEGImage::ApplyAnnotationsToOriginalPixels(const std::vector<CAnnotation>& annotations) {
+	if (m_pOrigPixels == NULL || annotations.empty()) {
+		return false;
+	}
+	InvalidateAllCachedPixelData();
+
+	// GDI+ needs 32 bits per pixel to draw into; a 24 bpp original is widened first.
+	if (m_nOriginalChannels == 3) {
+		void* pWidened = CBasicProcessing::Convert3To4Channels(m_nOrigWidth, m_nOrigHeight, m_pOrigPixels);
+		if (pWidened == NULL) {
+			return false;
+		}
+		delete[] m_pOrigPixels;
+		m_pOrigPixels = pWidened;
+		m_nOriginalChannels = 4;
+	} else if (m_nOriginalChannels != 4) {
+		return false;
+	}
+
+	{
+		// The bitmap wraps the existing buffer, so the renderer writes straight into it.
+		// PixelFormat32bppRGB, not ARGB: the stored alpha is not premultiplied coverage
+		// and treating it as such would make the annotations blend against garbage.
+		Gdiplus::Bitmap bitmap(m_nOrigWidth, m_nOrigHeight, m_nOrigWidth * 4,
+			PixelFormat32bppRGB, (BYTE*)m_pOrigPixels);
+		if (bitmap.GetLastStatus() != Gdiplus::Ok) {
+			return false;
+		}
+		Gdiplus::Graphics graphics(&bitmap);
+		if (graphics.GetLastStatus() != Gdiplus::Ok) {
+			return false; // reporting success here would save the file without the marks
+		}
+		CAnnotationRenderer::Render(graphics, annotations, 1.0f, Gdiplus::PointF(0.0f, 0.0f));
+		if (graphics.GetLastStatus() != Gdiplus::Ok) {
+			return false;
+		}
+	}
+
+	MarkAsDestructivelyProcessed();
+	return true;
 }
 
 bool CJPEGImage::RotateOriginalPixels(double dRotation, bool bAutoCrop, bool bKeepAspectRatio) {
