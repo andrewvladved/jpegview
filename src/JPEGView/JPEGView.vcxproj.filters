@@ -243,6 +243,9 @@
     <ClCompile Include="FaceMath.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="WindowMath.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="FaceDetect.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -555,6 +558,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="FaceMath.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="WindowMath.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="FaceDetect.h">
