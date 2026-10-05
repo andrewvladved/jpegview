@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 #include "MultiMonitorSupport.h"
 #include "SettingsProvider.h"
+#include "WindowMath.h"
 
 struct EnumMonitorParams {
 	EnumMonitorParams(int nIndexMonitor) {
@@ -25,6 +26,34 @@ bool CMultiMonitorSupport::IsMultiMonitorSystem() {
 CRect CMultiMonitorSupport::GetVirtualDesktop() {
 	return CRect(CPoint(::GetSystemMetrics(SM_XVIRTUALSCREEN), ::GetSystemMetrics(SM_YVIRTUALSCREEN)),
 		CSize(::GetSystemMetrics(SM_CXVIRTUALSCREEN), ::GetSystemMetrics(SM_CYVIRTUALSCREEN)));
+}
+
+struct CoveredMonitorParams {
+	CoveredMonitorParams(const CRect& rect) {
+		rectWindow = rect;
+		NumCovered = 0;
+		rectWork = CRect(0, 0, 0, 0);
+	}
+
+	CRect rectWindow;
+	int NumCovered;
+	CRect rectWork;
+};
+
+// Counts the monitors a window rectangle reaches onto, keeping the work area of the last one
+static BOOL CALLBACK CoveredMonitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData) {
+	CoveredMonitorParams* pParams = (CoveredMonitorParams*) dwData;
+	MONITORINFO monitorInfo;
+	monitorInfo.cbSize = sizeof(MONITORINFO);
+	if (::GetMonitorInfo(hMonitor, &monitorInfo)) {
+		CRect rectMonitor(monitorInfo.rcMonitor);
+		CRect intersection;
+		if (intersection.IntersectRect(&pParams->rectWindow, &rectMonitor)) {
+			pParams->NumCovered += 1;
+			pParams->rectWork = CRect(monitorInfo.rcWork);
+		}
+	}
+	return TRUE;
 }
 
 // Callback called during enumeration of monitors
@@ -99,6 +128,18 @@ CRect CMultiMonitorSupport::GetWorkingRect(HWND hWnd) {
 CRect CMultiMonitorSupport::GetDefaultWindowRect() {
 	CSettingsProvider& settings = CSettingsProvider::This();
 	CRect windowRect = !defaultWindowRect.IsRectEmpty() ? defaultWindowRect : settings.StickyWindowSize() ? settings.StickyWindowRect() : settings.DefaultWindowRect();
+	// A remembered rectangle can be larger than the screen it comes back to - it was saved on
+	// a bigger screen, or while the window was covering the taskbar - and would put the window
+	// over the taskbar again. It is brought back inside the work area, but only when it lies on
+	// a single monitor: a window deliberately stretched across several screens is left as it is,
+	// since there is no one work area to measure it against.
+	if (!windowRect.IsRectEmpty()) {
+		CoveredMonitorParams params(windowRect);
+		::EnumDisplayMonitors(NULL, NULL, CoveredMonitorEnumProc, (LPARAM)&params);
+		if (params.NumCovered == 1 && !params.rectWork.IsRectEmpty()) {
+			windowRect = CRect(WindowMath::ClampToWorkArea(windowRect, params.rectWork));
+		}
+	}
 	CRect rectAllScreens = CMultiMonitorSupport::GetVirtualDesktop();
 	if (windowRect.IsRectEmpty() || !rectAllScreens.IntersectRect(&rectAllScreens, &windowRect)) {
 		CRect monitorRect = CMultiMonitorSupport::GetMonitorRect(settings.DisplayMonitor());

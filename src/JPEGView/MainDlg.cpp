@@ -5020,7 +5020,23 @@ void CMainDlg::CleanupAndTerminate() {
 	}
 	// The sticky window rect is read after the dialog ends, so it has to be taken
 	// while the window still exists - EndDialog() below raises no WM_CLOSE.
-	GetWindowRect(m_windowRectOnClose);
+	// A maximized or minimized window's rectangle is not the size the person chose, so
+	// remembering it would throw that size away and reopen the window filling the screen.
+	// GetWindowPlacement still knows where the window goes when it is restored; it measures
+	// from the work area rather than from the screen, hence the offset.
+	if (::IsZoomed(m_hWnd) || ::IsIconic(m_hWnd)) {
+		WINDOWPLACEMENT placement;
+		placement.length = sizeof(WINDOWPLACEMENT);
+		if (GetWindowPlacement(&placement)) {
+			CRect workArea = CMultiMonitorSupport::GetWorkingRect(m_hWnd);
+			m_windowRectOnClose = CRect(placement.rcNormalPosition);
+			m_windowRectOnClose.OffsetRect(workArea.left, workArea.top);
+		} else {
+			GetWindowRect(m_windowRectOnClose);
+		}
+	} else {
+		GetWindowRect(m_windowRectOnClose);
+	}
 	StopScrollMode();
 	StopMovieMode();
 	StopAnimation();
