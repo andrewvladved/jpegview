@@ -1501,9 +1501,12 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 	::CheckMenuItem(hMenuAutoZoomMode, GetAutoZoomMode() * 10 + IDM_AUTO_ZOOM_FIT_NO_ZOOM, MF_CHECKED);
 	HMENU hMenuSettings = HelpersGUI::FindSubMenu(hMenuTrackPopup, SUBMENU_ANCHOR_SETTINGS);
 	HMENU hMenuModDate = HelpersGUI::FindSubMenu(hMenuTrackPopup, SUBMENU_ANCHOR_MODDATE);
-	int nPosUserCommands;
+	// These two submenus are filled in at run time, and filling them replaces the one entry
+	// they are found by - so their positions are taken here, while that entry is still there.
+	// Nothing deleted between here and the use of either position sits above them.
+	int nPosUserCommands, nPosOpenWith;
 	HMENU hMenuUserCommands = HelpersGUI::FindSubMenu(hMenuTrackPopup, SUBMENU_ANCHOR_USER_COMMANDS, &nPosUserCommands);
-	HMENU hMenuOpenWithCommands = HelpersGUI::FindSubMenu(hMenuTrackPopup, SUBMENU_ANCHOR_OPENWITH);
+	HMENU hMenuOpenWithCommands = HelpersGUI::FindSubMenu(hMenuTrackPopup, SUBMENU_ANCHOR_OPENWITH, &nPosOpenWith);
 	HMENU hMenuWallpaper = HelpersGUI::FindSubMenu(hMenuTrackPopup, SUBMENU_ANCHOR_WALLPAPER);
 
 	if (!HelpersGUI::CreateUserCommandsMenu(hMenuUserCommands) && nPosUserCommands >= 0) {
@@ -1579,11 +1582,8 @@ LRESULT CMainDlg::OnContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam,
 			::EnableMenuItem(hMenuWallpaper, IDM_SET_WALLPAPER_ORIG, MF_BYCOMMAND | MF_GRAYED);
 		}
 	}
-	if (!HelpersGUI::CreateOpenWithCommandsMenu(hMenuOpenWithCommands) || m_pCurrentImage == NULL) {
-		int nPosOpenWith;
-		// looked up again here: the submenu may have moved since, entries above it having been deleted
-		HelpersGUI::FindSubMenu(hMenuTrackPopup, SUBMENU_ANCHOR_OPENWITH, &nPosOpenWith);
-		if (nPosOpenWith >= 0) ::DeleteMenu(hMenuTrackPopup, nPosOpenWith, MF_BYPOSITION);
+	if ((!HelpersGUI::CreateOpenWithCommandsMenu(hMenuOpenWithCommands) || m_pCurrentImage == NULL) && nPosOpenWith >= 0) {
+		::DeleteMenu(hMenuTrackPopup, nPosOpenWith, MF_BYPOSITION);
 	}
 	if (m_bMovieMode) {
 		::EnableMenuItem(hMenuTrackPopup, IDM_SAVE, MF_BYCOMMAND | MF_GRAYED);
