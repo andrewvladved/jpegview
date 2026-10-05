@@ -10,4 +10,8 @@ namespace WindowMath {
 		placement.nHeight = rcWork.bottom - rcWork.top;
 		return placement;
 	}
+
+	RECT ClampToWorkArea(const RECT& rcWindow, const RECT& rcWork) {
+		return rcWindow;
+	}
 }

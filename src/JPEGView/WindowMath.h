@@ -25,4 +25,11 @@ namespace WindowMath {
 
 	// Both rectangles come from MONITORINFO and are in screen coordinates.
 	SPlacement MaximizedPlacement(const RECT& rcMonitor, const RECT& rcWork);
+
+	// A remembered window rect brought back inside the work area: edges that stick out are
+	// pulled in, and a rect larger than the work area is sized down to it. A rect that already
+	// fits comes back unchanged. Without this, a rect saved while the window was covering the
+	// taskbar - or saved on a larger screen - puts the window over the taskbar again on the
+	// next start, and every restore from maximized goes back there.
+	RECT ClampToWorkArea(const RECT& rcWindow, const RECT& rcWork);
 }

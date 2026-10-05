@@ -62,3 +62,46 @@ TEST(MaximizedPlacementFillsTheScreenWhenNothingIsReserved) {
 	CHECK(p.nWidth == 2560);
 	CHECK(p.nHeight == 1440);
 }
+
+static bool Same(const RECT& r, int nLeft, int nTop, int nRight, int nBottom) {
+	return r.left == nLeft && r.top == nTop && r.right == nRight && r.bottom == nBottom;
+}
+
+TEST(ClampToWorkAreaLeavesARectThatAlreadyFitsAlone) {
+	RECT r = WindowMath::ClampToWorkArea(Rect(100, 80, 900, 700), Rect(0, 0, 1920, 1042));
+	CHECK(Same(r, 100, 80, 900, 700));
+}
+
+// The rect this started from: remembered while the window covered the taskbar, and larger
+// than the screen on every side.
+TEST(ClampToWorkAreaShrinksARectBiggerThanTheScreen) {
+	RECT r = WindowMath::ClampToWorkArea(Rect(-11, 0, 1925, 1096), Rect(0, 0, 1920, 1042));
+	CHECK(Same(r, 0, 0, 1920, 1042));
+}
+
+TEST(ClampToWorkAreaSlidesARectUpOffTheTaskbarKeepingItsSize) {
+	RECT r = WindowMath::ClampToWorkArea(Rect(100, 900, 900, 1100), Rect(0, 0, 1920, 1042));
+	CHECK(Same(r, 100, 842, 900, 1042));
+}
+
+TEST(ClampToWorkAreaSlidesARectInFromTheRightKeepingItsSize) {
+	RECT r = WindowMath::ClampToWorkArea(Rect(1800, 100, 2100, 500), Rect(0, 0, 1920, 1042));
+	CHECK(Same(r, 1620, 100, 1920, 500));
+}
+
+TEST(ClampToWorkAreaStartsBelowATaskbarAtTheTop) {
+	RECT r = WindowMath::ClampToWorkArea(Rect(0, 0, 1920, 1080), Rect(0, 46, 1920, 1080));
+	CHECK(Same(r, 0, 46, 1920, 1080));
+}
+
+// A second monitor has its own work area, and a rect belonging to it must not be dragged
+// back onto the primary one.
+TEST(ClampToWorkAreaKeepsARectOnItsOwnMonitor) {
+	RECT r = WindowMath::ClampToWorkArea(Rect(2000, 900, 2800, 1100), Rect(1920, 0, 3840, 1034));
+	CHECK(Same(r, 2000, 834, 2800, 1034));
+}
+
+TEST(ClampToWorkAreaPullsARectInFromTheLeftAndTop) {
+	RECT r = WindowMath::ClampToWorkArea(Rect(-200, -150, 600, 450), Rect(0, 0, 1920, 1042));
+	CHECK(Same(r, 0, 0, 800, 600));
+}
